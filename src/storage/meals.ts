@@ -62,3 +62,34 @@ export async function clearMealsFor(date: Date = new Date()): Promise<void> {
 export function sumCalories(meals: LoggedMeal[]): number {
   return meals.reduce((sum, m) => sum + (Number(m.calories) || 0), 0);
 }
+
+export interface DaySummary {
+  date: string;       // YYYY-MM-DD
+  caloriesIn: number;
+  mealCount: number;
+}
+
+function isoDate(d: Date): string {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+// Returns daily totals for the last N days (inclusive, ending today), oldest first.
+export async function loadHistory(days: number): Promise<DaySummary[]> {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const out: DaySummary[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    const meals = await loadMealsFor(d);
+    out.push({
+      date: isoDate(d),
+      caloriesIn: sumCalories(meals),
+      mealCount: meals.length,
+    });
+  }
+  return out;
+}
