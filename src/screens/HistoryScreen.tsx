@@ -67,6 +67,26 @@ export default function HistoryScreen() {
     await load();
   };
 
+  // Weekly rollup = last 7 entries (they are sorted ascending so tail = most recent).
+  const weekly = useMemo(() => {
+    if (!data) return null;
+    const last7 = data.entries.slice(-7);
+    const logged = last7.filter((e) => e.logged);
+    const daysLogged = logged.length;
+    const avgNet = logged.length
+      ? Math.round(logged.reduce((s, e) => s + e.net, 0) / logged.length)
+      : 0;
+    const avgSurplus = logged.length
+      ? Math.round(logged.reduce((s, e) => s + e.surplus, 0) / logged.length)
+      : 0;
+    // Best day = closest to target among logged days (smallest |surplus|).
+    let best: HistoryEntry | null = null;
+    for (const e of logged) {
+      if (!best || Math.abs(e.surplus) < Math.abs(best.surplus)) best = e;
+    }
+    return { last7, daysLogged, avgNet, avgSurplus, best };
+  }, [data]);
+
   // Pad calendar with empty cells at the start to align to a Monday grid.
   const grid = useMemo(() => {
     if (!data) return { leadingBlanks: 0, entries: [] as HistoryEntry[] };
@@ -100,6 +120,26 @@ export default function HistoryScreen() {
             <StreakCard label="Logging streak" value={data.streaks.logged} unit="days" color="#1e6fb8" />
             <StreakCard label="On-target streak" value={data.streaks.onTarget} unit="days" color="#2e7d32" />
           </View>
+
+          {weekly && (
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>This week</Text>
+              <Row label="Days logged" value={`${weekly.daysLogged} / 7`} />
+              <Row label="Avg net" value={`${weekly.avgNet} kcal`} />
+              <Row
+                label="Avg vs target"
+                value={`${weekly.avgSurplus > 0 ? '+' : ''}${weekly.avgSurplus} kcal`}
+              />
+              <Row
+                label="Best day"
+                value={
+                  weekly.best
+                    ? `${formatDate(weekly.best.date)} (${weekly.best.surplus > 0 ? '+' : ''}${weekly.best.surplus} kcal)`
+                    : '—'
+                }
+              />
+            </View>
+          )}
 
           <Text style={styles.muted}>Last {DAYS} days · TDEE {data.tdee} kcal</Text>
 

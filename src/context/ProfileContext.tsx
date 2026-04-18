@@ -5,6 +5,7 @@ interface ProfileContextValue {
   profile: Profile | null;
   loading: boolean;
   setProfile: (p: Profile) => Promise<void>;
+  update: (patch: Partial<Profile>) => Promise<void>;
   reset: () => Promise<void>;
 }
 
@@ -25,13 +26,22 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     setProfileState(p);
   }, []);
 
+  const update = useCallback(async (patch: Partial<Profile>) => {
+    setProfileState((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, ...patch } as Profile;
+      saveProfile(next);
+      return next;
+    });
+  }, []);
+
   const reset = useCallback(async () => {
     await clearProfile();
     setProfileState(null);
   }, []);
 
   return (
-    <ProfileContext.Provider value={{ profile, loading, setProfile, reset }}>
+    <ProfileContext.Provider value={{ profile, loading, setProfile, update, reset }}>
       {children}
     </ProfileContext.Provider>
   );

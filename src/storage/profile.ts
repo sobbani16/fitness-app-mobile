@@ -11,14 +11,17 @@ export type ActivityLevel =
   | 'active'
   | 'very_active';
 
+export type UnitSystem = 'metric' | 'imperial';
+
 export interface Profile {
   name: string;
   sex: Sex;
   age: number;
-  heightCm: number;
-  weightKg: number;
+  heightCm: number;       // canonical
+  weightKg: number;       // canonical
   activityLevel: ActivityLevel;
   goal: Goal;
+  units: UnitSystem;      // display preference
   createdAt: string;
 }
 

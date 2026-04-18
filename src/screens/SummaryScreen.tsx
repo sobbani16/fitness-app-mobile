@@ -8,14 +8,17 @@ import {
   ScrollView,
   ActivityIndicator,
   RefreshControl,
+  Pressable,
 } from 'react-native';
 import { useProfile } from '../context/ProfileContext';
 import { useMeals } from '../context/MealsContext';
 import { useWeather } from '../hooks/useWeather';
 import { getDailySummary, DailySummaryResponse } from '../api/summary';
+import { formatHeight, formatWeight } from '../util/units';
+import { UnitSystem } from '../storage/profile';
 
 export default function SummaryScreen() {
-  const { profile, reset } = useProfile();
+  const { profile, reset, update } = useProfile();
   const { meals, refresh: refreshMeals } = useMeals();
   const { weather, refresh: refreshWeather } = useWeather();
 
@@ -121,10 +124,30 @@ export default function SummaryScreen() {
 
       {profile && (
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Your profile</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={styles.cardTitle}>Your profile</Text>
+            <View style={{ flexDirection: 'row', gap: 6 }}>
+              {(['metric', 'imperial'] as UnitSystem[]).map((u) => {
+                const active = profile.units === u;
+                return (
+                  <Pressable
+                    key={u}
+                    onPress={() => update({ units: u })}
+                    style={[styles.unitChip, active && styles.unitChipActive]}
+                  >
+                    <Text style={[styles.unitChipText, active && styles.unitChipTextActive]}>
+                      {u === 'metric' ? 'kg/cm' : 'lb/ft'}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
           <Text>Name: {profile.name}</Text>
           <Text>{profile.sex} · {profile.age} yrs</Text>
-          <Text>{profile.heightCm} cm · {profile.weightKg} kg</Text>
+          <Text>
+            {formatHeight(profile.heightCm, profile.units)} · {formatWeight(profile.weightKg, profile.units)}
+          </Text>
           <Text>Activity: {profile.activityLevel.replace('_', ' ')}</Text>
           <Text>Goal: {profile.goal}</Text>
         </View>
@@ -167,4 +190,15 @@ const styles = StyleSheet.create({
   rowValue: { color: '#111' },
   recoTitle: { fontSize: 18, fontWeight: '600', marginTop: 4 },
   reason: { marginTop: 6, color: '#333', lineHeight: 20 },
+  unitChip: {
+    borderWidth: 1,
+    borderColor: '#d0d0d5',
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: '#fff',
+  },
+  unitChipActive: { backgroundColor: '#1e6fb8', borderColor: '#1e6fb8' },
+  unitChipText: { color: '#222', fontSize: 12, fontWeight: '600' },
+  unitChipTextActive: { color: '#fff' },
 });
