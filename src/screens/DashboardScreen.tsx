@@ -14,12 +14,14 @@ import {
 } from '../api/recommendations';
 import { useProfile } from '../context/ProfileContext';
 import { useMeals } from '../context/MealsContext';
+import { useWeather } from '../hooks/useWeather';
 
 const DEMO_CALORIES_BURNED = 0;
 
 export default function DashboardScreen() {
   const { profile } = useProfile();
   const { totalCalories, meals, refresh: refreshMeals } = useMeals();
+  const { weather, refresh: refreshWeather } = useWeather();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<RecommendationResponse | null>(null);
@@ -38,6 +40,7 @@ export default function DashboardScreen() {
         goal: profile.goal,
         caloriesIn: totalCalories,
         caloriesBurnedExercise: DEMO_CALORIES_BURNED,
+        weather: weather?.condition,
       });
       setData(res);
     } catch (e: any) {
@@ -46,7 +49,7 @@ export default function DashboardScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [profile, totalCalories]);
+  }, [profile, totalCalories, weather]);
 
   useEffect(() => {
     if (profile) load();
@@ -54,7 +57,7 @@ export default function DashboardScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await refreshMeals();
+    await Promise.all([refreshMeals(), refreshWeather()]);
     await load();
   };
 
@@ -89,6 +92,12 @@ export default function DashboardScreen() {
       <Text style={styles.muted}>
         Goal: {goal} · Activity: {data.activityLevel.replace('_', ' ')} · {meals.length} meal{meals.length === 1 ? '' : 's'} today
       </Text>
+      {weather && (
+        <Text style={styles.muted}>
+          Weather: {weather.condition} · {weather.description}
+          {weather.tempC !== null ? ` · ${Math.round(weather.tempC)}°C` : ''}
+        </Text>
+      )}
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Today's calories</Text>

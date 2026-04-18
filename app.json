@@ -33,6 +33,12 @@
           "photosPermission": "Allow Fitness AI to access your photos to log meals.",
           "cameraPermission": "Allow Fitness AI to use the camera to photograph meals."
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow Fitness AI to use your location to tailor workout suggestions to the current weather."
+        }
       ]
     ]
   }
