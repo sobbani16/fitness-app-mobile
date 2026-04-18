@@ -13,13 +13,13 @@ import {
   RecommendationResponse,
 } from '../api/recommendations';
 import { useProfile } from '../context/ProfileContext';
+import { useMeals } from '../context/MealsContext';
 
-// Meal logging not wired yet — placeholder intake until POST /meals lands.
-const DEMO_CALORIES_IN = 2200;
 const DEMO_CALORIES_BURNED = 0;
 
 export default function DashboardScreen() {
   const { profile } = useProfile();
+  const { totalCalories, meals, refresh: refreshMeals } = useMeals();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<RecommendationResponse | null>(null);
@@ -36,7 +36,7 @@ export default function DashboardScreen() {
         weightKg: profile.weightKg,
         activityLevel: profile.activityLevel,
         goal: profile.goal,
-        caloriesIn: DEMO_CALORIES_IN,
+        caloriesIn: totalCalories,
         caloriesBurnedExercise: DEMO_CALORIES_BURNED,
       });
       setData(res);
@@ -46,15 +46,16 @@ export default function DashboardScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [profile]);
+  }, [profile, totalCalories]);
 
   useEffect(() => {
     if (profile) load();
   }, [load, profile]);
 
-  const onRefresh = () => {
+  const onRefresh = async () => {
     setRefreshing(true);
-    load();
+    await refreshMeals();
+    await load();
   };
 
   if (loading) {
@@ -85,7 +86,9 @@ export default function DashboardScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       <Text style={styles.title}>Hi{profile?.name ? `, ${profile.name}` : ''}</Text>
-      <Text style={styles.muted}>Goal: {goal} · Activity: {data.activityLevel.replace('_', ' ')}</Text>
+      <Text style={styles.muted}>
+        Goal: {goal} · Activity: {data.activityLevel.replace('_', ' ')} · {meals.length} meal{meals.length === 1 ? '' : 's'} today
+      </Text>
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Today's calories</Text>
