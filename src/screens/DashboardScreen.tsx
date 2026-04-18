@@ -12,29 +12,33 @@ import {
   getRecommendations,
   RecommendationResponse,
 } from '../api/recommendations';
+import { useProfile } from '../context/ProfileContext';
 
-// Demo inputs until profile + meal logging are wired up.
-const DEMO_PARAMS = {
-  sex: 'male',
-  weightKg: 80,
-  heightCm: 180,
-  age: 30,
-  activityLevel: 'sedentary',
-  goal: 'maintain' as const,
-  caloriesIn: 2700,
-  caloriesBurnedExercise: 0,
-};
+// Meal logging not wired yet — placeholder intake until POST /meals lands.
+const DEMO_CALORIES_IN = 2200;
+const DEMO_CALORIES_BURNED = 0;
 
 export default function DashboardScreen() {
+  const { profile } = useProfile();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<RecommendationResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    if (!profile) return;
     try {
       setError(null);
-      const res = await getRecommendations(DEMO_PARAMS);
+      const res = await getRecommendations({
+        sex: profile.sex,
+        age: profile.age,
+        heightCm: profile.heightCm,
+        weightKg: profile.weightKg,
+        activityLevel: profile.activityLevel,
+        goal: profile.goal,
+        caloriesIn: DEMO_CALORIES_IN,
+        caloriesBurnedExercise: DEMO_CALORIES_BURNED,
+      });
       setData(res);
     } catch (e: any) {
       setError(e?.message ?? 'Request failed');
@@ -42,11 +46,11 @@ export default function DashboardScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [profile]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    if (profile) load();
+  }, [load, profile]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -80,8 +84,8 @@ export default function DashboardScreen() {
       contentContainerStyle={styles.container}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
-      <Text style={styles.title}>Dashboard</Text>
-      <Text style={styles.muted}>Goal: {goal}</Text>
+      <Text style={styles.title}>Hi{profile?.name ? `, ${profile.name}` : ''}</Text>
+      <Text style={styles.muted}>Goal: {goal} · Activity: {data.activityLevel.replace('_', ' ')}</Text>
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Today's calories</Text>
