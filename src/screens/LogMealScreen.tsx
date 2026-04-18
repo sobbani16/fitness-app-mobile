@@ -9,9 +9,11 @@ import {
   Button,
   Alert,
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { analyzeMeal, MealAnalysis } from '../api/meals';
 import { useMeals } from '../context/MealsContext';
 import { MealType, LoggedMeal } from '../storage/meals';
@@ -23,9 +25,45 @@ export default function LogMealScreen() {
 
   const [description, setDescription] = useState('');
   const [mealType, setMealType] = useState<MealType>('lunch');
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [preview, setPreview] = useState<MealAnalysis | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const pickFromLibrary = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Permission required', 'Photo library access is needed to attach a meal photo.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.6,
+    });
+    if (!result.canceled && result.assets?.[0]?.uri) {
+      setPhotoUri(result.assets[0].uri);
+      setPreview(null);
+    }
+  };
+
+  const takePhoto = async () => {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Permission required', 'Camera access is needed to take a meal photo.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      quality: 0.6,
+    });
+    if (!result.canceled && result.assets?.[0]?.uri) {
+      setPhotoUri(result.assets[0].uri);
+      setPreview(null);
+    }
+  };
+
+  const clearPhoto = () => setPhotoUri(null);
 
   const onAnalyze = async () => {
     setError(null);
@@ -34,6 +72,7 @@ export default function LogMealScreen() {
       const result = await analyzeMeal({
         description: description.trim() || undefined,
         mealType,
+        hasPhoto: Boolean(photoUri),
       });
       setPreview(result);
     } catch (e: any) {
@@ -55,11 +94,13 @@ export default function LogMealScreen() {
       mealType,
       feedback: preview.feedback,
       source: preview.source,
+      photoUri: photoUri ?? undefined,
     };
     try {
       await add(meal);
       setDescription('');
       setPreview(null);
+      setPhotoUri(null);
       Alert.alert('Saved', `${meal.name} · ${meal.calories} kcal`);
     } catch (e: any) {
       Alert.alert('Could not save', e?.message ?? 'Unknown error');
@@ -82,6 +123,30 @@ export default function LogMealScreen() {
         <Text style={styles.muted}>
           Today: {meals.length} meal{meals.length === 1 ? '' : 's'} · {totalCalories} kcal
         </Text>
+
+        <Text style={styles.label}>Photo (optional)</Text>
+        {photoUri ? (
+          <View style={styles.photoWrap}>
+            <Image source={{ uri: photoUri }} style={styles.photo} resizeMode="cover" />
+            <View style={styles.photoActions}>
+              <Pressable onPress={pickFromLibrary} style={styles.photoBtn}>
+                <Text style={styles.photoBtnText}>Replace</Text>
+              </Pressable>
+              <Pressable onPress={clearPhoto} style={[styles.photoBtn, styles.photoBtnDanger]}>
+                <Text style={[styles.photoBtnText, styles.photoBtnDangerText]}>Remove</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.photoRow}>
+            <Pressable onPress={takePhoto} style={styles.photoBtn}>
+              <Text style={styles.photoBtnText}>Take photo</Text>
+            </Pressable>
+            <Pressable onPress={pickFromLibrary} style={styles.photoBtn}>
+              <Text style={styles.photoBtnText}>Pick from library</Text>
+            </Pressable>
+          </View>
+        )}
 
         <Text style={styles.label}>Description</Text>
         <TextInput
@@ -137,6 +202,11 @@ export default function LogMealScreen() {
         {meals.length === 0 && <Text style={styles.muted}>No meals logged yet.</Text>}
         {meals.map((m) => (
           <Pressable key={m.id} onLongPress={() => onRemove(m.id)} style={styles.mealRow}>
+            {m.photoUri ? (
+              <Image source={{ uri: m.photoUri }} style={styles.thumb} />
+            ) : (
+              <View style={[styles.thumb, styles.thumbPlaceholder]} />
+            )}
             <View style={{ flex: 1 }}>
               <Text style={styles.mealName}>{m.name}</Text>
               <Text style={styles.muted}>
@@ -216,4 +286,36 @@ const styles = StyleSheet.create({
   },
   mealName: { fontSize: 16, fontWeight: '600', color: '#111' },
   mealKcal: { fontSize: 15, fontWeight: '700', color: '#1e6fb8' },
+  photoRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  photoWrap: { gap: 8 },
+  photo: {
+    width: '100%',
+    height: 200,
+    borderRadius: 10,
+    backgroundColor: '#eee',
+  },
+  photoActions: { flexDirection: 'row', gap: 8 },
+  photoBtn: {
+    borderWidth: 1,
+    borderColor: '#d0d0d5',
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: '#fff',
+  },
+  photoBtnText: { color: '#222', fontWeight: '600' },
+  photoBtnDanger: { borderColor: '#c0392b' },
+  photoBtnDangerText: { color: '#c0392b' },
+  thumb: {
+    width: 44,
+    height: 44,
+    borderRadius: 6,
+    marginRight: 12,
+    backgroundColor: '#eee',
+  },
+  thumbPlaceholder: {
+    borderWidth: 1,
+    borderColor: '#e5e5ea',
+    borderStyle: 'dashed',
+  },
 });

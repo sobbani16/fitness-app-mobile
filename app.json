@@ -25,6 +25,15 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Fitness AI to access your photos to log meals.",
+          "cameraPermission": "Allow Fitness AI to use the camera to photograph meals."
+        }
+      ]
+    ]
   }
 }
