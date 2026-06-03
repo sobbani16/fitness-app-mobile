@@ -19,6 +19,7 @@ export interface Profile {
   age: number;
   heightCm: number;       // canonical
   weightKg: number;       // canonical
+  goalWeightKg?: number;  // canonical target weight
   activityLevel: ActivityLevel;
   goal: Goal;
   units: UnitSystem;      // display preference

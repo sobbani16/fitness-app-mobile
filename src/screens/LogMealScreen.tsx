@@ -1,39 +1,75 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
   TextInput,
   StyleSheet,
-  ScrollView,
   Pressable,
   Button,
   Alert,
   ActivityIndicator,
   Image,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { analyzeMeal, MealAnalysis } from '../api/meals';
+import KeyboardAwareScrollView from '../components/KeyboardAwareScrollView';
+import RecipeSearch from '../components/RecipeSearch';
+import { RecipeNutrition } from '../api/recipes';
+import { detectFood, FoodDetection } from '../api/meals';
 import { useMeals } from '../context/MealsContext';
-import { MealType, LoggedMeal } from '../storage/meals';
+import { MealType, LoggedMeal, Macros } from '../storage/meals';
+import ScaleConnectCard from '../components/ScaleConnectCard';
+import { useScale } from '../hooks/useScale';
+import { caloriesForPortion, macrosForPortion } from '../services/foodCalories';
 
 const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
 
+// Editable form state for the preview card.
+interface PreviewForm {
+  name: string;
+  portionGrams: string;   // string so the field is fully controlled
+  calories: string;
+  caloriesPer100g: number;
+  macrosPer100g: Macros;
+  source: string;
+}
+
 export default function LogMealScreen() {
   const { meals, totalCalories, add, remove } = useMeals();
+  const scale = useScale();
 
   const [description, setDescription] = useState('');
   const [mealType, setMealType] = useState<MealType>('lunch');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
-  const [analyzing, setAnalyzing] = useState(false);
-  const [preview, setPreview] = useState<MealAnalysis | null>(null);
+  const [detecting, setDetecting] = useState(false);
+  const [preview, setPreview] = useState<PreviewForm | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // When the scale locks a stable weight, autofill the portion field and
+  // recompute calories based on caloriesPer100g.
+  const onWeightLocked = (grams: number) => {
+    if (!preview) return;
+    const portionStr = String(grams);
+    const kcal = caloriesForPortion(preview.caloriesPer100g, grams);
+    setPreview({ ...preview, portionGrams: portionStr, calories: String(kcal) });
+  };
+
+  // Recompute calories automatically whenever the user edits portion.
+  // Does not force-overwrite a manually-edited calorie value — if the user
+  // edits calories directly, we respect that until portion changes.
+  const onPortionChange = (t: string) => {
+    if (!preview) return;
+    const grams = Number(t);
+    const next: PreviewForm = { ...preview, portionGrams: t };
+    if (Number.isFinite(grams) && grams > 0) {
+      next.calories = String(caloriesForPortion(preview.caloriesPer100g, grams));
+    }
+    setPreview(next);
+  };
 
   const pickFromLibrary = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Permission required', 'Photo library access is needed to attach a meal photo.');
+      Alert.alert('Permission required', 'Photo library access is needed.');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -43,56 +79,82 @@ export default function LogMealScreen() {
     });
     if (!result.canceled && result.assets?.[0]?.uri) {
       setPhotoUri(result.assets[0].uri);
-      setPreview(null);
     }
   };
 
   const takePhoto = async () => {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Permission required', 'Camera access is needed to take a meal photo.');
+      Alert.alert('Permission required', 'Camera access is needed.');
       return;
     }
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      quality: 0.6,
-    });
+    const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, quality: 0.6 });
     if (!result.canceled && result.assets?.[0]?.uri) {
       setPhotoUri(result.assets[0].uri);
-      setPreview(null);
     }
   };
 
   const clearPhoto = () => setPhotoUri(null);
 
-  const onAnalyze = async () => {
+  const onDetect = async () => {
     setError(null);
-    setAnalyzing(true);
+    setDetecting(true);
     try {
-      const result = await analyzeMeal({
+      const result: FoodDetection = await detectFood({
         description: description.trim() || undefined,
         mealType,
         hasPhoto: Boolean(photoUri),
       });
-      setPreview(result);
+      setPreview({
+        name: result.foodName,
+        portionGrams: String(result.suggestedPortionGrams),
+        calories: String(result.estimatedCalories),
+        caloriesPer100g: result.caloriesPer100g,
+        macrosPer100g: result.macrosPer100g,
+        source: result.source,
+      });
     } catch (e: any) {
-      setError(e?.message ?? 'Analysis failed');
+      setError(e?.message ?? 'Detection failed');
     } finally {
-      setAnalyzing(false);
+      setDetecting(false);
     }
+  };
+
+  // Fill the preview card from a selected recipe's nutrition.
+  const onRecipeSelected = (n: RecipeNutrition) => {
+    setError(null);
+    const grams = n.servingWeightGrams > 0 ? n.servingWeightGrams : 100;
+    setPreview({
+      name: n.name,
+      portionGrams: String(grams),
+      calories: String(caloriesForPortion(n.caloriesPer100g, grams)),
+      caloriesPer100g: n.caloriesPer100g,
+      macrosPer100g: n.macrosPer100g,
+      source: `recipe: ${n.source}`,
+    });
   };
 
   const onSave = async () => {
     if (!preview) return;
+    const grams = Number(preview.portionGrams);
+    const kcal = Number(preview.calories);
+    if (!Number.isFinite(kcal) || kcal < 0) {
+      Alert.alert('Invalid calories', 'Calories must be a non-negative number.');
+      return;
+    }
+    const macros: Macros = Number.isFinite(grams) && grams > 0
+      ? macrosForPortion(preview.macrosPer100g, grams)
+      : { protein_g: 0, carbs_g: 0, fat_g: 0 };
+
     const meal: LoggedMeal = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       createdAt: new Date().toISOString(),
-      name: preview.name,
-      calories: preview.calories,
-      macros: preview.macros,
+      name: preview.name.trim() || 'Meal',
+      calories: Math.round(kcal),
+      macros,
       description: description.trim() || undefined,
       mealType,
-      feedback: preview.feedback,
+      feedback: preview.source,
       source: preview.source,
       photoUri: photoUri ?? undefined,
     };
@@ -101,6 +163,7 @@ export default function LogMealScreen() {
       setDescription('');
       setPreview(null);
       setPhotoUri(null);
+      scale.reset();
       Alert.alert('Saved', `${meal.name} · ${meal.calories} kcal`);
     } catch (e: any) {
       Alert.alert('Could not save', e?.message ?? 'Unknown error');
@@ -114,11 +177,7 @@ export default function LogMealScreen() {
     ]);
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+    <KeyboardAwareScrollView contentContainerStyle={styles.container}>
         <Text style={styles.title}>Log a meal</Text>
         <Text style={styles.muted}>
           Today: {meals.length} meal{meals.length === 1 ? '' : 's'} · {totalCalories} kcal
@@ -148,6 +207,10 @@ export default function LogMealScreen() {
           </View>
         )}
 
+        <Text style={styles.label}>Search a recipe</Text>
+        <RecipeSearch onSelect={onRecipeSelected} />
+        <Text style={styles.muted}>Pick a recipe to auto-fill calories and macros, or describe it below.</Text>
+
         <Text style={styles.label}>Description</Text>
         <TextInput
           style={styles.input}
@@ -175,26 +238,56 @@ export default function LogMealScreen() {
 
         <View style={{ height: 8 }} />
         <Button
-          title={analyzing ? 'Analyzing…' : 'Analyze'}
-          onPress={onAnalyze}
-          disabled={analyzing}
+          title={detecting ? 'Detecting…' : 'Detect food'}
+          onPress={onDetect}
+          disabled={detecting}
         />
 
-        {analyzing && <ActivityIndicator style={{ marginTop: 10 }} />}
+        {detecting && <ActivityIndicator style={{ marginTop: 10 }} />}
         {error && <Text style={styles.err}>Error: {error}</Text>}
 
         {preview && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>{preview.name}</Text>
-            <Text style={styles.muted}>{preview.source}</Text>
-            <Row label="Calories" value={`${preview.calories} kcal`} />
-            <Row label="Protein" value={`${preview.macros.protein_g} g`} />
-            <Row label="Carbs" value={`${preview.macros.carbs_g} g`} />
-            <Row label="Fat" value={`${preview.macros.fat_g} g`} />
-            <Text style={styles.feedback}>{preview.feedback}</Text>
-            <View style={{ height: 6 }} />
-            <Button title="Save meal" onPress={onSave} />
-          </View>
+          <>
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Detected — edit before saving</Text>
+              <Text style={styles.muted}>{preview.source}</Text>
+
+              <Text style={styles.label}>Food name</Text>
+              <TextInput
+                style={styles.input}
+                value={preview.name}
+                onChangeText={(t) => setPreview({ ...preview, name: t })}
+              />
+
+              <Text style={styles.label}>Portion (grams)</Text>
+              <TextInput
+                style={styles.input}
+                value={preview.portionGrams}
+                onChangeText={onPortionChange}
+                keyboardType="number-pad"
+                placeholder="e.g. 250"
+              />
+
+              <Text style={styles.label}>Calories</Text>
+              <TextInput
+                style={styles.input}
+                value={preview.calories}
+                onChangeText={(t) => setPreview({ ...preview, calories: t })}
+                keyboardType="number-pad"
+              />
+
+              <Text style={styles.muted}>
+                {preview.caloriesPer100g} kcal / 100g · P{preview.macrosPer100g.protein_g}{' '}
+                C{preview.macrosPer100g.carbs_g} F{preview.macrosPer100g.fat_g}
+              </Text>
+
+              <View style={{ height: 6 }} />
+              <Button title="Save meal" onPress={onSave} />
+            </View>
+
+            <View style={{ height: 10 }} />
+            <ScaleConnectCard scale={scale} onWeightLocked={onWeightLocked} />
+          </>
         )}
 
         <View style={styles.divider} />
@@ -210,7 +303,8 @@ export default function LogMealScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.mealName}>{m.name}</Text>
               <Text style={styles.muted}>
-                {m.mealType ?? '—'} · {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {m.mealType ?? '—'} ·{' '}
+                {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </Text>
             </View>
             <Text style={styles.mealKcal}>{m.calories} kcal</Text>
@@ -220,17 +314,7 @@ export default function LogMealScreen() {
           <Text style={styles.muted}>Long-press a meal to remove.</Text>
         )}
         <View style={{ height: 24 }} />
-      </ScrollView>
-    </KeyboardAvoidingView>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.row}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={styles.rowValue}>{value}</Text>
-    </View>
+    </KeyboardAwareScrollView>
   );
 }
 
@@ -271,10 +355,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   cardTitle: { fontSize: 18, fontWeight: '700' },
-  row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 2 },
-  rowLabel: { color: '#444' },
-  rowValue: { color: '#111', fontWeight: '600' },
-  feedback: { marginTop: 8, color: '#333', lineHeight: 20 },
   divider: { height: 1, backgroundColor: '#e5e5ea', marginVertical: 16 },
   sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 4 },
   mealRow: {
@@ -288,12 +368,7 @@ const styles = StyleSheet.create({
   mealKcal: { fontSize: 15, fontWeight: '700', color: '#1e6fb8' },
   photoRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   photoWrap: { gap: 8 },
-  photo: {
-    width: '100%',
-    height: 200,
-    borderRadius: 10,
-    backgroundColor: '#eee',
-  },
+  photo: { width: '100%', height: 200, borderRadius: 10, backgroundColor: '#eee' },
   photoActions: { flexDirection: 'row', gap: 8 },
   photoBtn: {
     borderWidth: 1,
@@ -313,9 +388,5 @@ const styles = StyleSheet.create({
     marginRight: 12,
     backgroundColor: '#eee',
   },
-  thumbPlaceholder: {
-    borderWidth: 1,
-    borderColor: '#e5e5ea',
-    borderStyle: 'dashed',
-  },
+  thumbPlaceholder: { borderWidth: 1, borderColor: '#e5e5ea', borderStyle: 'dashed' },
 });

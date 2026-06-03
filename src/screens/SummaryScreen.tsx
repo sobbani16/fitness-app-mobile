@@ -10,6 +10,7 @@ import {
   RefreshControl,
   Pressable,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useProfile } from '../context/ProfileContext';
 import { useMeals } from '../context/MealsContext';
 import { useWeather } from '../hooks/useWeather';
@@ -18,6 +19,7 @@ import { formatHeight, formatWeight } from '../util/units';
 import { UnitSystem } from '../storage/profile';
 
 export default function SummaryScreen() {
+  const navigation = useNavigation<any>();
   const { profile, reset, update } = useProfile();
   const { meals, refresh: refreshMeals } = useMeals();
   const { weather, refresh: refreshWeather } = useWeather();
@@ -62,11 +64,17 @@ export default function SummaryScreen() {
     await load();
   };
 
-  const onReset = () =>
-    Alert.alert('Reset profile?', 'This clears your saved profile.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Reset', style: 'destructive', onPress: () => reset() },
-    ]);
+  const onEdit = () => navigation.navigate('EditProfile');
+
+  const onDelete = () =>
+    Alert.alert(
+      'Delete profile?',
+      'This permanently removes your saved profile and returns you to setup.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => reset() },
+      ],
+    );
 
   if (loading) {
     return (
@@ -154,7 +162,14 @@ export default function SummaryScreen() {
       )}
 
       <View style={{ height: 12 }} />
-      <Button title="Reset profile" color="#c0392b" onPress={onReset} />
+      <View style={styles.actions}>
+        <Pressable style={[styles.actionBtn, styles.editBtn]} onPress={onEdit}>
+          <Text style={styles.editBtnText}>Edit profile</Text>
+        </Pressable>
+        <Pressable style={[styles.actionBtn, styles.deleteBtn]} onPress={onDelete}>
+          <Text style={styles.deleteBtnText}>Delete profile</Text>
+        </Pressable>
+      </View>
       <View style={{ height: 24 }} />
     </ScrollView>
   );
@@ -201,4 +216,16 @@ const styles = StyleSheet.create({
   unitChipActive: { backgroundColor: '#1e6fb8', borderColor: '#1e6fb8' },
   unitChipText: { color: '#222', fontSize: 12, fontWeight: '600' },
   unitChipTextActive: { color: '#fff' },
+  actions: { flexDirection: 'row', gap: 10 },
+  actionBtn: {
+    flex: 1,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  editBtn: { backgroundColor: '#1e6fb8', borderColor: '#1e6fb8' },
+  editBtnText: { color: '#fff', fontWeight: '700' },
+  deleteBtn: { backgroundColor: '#fff', borderColor: '#c0392b' },
+  deleteBtnText: { color: '#c0392b', fontWeight: '700' },
 });
