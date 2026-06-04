@@ -69,7 +69,8 @@
           "enableMicrophonePermission": false,
           "enableCodeScanner": false
         }
-      ]
+      ],
+      "expo-font"
     ],
     "extra": {
       "eas": {
