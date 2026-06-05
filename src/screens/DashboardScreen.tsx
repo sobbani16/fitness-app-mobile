@@ -2,12 +2,14 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
+  TextInput,
   StyleSheet,
   ActivityIndicator,
   ScrollView,
   RefreshControl,
   Button,
   Pressable,
+  Alert,
 } from 'react-native';
 import {
   getRecommendations,
@@ -18,7 +20,8 @@ import { useMeals } from '../context/MealsContext';
 import { useWeather } from '../hooks/useWeather';
 import { useStepCounter } from '../hooks/useStepCounter';
 import { useDailyStats } from '../hooks/useDailyStats';
-import { DEFAULT_SUPPLEMENTS, GLASS_ML } from '../storage/dailyStats';
+import { useSupplementCatalog } from '../hooks/useSupplementCatalog';
+import { GLASS_ML } from '../storage/dailyStats';
 import { formatWeight } from '../util/units';
 
 const WATER_GOAL_ML = 2000;
@@ -35,6 +38,13 @@ export default function DashboardScreen() {
   const { weather, refresh: refreshWeather } = useWeather();
   const { steps, available: stepsAvailable } = useStepCounter();
   const { stats, addWater, toggleSupplement, refresh: refreshStats } = useDailyStats();
+  const {
+    supplements,
+    add: addSupplement,
+    refresh: refreshSupplements,
+  } = useSupplementCatalog();
+  const [newSupplement, setNewSupplement] = useState('');
+  const [addingSupplement, setAddingSupplement] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<RecommendationResponse | null>(null);
@@ -72,8 +82,22 @@ export default function DashboardScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([refreshMeals(), refreshWeather(), refreshStats()]);
+    await Promise.all([refreshMeals(), refreshWeather(), refreshStats(), refreshSupplements()]);
     await load();
+  };
+
+  const onAddSupplement = async () => {
+    const name = newSupplement.trim();
+    if (!name) return;
+    try {
+      setAddingSupplement(true);
+      await addSupplement(name);
+      setNewSupplement('');
+    } catch (e: any) {
+      Alert.alert('Could not add supplement', e?.message ?? 'Unknown error');
+    } finally {
+      setAddingSupplement(false);
+    }
   };
 
   if (loading) {
@@ -105,7 +129,7 @@ export default function DashboardScreen() {
     >
       <Text style={styles.title}>Hi{profile?.name ? `, ${profile.name}` : ''}</Text>
       <Text style={styles.muted}>
-        Goal: {goal} · Activity: {data.activityLevel.replace('_', ' ')} · {meals.length} meal{meals.length === 1 ? '' : 's'} today
+        Goal: {goal.replace(/_/g, ' ')} · Activity: {data.activityLevel.replace('_', ' ')} · {meals.length} meal{meals.length === 1 ? '' : 's'} today
       </Text>
       {weather && (
         <Text style={styles.muted}>
@@ -175,21 +199,44 @@ export default function DashboardScreen() {
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Supplements</Text>
-        {DEFAULT_SUPPLEMENTS.map((name) => {
-          const taken = Boolean(stats?.supplements?.[name]);
+        {supplements.map((s) => {
+          const taken = Boolean(stats?.supplements?.[s.name]);
           return (
             <Pressable
-              key={name}
+              key={s.id}
               style={styles.supplementRow}
-              onPress={() => toggleSupplement(name)}
+              onPress={() => toggleSupplement(s.name)}
             >
               <View style={[styles.checkbox, taken && styles.checkboxOn]}>
                 {taken && <Text style={styles.checkmark}>✓</Text>}
               </View>
-              <Text style={[styles.supplementName, taken && styles.supplementNameOn]}>{name}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.supplementName, taken && styles.supplementNameOn]}>
+                  {s.name}
+                </Text>
+                {!!s.defaultDose && <Text style={styles.supplementDose}>{s.defaultDose}</Text>}
+              </View>
             </Pressable>
           );
         })}
+        <View style={styles.addRow}>
+          <TextInput
+            style={styles.addInput}
+            value={newSupplement}
+            onChangeText={setNewSupplement}
+            placeholder="Add another supplement"
+            autoCapitalize="words"
+            onSubmitEditing={onAddSupplement}
+            returnKeyType="done"
+          />
+          <Pressable
+            style={[styles.addBtn, (addingSupplement || !newSupplement.trim()) && styles.addBtnDisabled]}
+            onPress={onAddSupplement}
+            disabled={addingSupplement || !newSupplement.trim()}
+          >
+            <Text style={styles.addBtnText}>{addingSupplement ? '…' : 'Add'}</Text>
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.card}>
@@ -206,7 +253,10 @@ export default function DashboardScreen() {
         {profile?.goalWeightKg != null && (
           <Row
             label="To go"
-            value={`${Math.abs(Math.round((profile.weightKg - profile.goalWeightKg) * 10) / 10)} kg ${
+            value={`${formatWeight(
+              Math.abs(Math.round((profile.weightKg - profile.goalWeightKg) * 10) / 10),
+              profile.units,
+            )} ${
               profile.weightKg > profile.goalWeightKg ? 'to lose' : profile.weightKg < profile.goalWeightKg ? 'to gain' : '— at goal'
             }`}
             valueStyle={{ fontWeight: '700', color: '#1e6fb8' }}
@@ -305,4 +355,24 @@ const styles = StyleSheet.create({
   checkmark: { color: '#fff', fontWeight: '900', fontSize: 14 },
   supplementName: { fontSize: 15, color: '#222' },
   supplementNameOn: { color: '#2e7d32', fontWeight: '600' },
+  supplementDose: { fontSize: 12, color: '#888' },
+  addRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
+  addInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#d0d0d5',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 15,
+    backgroundColor: '#fff',
+  },
+  addBtn: {
+    backgroundColor: '#1e6fb8',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  addBtnDisabled: { backgroundColor: '#a9c4dd' },
+  addBtnText: { color: '#fff', fontWeight: '700' },
 });

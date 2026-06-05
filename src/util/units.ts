@@ -1,5 +1,24 @@
 export type UnitSystem = 'metric' | 'imperial';
 
+// Countries that primarily use the imperial system (ISO 3166-1 alpha-2).
+// Everywhere else (e.g. IN, most of the world) defaults to metric.
+const IMPERIAL_COUNTRIES = new Set(['US', 'LR', 'MM']);
+
+/**
+ * Maps an ISO country code (e.g. from expo-location reverse geocode) to the
+ * unit system commonly used there. Defaults to metric when unknown.
+ */
+export function countryToUnitSystem(isoCountryCode?: string | null): UnitSystem {
+  if (!isoCountryCode) return 'metric';
+  return IMPERIAL_COUNTRIES.has(isoCountryCode.toUpperCase()) ? 'imperial' : 'metric';
+}
+
+export const unitLabels = (units: UnitSystem) => ({
+  weight: units === 'imperial' ? 'lb' : 'kg',
+  height: units === 'imperial' ? 'ft/in' : 'cm',
+  distance: units === 'imperial' ? 'mi' : 'km',
+});
+
 // Canonical storage is always metric (kg, cm). These helpers convert only for display / input.
 
 export const kgToLb = (kg: number): number => kg * 2.2046226218;

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, Pressable, Alert } from 'react-native';
+import * as Location from 'expo-location';
 import KeyboardAwareScrollView from './KeyboardAwareScrollView';
 import {
   ActivityLevel,
@@ -8,12 +9,20 @@ import {
   Sex,
   UnitSystem,
 } from '../storage/profile';
-import { cmToFtIn, ftInToCm, kgToLb, lbToKg } from '../util/units';
+import { cmToFtIn, ftInToCm, kgToLb, lbToKg, countryToUnitSystem } from '../util/units';
 
 const SEXES: Sex[] = ['male', 'female', 'other'];
 const ACTIVITY: ActivityLevel[] = ['sedentary', 'light', 'moderate', 'active', 'very_active'];
-const GOALS: Goal[] = ['lose', 'maintain', 'gain'];
+const GOALS: Goal[] = ['weight_loss', 'muscle_gain', 'body_recomposition', 'maintain'];
 const UNITS: UnitSystem[] = ['metric', 'imperial'];
+
+// Human-readable labels for option chips.
+const GOAL_LABELS: Record<Goal, string> = {
+  weight_loss: 'Weight loss',
+  muscle_gain: 'Muscle gain',
+  body_recomposition: 'Body recomposition',
+  maintain: 'Maintain',
+};
 
 export type ProfileFormData = Omit<Profile, 'createdAt'>;
 
@@ -64,6 +73,11 @@ export default function ProfileForm({
   );
   const [goal, setGoal] = useState<Goal>(initial?.goal ?? 'maintain');
 
+  // Whether the unit system was auto-selected from the user's country.
+  const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
+  const [detecting, setDetecting] = useState(false);
+  const [detectError, setDetectError] = useState<string | null>(null);
+
   const switchUnits = (next: UnitSystem) => {
     if (next === units) return;
     if (next === 'imperial') {
@@ -88,6 +102,53 @@ export default function ProfileForm({
     }
     setUnits(next);
   };
+
+  // Reverse-geocode the device location and set the unit system from the
+  // resulting country (imperial for US/LR/MM, metric elsewhere). Used both for
+  // first-time auto-detection and the manual "Use my location" button on the
+  // Edit profile screen.
+  // @param silent when true (auto-detect), permission denials/errors are
+  //   swallowed so onboarding isn't interrupted.
+  const detectUnitsFromLocation = useCallback(
+    async (silent: boolean) => {
+      try {
+        setDetecting(true);
+        setDetectError(null);
+        const perm = await Location.requestForegroundPermissionsAsync();
+        if (!perm.granted) {
+          if (!silent) setDetectError('Location permission denied.');
+          return;
+        }
+        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low });
+        const geo = await Location.reverseGeocodeAsync({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+        });
+        const iso = geo?.[0]?.isoCountryCode ?? null;
+        if (!iso) {
+          if (!silent) setDetectError('Could not determine your country.');
+          return;
+        }
+        setDetectedCountry(iso);
+        switchUnits(countryToUnitSystem(iso));
+      } catch {
+        if (!silent) setDetectError('Location unavailable.');
+        // In silent mode, keep the metric default without surfacing an error.
+      } finally {
+        setDetecting(false);
+      }
+    },
+    // switchUnits is recreated each render but only reads current state; safe to omit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  // On first-time setup (no saved unit preference yet) auto-detect silently.
+  useEffect(() => {
+    if (initial?.units) return; // respect an existing saved preference
+    detectUnitsFromLocation(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSubmit = async () => {
     const ageN = Number(age);
@@ -160,6 +221,21 @@ export default function ProfileForm({
 
       <Field label="Units">
         <Segmented options={UNITS} value={units} onChange={switchUnits} />
+        <Pressable
+          onPress={() => detectUnitsFromLocation(false)}
+          disabled={detecting}
+          style={styles.detectBtn}
+        >
+          <Text style={styles.detectBtnText}>
+            {detecting ? 'Detecting location…' : 'Use my location'}
+          </Text>
+        </Pressable>
+        {detectedCountry && (
+          <Text style={styles.hint}>
+            Set to {units} for your region ({detectedCountry}). Tap a unit to change.
+          </Text>
+        )}
+        {detectError && <Text style={styles.detectError}>{detectError}</Text>}
       </Field>
 
       {units === 'metric' ? (
@@ -196,7 +272,7 @@ export default function ProfileForm({
       </Field>
 
       <Field label="Goal">
-        <Segmented options={GOALS} value={goal} onChange={setGoal} />
+        <Segmented options={GOALS} value={goal} onChange={setGoal} labels={GOAL_LABELS} />
       </Field>
 
       <View style={{ height: 8 }} />
@@ -219,10 +295,12 @@ function Segmented<T extends string>({
   options,
   value,
   onChange,
+  labels,
 }: {
   options: T[];
   value: T;
   onChange: (v: T) => void;
+  labels?: Partial<Record<T, string>>;
 }) {
   return (
     <View style={styles.segmented}>
@@ -235,7 +313,7 @@ function Segmented<T extends string>({
             style={[styles.segment, active && styles.segmentActive]}
           >
             <Text style={[styles.segmentText, active && styles.segmentTextActive]}>
-              {opt.replace('_', ' ')}
+              {labels?.[opt] ?? opt.replace('_', ' ')}
             </Text>
           </Pressable>
         );
@@ -250,6 +328,10 @@ const styles = StyleSheet.create({
   subtitle: { color: '#555', marginBottom: 8 },
   field: { gap: 6 },
   label: { fontSize: 13, color: '#444', fontWeight: '600' },
+  hint: { fontSize: 12, color: '#1e6fb8', marginTop: 4 },
+  detectBtn: { marginTop: 6, alignSelf: 'flex-start' },
+  detectBtnText: { fontSize: 13, color: '#1e6fb8', fontWeight: '600' },
+  detectError: { fontSize: 12, color: '#c0392b', marginTop: 4 },
   input: {
     borderWidth: 1,
     borderColor: '#d0d0d5',

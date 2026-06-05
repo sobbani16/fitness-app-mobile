@@ -13,7 +13,9 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import KeyboardAwareScrollView from '../components/KeyboardAwareScrollView';
 import RecipeSearch from '../components/RecipeSearch';
+import IngredientSearch from '../components/IngredientSearch';
 import { RecipeNutrition } from '../api/recipes';
+import { IngredientResult } from '../api/ingredients';
 import { detectFood, FoodDetection } from '../api/meals';
 import { useMeals } from '../context/MealsContext';
 import { MealType, LoggedMeal, Macros } from '../storage/meals';
@@ -28,9 +30,23 @@ interface PreviewForm {
   name: string;
   portionGrams: string;   // string so the field is fully controlled
   calories: string;
+  // Editable macro grams for the current portion (controlled fields).
+  protein: string;
+  carbs: string;
+  fat: string;
   caloriesPer100g: number;
   macrosPer100g: Macros;
   source: string;
+}
+
+// Macro grams (as strings for controlled inputs) for a given portion.
+function macroStringsForPortion(per100: Macros, grams: number) {
+  const m = macrosForPortion(per100, grams);
+  return {
+    protein: String(m.protein_g),
+    carbs: String(m.carbs_g),
+    fat: String(m.fat_g),
+  };
 }
 
 export default function LogMealScreen() {
@@ -50,7 +66,12 @@ export default function LogMealScreen() {
     if (!preview) return;
     const portionStr = String(grams);
     const kcal = caloriesForPortion(preview.caloriesPer100g, grams);
-    setPreview({ ...preview, portionGrams: portionStr, calories: String(kcal) });
+    setPreview({
+      ...preview,
+      portionGrams: portionStr,
+      calories: String(kcal),
+      ...macroStringsForPortion(preview.macrosPer100g, grams),
+    });
   };
 
   // Recompute calories automatically whenever the user edits portion.
@@ -62,6 +83,7 @@ export default function LogMealScreen() {
     const next: PreviewForm = { ...preview, portionGrams: t };
     if (Number.isFinite(grams) && grams > 0) {
       next.calories = String(caloriesForPortion(preview.caloriesPer100g, grams));
+      Object.assign(next, macroStringsForPortion(preview.macrosPer100g, grams));
     }
     setPreview(next);
   };
@@ -109,6 +131,7 @@ export default function LogMealScreen() {
         name: result.foodName,
         portionGrams: String(result.suggestedPortionGrams),
         calories: String(result.estimatedCalories),
+        ...macroStringsForPortion(result.macrosPer100g, result.suggestedPortionGrams),
         caloriesPer100g: result.caloriesPer100g,
         macrosPer100g: result.macrosPer100g,
         source: result.source,
@@ -120,6 +143,22 @@ export default function LogMealScreen() {
     }
   };
 
+  // Fill the preview card from a selected USDA ingredient (per-100g nutrition).
+  // Defaults the portion to 100g; the user can adjust portion/macros below.
+  const onIngredientSelected = (ing: IngredientResult) => {
+    setError(null);
+    const grams = 100;
+    setPreview({
+      name: ing.name,
+      portionGrams: String(grams),
+      calories: String(caloriesForPortion(ing.caloriesPer100g, grams)),
+      ...macroStringsForPortion(ing.macrosPer100g, grams),
+      caloriesPer100g: ing.caloriesPer100g,
+      macrosPer100g: ing.macrosPer100g,
+      source: `ingredient: ${ing.source}`,
+    });
+  };
+
   // Fill the preview card from a selected recipe's nutrition.
   const onRecipeSelected = (n: RecipeNutrition) => {
     setError(null);
@@ -128,6 +167,7 @@ export default function LogMealScreen() {
       name: n.name,
       portionGrams: String(grams),
       calories: String(caloriesForPortion(n.caloriesPer100g, grams)),
+      ...macroStringsForPortion(n.macrosPer100g, grams),
       caloriesPer100g: n.caloriesPer100g,
       macrosPer100g: n.macrosPer100g,
       source: `recipe: ${n.source}`,
@@ -142,9 +182,20 @@ export default function LogMealScreen() {
       Alert.alert('Invalid calories', 'Calories must be a non-negative number.');
       return;
     }
-    const macros: Macros = Number.isFinite(grams) && grams > 0
+    // Use the (possibly user-edited) macro fields; fall back to portion-scaled
+    // values when a field isn't a valid number.
+    const scaled = Number.isFinite(grams) && grams > 0
       ? macrosForPortion(preview.macrosPer100g, grams)
       : { protein_g: 0, carbs_g: 0, fat_g: 0 };
+    const macroField = (s: string, fallback: number) => {
+      const n = Number(s);
+      return Number.isFinite(n) && n >= 0 ? Math.round(n * 10) / 10 : fallback;
+    };
+    const macros: Macros = {
+      protein_g: macroField(preview.protein, scaled.protein_g),
+      carbs_g: macroField(preview.carbs, scaled.carbs_g),
+      fat_g: macroField(preview.fat, scaled.fat_g),
+    };
 
     const meal: LoggedMeal = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -206,6 +257,10 @@ export default function LogMealScreen() {
             </Pressable>
           </View>
         )}
+
+        <Text style={styles.label}>Search an ingredient</Text>
+        <IngredientSearch onSelect={onIngredientSelected} />
+        <Text style={styles.muted}>USDA ingredient database. Picks fill per-100g calories and macros.</Text>
 
         <Text style={styles.label}>Search a recipe</Text>
         <RecipeSearch onSelect={onRecipeSelected} />
@@ -276,8 +331,39 @@ export default function LogMealScreen() {
                 keyboardType="number-pad"
               />
 
+              <Text style={styles.label}>Macros (grams)</Text>
+              <View style={styles.macroRow}>
+                <View style={styles.macroField}>
+                  <Text style={styles.macroLabel}>Protein</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={preview.protein}
+                    onChangeText={(t) => setPreview({ ...preview, protein: t })}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+                <View style={styles.macroField}>
+                  <Text style={styles.macroLabel}>Carbs</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={preview.carbs}
+                    onChangeText={(t) => setPreview({ ...preview, carbs: t })}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+                <View style={styles.macroField}>
+                  <Text style={styles.macroLabel}>Fat</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={preview.fat}
+                    onChangeText={(t) => setPreview({ ...preview, fat: t })}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+              </View>
+
               <Text style={styles.muted}>
-                {preview.caloriesPer100g} kcal / 100g · P{preview.macrosPer100g.protein_g}{' '}
+                {preview.caloriesPer100g} kcal / 100g · per 100g: P{preview.macrosPer100g.protein_g}{' '}
                 C{preview.macrosPer100g.carbs_g} F{preview.macrosPer100g.fat_g}
               </Text>
 
@@ -389,4 +475,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#eee',
   },
   thumbPlaceholder: { borderWidth: 1, borderColor: '#e5e5ea', borderStyle: 'dashed' },
+  macroRow: { flexDirection: 'row', gap: 8 },
+  macroField: { flex: 1, gap: 4 },
+  macroLabel: { fontSize: 12, color: '#666', fontWeight: '600' },
 });

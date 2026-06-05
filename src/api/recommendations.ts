@@ -5,6 +5,15 @@ export type Intensity = 'low' | 'moderate' | 'high';
 export type Location = 'outdoor' | 'indoor' | 'either';
 export type WeatherCondition = 'hot' | 'rainy' | 'pleasant';
 
+// Descriptive goal taxonomy (plus legacy values the backend still normalizes).
+export type GoalParam =
+  | 'weight_loss'
+  | 'muscle_gain'
+  | 'body_recomposition'
+  | 'maintain'
+  | 'lose'
+  | 'gain';
+
 export interface Balance {
   caloriesIn: number;
   caloriesBurnedExercise: number;
@@ -28,7 +37,7 @@ export interface Recommendation {
 export interface RecommendationResponse {
   profile: { sex: string; weightKg: number; heightCm: number; age: number };
   activityLevel: string;
-  goal: 'lose' | 'maintain' | 'gain';
+  goal: GoalParam;
   bmr: number;
   balance: Balance;
   recommendation: Recommendation;
@@ -40,7 +49,7 @@ export interface RecommendationParams {
   heightCm?: number;
   age?: number;
   activityLevel?: string;
-  goal?: 'lose' | 'maintain' | 'gain';
+  goal?: GoalParam;
   caloriesIn?: number;
   caloriesBurnedExercise?: number;
   weather?: WeatherCondition;
