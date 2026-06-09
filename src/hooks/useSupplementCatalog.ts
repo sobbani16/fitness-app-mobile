@@ -1,49 +1,51 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Supplement, addSupplement, listSupplements } from '../api/supplements';
-import { DEFAULT_SUPPLEMENTS } from '../storage/dailyStats';
-
-// Offline/initial fallback so the dashboard renders something even before the
-// backend responds (or if it's unreachable).
-const FALLBACK: Supplement[] = DEFAULT_SUPPLEMENTS.map((name) => ({
-  id: name,
-  name,
-  category: null,
-  defaultDose: null,
-  isDefault: true,
-}));
-
-function sortCatalog(list: Supplement[]): Supplement[] {
-  return [...list].sort(
-    (a, b) =>
-      Number(b.isDefault) - Number(a.isDefault) || a.name.localeCompare(b.name),
-  );
-}
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Supplement,
+  getMySupplements,
+  searchSupplements,
+  selectSupplement as apiSelect,
+  deselectSupplement as apiDeselect,
+} from '../api/supplements';
 
 interface UseSupplementCatalog {
-  supplements: Supplement[];
+  /** User's selected supplements (shown on dashboard). */
+  mySupplements: Supplement[];
+  /** Search results from the global catalog. */
+  searchResults: Supplement[];
+  searching: boolean;
   loading: boolean;
   error: string | null;
+  /** Refresh user's selected supplements from the backend. */
   refresh: () => Promise<void>;
-  add: (name: string) => Promise<Supplement>;
+  /** Search the global catalog. */
+  search: (q: string) => void;
+  /** Add a supplement to user's selected list. */
+  select: (supplement: Supplement) => Promise<void>;
+  /** Remove a supplement from user's selected list. */
+  deselect: (supplementId: string) => Promise<void>;
 }
 
 /**
- * Loads the supplement catalog from the backend (Postgres-backed) and lets the
- * user add new entries, which persist server-side and update the table.
+ * Manages the user's selected supplements and searches the global catalog.
+ * - `mySupplements`: user's picks (shown on dashboard with checkboxes)
+ * - `search(q)`: debounced search against the global catalog
+ * - `select/deselect`: add/remove from user's list
  */
 export function useSupplementCatalog(): UseSupplementCatalog {
-  const [supplements, setSupplements] = useState<Supplement[]>(FALLBACK);
+  const [mySupplements, setMySupplements] = useState<Supplement[]>([]);
+  const [searchResults, setSearchResults] = useState<Supplement[]>([]);
+  const [searching, setSearching] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refresh = useCallback(async () => {
     try {
       setError(null);
-      const list = await listSupplements();
-      if (list.length) setSupplements(sortCatalog(list));
+      const list = await getMySupplements();
+      setMySupplements(list);
     } catch (e: any) {
       setError(e?.message ?? 'Could not load supplements');
-      // Keep whatever we have (fallback or last good list).
     } finally {
       setLoading(false);
     }
@@ -53,21 +55,50 @@ export function useSupplementCatalog(): UseSupplementCatalog {
     refresh();
   }, [refresh]);
 
-  const add = useCallback(async (name: string) => {
-    const created = await addSupplement({ name });
-    setSupplements((prev) => {
-      const exists = prev.some(
-        (s) => s.name.toLowerCase() === created.name.toLowerCase(),
-      );
-      const next = exists
-        ? prev.map((s) =>
-            s.name.toLowerCase() === created.name.toLowerCase() ? created : s,
-          )
-        : [...prev, created];
-      return sortCatalog(next);
-    });
-    return created;
+  const search = useCallback((q: string) => {
+    if (timer.current) clearTimeout(timer.current);
+    const trimmed = q.trim();
+    if (trimmed.length < 2) {
+      setSearchResults([]);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    timer.current = setTimeout(async () => {
+      try {
+        const results = await searchSupplements(trimmed);
+        setSearchResults(results);
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
   }, []);
 
-  return { supplements, loading, error, refresh, add };
+  const select = useCallback(async (supplement: Supplement) => {
+    await apiSelect(supplement.id);
+    setMySupplements((prev) => {
+      if (prev.some((s) => s.id === supplement.id)) return prev;
+      return [...prev, supplement].sort((a, b) => a.name.localeCompare(b.name));
+    });
+    setSearchResults([]);
+  }, []);
+
+  const deselect = useCallback(async (supplementId: string) => {
+    await apiDeselect(supplementId);
+    setMySupplements((prev) => prev.filter((s) => s.id !== supplementId));
+  }, []);
+
+  return {
+    mySupplements,
+    searchResults,
+    searching,
+    loading,
+    error,
+    refresh,
+    search,
+    select,
+    deselect,
+  };
 }

@@ -21,6 +21,7 @@ import { useWeather } from '../hooks/useWeather';
 import { useStepCounter } from '../hooks/useStepCounter';
 import { useDailyStats } from '../hooks/useDailyStats';
 import { useSupplementCatalog } from '../hooks/useSupplementCatalog';
+import { Supplement } from '../api/supplements';
 import { GLASS_ML } from '../storage/dailyStats';
 import { formatWeight } from '../util/units';
 
@@ -39,12 +40,15 @@ export default function DashboardScreen() {
   const { steps, available: stepsAvailable } = useStepCounter();
   const { stats, addWater, toggleSupplement, refresh: refreshStats } = useDailyStats();
   const {
-    supplements,
-    add: addSupplement,
+    mySupplements,
+    searchResults,
+    searching: supplementSearching,
     refresh: refreshSupplements,
+    search: searchSupplementCatalog,
+    select: selectSupplement,
+    deselect: deselectSupplement,
   } = useSupplementCatalog();
-  const [newSupplement, setNewSupplement] = useState('');
-  const [addingSupplement, setAddingSupplement] = useState(false);
+  const [supplementQuery, setSupplementQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<RecommendationResponse | null>(null);
@@ -86,18 +90,24 @@ export default function DashboardScreen() {
     await load();
   };
 
-  const onAddSupplement = async () => {
-    const name = newSupplement.trim();
-    if (!name) return;
-    try {
-      setAddingSupplement(true);
-      await addSupplement(name);
-      setNewSupplement('');
-    } catch (e: any) {
-      Alert.alert('Could not add supplement', e?.message ?? 'Unknown error');
-    } finally {
-      setAddingSupplement(false);
-    }
+  // Supplement macros: sum nutrition from all taken supplements.
+  const supplementMacros = mySupplements.reduce(
+    (acc, s) => {
+      if (stats?.supplements?.[s.name]) {
+        acc.calories += s.calories || 0;
+        acc.proteinG += s.proteinG || 0;
+        acc.carbsG += s.carbsG || 0;
+        acc.fatG += s.fatG || 0;
+        acc.fiberG += s.fiberG || 0;
+      }
+      return acc;
+    },
+    { calories: 0, proteinG: 0, carbsG: 0, fatG: 0, fiberG: 0 },
+  );
+
+  const onSupplementSearch = (text: string) => {
+    setSupplementQuery(text);
+    searchSupplementCatalog(text);
   };
 
   if (loading) {
@@ -199,13 +209,24 @@ export default function DashboardScreen() {
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Supplements</Text>
-        {supplements.map((s) => {
+
+        {/* User's selected supplements */}
+        {mySupplements.length === 0 && !supplementQuery && (
+          <Text style={styles.muted}>No supplements selected. Search below to add some.</Text>
+        )}
+        {mySupplements.map((s) => {
           const taken = Boolean(stats?.supplements?.[s.name]);
           return (
             <Pressable
               key={s.id}
               style={styles.supplementRow}
               onPress={() => toggleSupplement(s.name)}
+              onLongPress={() =>
+                Alert.alert('Remove supplement?', `Remove "${s.name}" from your list?`, [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Remove', style: 'destructive', onPress: () => deselectSupplement(s.id) },
+                ])
+              }
             >
               <View style={[styles.checkbox, taken && styles.checkboxOn]}>
                 {taken && <Text style={styles.checkmark}>✓</Text>}
@@ -214,29 +235,68 @@ export default function DashboardScreen() {
                 <Text style={[styles.supplementName, taken && styles.supplementNameOn]}>
                   {s.name}
                 </Text>
-                {!!s.defaultDose && <Text style={styles.supplementDose}>{s.defaultDose}</Text>}
+                <Text style={styles.supplementDose}>
+                  {[s.brand, s.defaultDose].filter(Boolean).join(' · ') || ''}
+                </Text>
               </View>
+              {taken && (s.calories > 0 || s.proteinG > 0) && (
+                <Text style={styles.supplementMacro}>
+                  {s.calories > 0 ? `${s.calories} kcal` : `${s.proteinG}g P`}
+                </Text>
+              )}
             </Pressable>
           );
         })}
+
+        {/* Supplement macros summary (if any taken have macros) */}
+        {supplementMacros.calories > 0 && (
+          <View style={styles.supplementMacroSummary}>
+            <Text style={styles.muted}>
+              Supps today: {supplementMacros.calories} kcal · {supplementMacros.proteinG}g P · {supplementMacros.carbsG}g C · {supplementMacros.fatG}g F
+            </Text>
+          </View>
+        )}
+
+        {/* Search bar for adding supplements */}
         <View style={styles.addRow}>
           <TextInput
             style={styles.addInput}
-            value={newSupplement}
-            onChangeText={setNewSupplement}
-            placeholder="Add another supplement"
-            autoCapitalize="words"
-            onSubmitEditing={onAddSupplement}
-            returnKeyType="done"
+            value={supplementQuery}
+            onChangeText={onSupplementSearch}
+            placeholder="Search supplements to add…"
+            autoCapitalize="none"
+            autoCorrect={false}
           />
-          <Pressable
-            style={[styles.addBtn, (addingSupplement || !newSupplement.trim()) && styles.addBtnDisabled]}
-            onPress={onAddSupplement}
-            disabled={addingSupplement || !newSupplement.trim()}
-          >
-            <Text style={styles.addBtnText}>{addingSupplement ? '…' : 'Add'}</Text>
-          </Pressable>
+          {supplementSearching && <ActivityIndicator style={{ marginLeft: 8 }} />}
         </View>
+
+        {/* Search results */}
+        {searchResults.length > 0 && (
+          <View style={styles.searchResults}>
+            {searchResults
+              .filter((s) => !mySupplements.some((m) => m.id === s.id))
+              .map((s) => (
+                <Pressable
+                  key={s.id}
+                  style={styles.supplementRow}
+                  onPress={() => {
+                    selectSupplement(s);
+                    setSupplementQuery('');
+                  }}
+                >
+                  <View style={styles.checkbox}>
+                    <Text style={{ color: '#b0b3bb', fontSize: 16 }}>+</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.supplementName}>{s.name}</Text>
+                    <Text style={styles.supplementDose}>
+                      {[s.brand, s.category, s.defaultDose].filter(Boolean).join(' · ')}
+                    </Text>
+                  </View>
+                </Pressable>
+              ))}
+          </View>
+        )}
       </View>
 
       <View style={styles.card}>
@@ -356,6 +416,9 @@ const styles = StyleSheet.create({
   supplementName: { fontSize: 15, color: '#222' },
   supplementNameOn: { color: '#2e7d32', fontWeight: '600' },
   supplementDose: { fontSize: 12, color: '#888' },
+  supplementMacro: { fontSize: 12, color: '#1e6fb8', fontWeight: '600' },
+  supplementMacroSummary: { marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: '#e5e5ea' },
+  searchResults: { marginTop: 4, borderTopWidth: 1, borderTopColor: '#e5e5ea', paddingTop: 4 },
   addRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
   addInput: {
     flex: 1,

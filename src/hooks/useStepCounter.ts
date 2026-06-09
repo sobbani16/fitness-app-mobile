@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface UseStepCounter {
   steps: number;
@@ -25,13 +26,39 @@ function startOfToday(): Date {
   return d;
 }
 
+function todayKey(): string {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `fitness.steps.v1.${yyyy}-${mm}-${dd}`;
+}
+
+async function loadPersistedSteps(): Promise<number> {
+  try {
+    const raw = await AsyncStorage.getItem(todayKey());
+    return raw ? Number(raw) || 0 : 0;
+  } catch {
+    return 0;
+  }
+}
+
+async function persistSteps(total: number): Promise<void> {
+  try {
+    await AsyncStorage.setItem(todayKey(), String(total));
+  } catch {
+    // best-effort
+  }
+}
+
 /**
  * Live step count for today. Uses the device pedometer when available.
  *
  * - iOS: reads today's historical total via getStepCountAsync, then keeps it
  *   live via watchStepCount.
- * - Android: getStepCountAsync isn't supported, so steps accumulate from the
- *   moment the subscription starts.
+ * - Android: getStepCountAsync requires Health Connect. If unavailable, we
+ *   persist step counts locally so they survive app restarts. The live watch
+ *   adds new steps on top of the persisted base.
  * - Anywhere the sensor/module is missing: `available=false`, steps stay 0.
  */
 export function useStepCounter(): UseStepCounter {
@@ -39,6 +66,7 @@ export function useStepCounter(): UseStepCounter {
   const [available, setAvailable] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const baseRef = useRef(0); // historical steps before live watch began
+  const historicalLoaded = useRef(false);
 
   useEffect(() => {
     let sub: { remove: () => void } | null = null;
@@ -72,21 +100,38 @@ export function useStepCounter(): UseStepCounter {
         if (cancelled) return;
         setAvailable(true);
 
-        // iOS supports historical reads for today.
-        if (Platform.OS === 'ios' && Pedometer.getStepCountAsync) {
+        // Read today's historical step count (iOS and Android 10+).
+        // On Android this requires Health Connect; falls back to persisted count.
+        let gotHistorical = false;
+        if (Pedometer.getStepCountAsync) {
           try {
             const result = await Pedometer.getStepCountAsync(startOfToday(), new Date());
             const n = Number(result?.steps) || 0;
-            baseRef.current = n;
-            if (!cancelled) setSteps(n);
+            if (n > 0) {
+              baseRef.current = n;
+              historicalLoaded.current = true;
+              gotHistorical = true;
+              if (!cancelled) setSteps(n);
+              persistSteps(n);
+            }
           } catch {
-            // fall through to live watch only
+            // Health Connect / Google Fit not available
           }
+        }
+
+        // Fallback (Android without Health Connect): load persisted count.
+        if (!gotHistorical) {
+          const persisted = await loadPersistedSteps();
+          baseRef.current = persisted;
+          if (!cancelled) setSteps(persisted);
         }
 
         sub = Pedometer.watchStepCount((res: { steps: number }) => {
           const delta = Number(res?.steps) || 0;
-          setSteps(baseRef.current + delta);
+          const total = baseRef.current + delta;
+          setSteps(total);
+          // Persist so reopening the app doesn't lose the count.
+          persistSteps(total);
         });
       } catch (e: any) {
         if (!cancelled) {
