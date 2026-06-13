@@ -24,6 +24,7 @@ import { useSupplementCatalog } from '../hooks/useSupplementCatalog';
 import { Supplement } from '../api/supplements';
 import { GLASS_ML } from '../storage/dailyStats';
 import { formatWeight } from '../util/units';
+import MacroScoreCard from '../components/MacroScoreCard';
 
 const WATER_GOAL_ML = 2000;
 
@@ -147,6 +148,8 @@ export default function DashboardScreen() {
           {weather.tempC !== null ? ` · ${Math.round(weather.tempC)}°C` : ''}
         </Text>
       )}
+
+      <MacroScoreCard />
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Steps</Text>
