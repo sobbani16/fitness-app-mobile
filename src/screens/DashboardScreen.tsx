@@ -133,11 +133,33 @@ export default function DashboardScreen() {
   const statusColor =
     balance.status === 'surplus' ? '#b85c00' : balance.status === 'deficit' ? '#1e6fb8' : '#2e7d32';
 
+  // Daily goal message — the first thing the user sees
+  const dailyGoalMessage = (() => {
+    if (balance.surplus > 200) {
+      return `🔥 You need to burn ${balance.surplus} kcal to stay on track today.`;
+    }
+    if (balance.net < balance.target * 0.5 && meals.length < 2) {
+      return `🍽️ You've only eaten ${balance.caloriesIn} kcal — eat a balanced meal to fuel your day.`;
+    }
+    if (balance.status === 'deficit') {
+      return `✅ You're ${Math.abs(balance.surplus)} kcal under target. Stay consistent!`;
+    }
+    if (balance.status === 'on_target') {
+      return `🎯 Right on track! Keep up the good work.`;
+    }
+    return `💪 Today's goal: ${balance.target} kcal · ${goal.replace(/_/g, ' ')}`;
+  })();
+
   return (
     <ScrollView
       contentContainerStyle={styles.container}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
+      {/* Daily goal banner */}
+      <View style={styles.goalBanner}>
+        <Text style={styles.goalText}>{dailyGoalMessage}</Text>
+      </View>
+
       <Text style={styles.title}>Hi{profile?.name ? `, ${profile.name}` : ''}</Text>
       <Text style={styles.muted}>
         Goal: {goal.replace(/_/g, ' ')} · Activity: {data.activityLevel.replace('_', ' ')} · {meals.length} meal{meals.length === 1 ? '' : 's'} today
@@ -361,6 +383,15 @@ function Row({
 const styles = StyleSheet.create({
   container: { padding: 20, gap: 14 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 10 },
+  goalBanner: {
+    backgroundColor: '#eef4fb',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: '#c5ddf5',
+  },
+  goalText: { fontSize: 15, fontWeight: '600', color: '#1a4a7a', lineHeight: 22 },
   title: { fontSize: 24, fontWeight: '700' },
   muted: { color: '#666' },
   err: { color: '#c0392b', fontWeight: '600' },

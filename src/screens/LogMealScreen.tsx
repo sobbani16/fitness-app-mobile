@@ -13,6 +13,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import KeyboardAwareScrollView from '../components/KeyboardAwareScrollView';
 import RecipeSearch from '../components/RecipeSearch';
+import RecipeByIngredients from '../components/RecipeByIngredients';
 import IngredientSearch from '../components/IngredientSearch';
 import { RecipeNutrition } from '../api/recipes';
 import { IngredientResult } from '../api/ingredients';
@@ -265,6 +266,8 @@ export default function LogMealScreen() {
         <Text style={styles.label}>Search a recipe</Text>
         <RecipeSearch onSelect={onRecipeSelected} />
         <Text style={styles.muted}>Pick a recipe to auto-fill calories and macros, or describe it below.</Text>
+
+        <RecipeByIngredients onSelect={onRecipeSelected} />
 
         <Text style={styles.label}>Description</Text>
         <TextInput
