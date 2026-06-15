@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Modal,
   View,
@@ -8,6 +8,7 @@ import {
   SafeAreaView,
   LayoutChangeEvent,
 } from 'react-native';
+import * as Speech from 'expo-speech';
 import PoseCameraView from '../components/PoseCameraView';
 import PoseOverlay from '../components/PoseOverlay';
 import type { UseExerciseDetection } from '../hooks/useExerciseDetection';
@@ -19,11 +20,17 @@ interface Props {
 }
 
 /**
- * Full-screen modal that mounts the pose camera while detection is active.
- * Pure presentation — takes the `useExerciseDetection` result as a prop.
+ * Full-screen modal with:
+ * - Real pose detection camera (front/back toggle)
+ * - Voice commands (reads form feedback aloud)
+ * - Rep counter
  */
 export default function PoseCameraScreen({ visible, onClose, detection }: Props) {
   const [size, setSize] = useState({ width: 0, height: 0 });
+  const [facing, setFacing] = useState<'front' | 'back'>('front');
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const lastSpokenRef = useRef('');
+
   const onLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
     setSize({ width, height });
@@ -32,15 +39,35 @@ export default function PoseCameraScreen({ visible, onClose, detection }: Props)
   const posture = detection.posture;
   const formOk = posture?.overallOk ?? false;
 
+  // Voice commands — speak posture feedback when it changes
+  useEffect(() => {
+    if (!voiceEnabled || !posture?.message) return;
+    if (posture.message === lastSpokenRef.current) return;
+    lastSpokenRef.current = posture.message;
+    Speech.speak(posture.message, { rate: 1.0, pitch: 1.0 });
+  }, [posture?.message, voiceEnabled]);
+
+  // Speak rep count on change
+  useEffect(() => {
+    if (!voiceEnabled || detection.reps === 0) return;
+    Speech.speak(`${detection.reps}`, { rate: 1.2, pitch: 1.0 });
+  }, [detection.reps, voiceEnabled]);
+
+  // Stop speech when closing
+  const handleClose = () => {
+    Speech.stop();
+    onClose();
+  };
+
   return (
     <Modal
       visible={visible}
       animationType="slide"
       presentationStyle="fullScreen"
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
       <View style={styles.root} onLayout={onLayout}>
-        <PoseCameraView onError={(m) => console.warn('[PoseCamera]', m)} />
+        <PoseCameraView facing={facing} onError={(m) => console.warn('[PoseCamera]', m)} />
 
         {posture && size.width > 0 && (
           <PoseOverlay assessment={posture} width={size.width} height={size.height} />
@@ -53,12 +80,24 @@ export default function PoseCameraScreen({ visible, onClose, detection }: Props)
                 {detection.status === 'running' ? 'Counting' : detection.status}
               </Text>
             </View>
-            {detection.isMock && (
-              <View style={styles.demoBadge}>
-                <Text style={styles.badgeText}>Form demo</Text>
-              </View>
-            )}
-            <Pressable onPress={onClose} style={styles.closeBtn}>
+
+            {/* Camera flip button */}
+            <Pressable
+              style={styles.flipBtn}
+              onPress={() => setFacing((f) => f === 'back' ? 'front' : 'back')}
+            >
+              <Text style={styles.flipBtnText}>🔄</Text>
+            </Pressable>
+
+            {/* Voice toggle */}
+            <Pressable
+              style={[styles.voiceBtn, !voiceEnabled && styles.voiceBtnOff]}
+              onPress={() => { setVoiceEnabled((v) => !v); if (voiceEnabled) Speech.stop(); }}
+            >
+              <Text style={styles.voiceBtnText}>{voiceEnabled ? '🔊' : '🔇'}</Text>
+            </Pressable>
+
+            <Pressable onPress={handleClose} style={styles.closeBtn}>
               <Text style={styles.closeBtnText}>Done</Text>
             </Pressable>
           </View>
@@ -107,12 +146,25 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   badgeText: { color: '#fff', fontWeight: '700' },
-  demoBadge: {
-    backgroundColor: 'rgba(59,130,246,0.85)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+  flipBtn: {
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  flipBtnText: { fontSize: 20 },
+  voiceBtn: {
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  voiceBtnOff: { backgroundColor: 'rgba(255,255,255,0.5)' },
+  voiceBtnText: { fontSize: 20 },
   formBanner: {
     alignSelf: 'center',
     marginTop: 12,

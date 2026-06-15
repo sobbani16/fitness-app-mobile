@@ -13,6 +13,8 @@ import { Worklets } from 'react-native-worklets-core';
 interface Props {
   /** Fired when permission is denied or the camera can't initialize. */
   onError?: (msg: string) => void;
+  /** 'front' or 'back' camera. Defaults to 'back'. */
+  facing?: 'front' | 'back';
 }
 
 /**
@@ -22,9 +24,9 @@ interface Props {
  * itself is fine thanks to Metro, but `useCameraDevice` returns undefined
  * until the native module is linked).
  */
-export default function PoseCameraView({ onError }: Props) {
+export default function PoseCameraView({ onError, facing = 'back' }: Props) {
   const { hasPermission, requestPermission } = useCameraPermission();
-  const device = useCameraDevice('back');
+  const device = useCameraDevice(facing);
 
   useEffect(() => {
     if (!hasPermission) {

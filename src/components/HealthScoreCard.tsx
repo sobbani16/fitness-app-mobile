@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { getHealthScore, HealthScoreResponse } from '../api/healthScore';
 
 interface Props {
@@ -11,6 +12,7 @@ const STATUS_EMOJI = { elite: '🏆', excellent: '🟢', good: '🔵', fair: '�
 const STATUS_LABEL = { elite: 'Elite', excellent: 'Excellent', good: 'Good', fair: 'Fair', needs_attention: 'Needs Attention' };
 
 export default function HealthScoreCard({ onPress }: Props) {
+  const navigation = useNavigation<any>();
   const [data, setData] = useState<HealthScoreResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -29,7 +31,7 @@ export default function HealthScoreCard({ onPress }: Props) {
   const label = STATUS_LABEL[data.status as keyof typeof STATUS_LABEL] || data.status;
 
   return (
-    <Pressable style={styles.card} onPress={() => onPress?.(data)}>
+    <Pressable style={styles.card} onPress={() => { onPress?.(data); navigation.navigate('HealthScoreDetail'); }}>
       <View style={styles.row}>
         {/* Score */}
         <View style={[styles.circle, { borderColor: color }]}>
@@ -38,7 +40,7 @@ export default function HealthScoreCard({ onPress }: Props) {
         </View>
 
         <View style={styles.info}>
-          <Text style={styles.title}>Leo Health Score</Text>
+          <Text style={styles.title}>Health Score</Text>
           <Text style={[styles.status, { color }]}>{emoji} {label}</Text>
         </View>
       </View>

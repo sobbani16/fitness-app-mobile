@@ -24,6 +24,7 @@ import { useSupplementCatalog } from '../hooks/useSupplementCatalog';
 import { Supplement } from '../api/supplements';
 import { GLASS_ML } from '../storage/dailyStats';
 import { formatWeight } from '../util/units';
+import { useNavigation } from '@react-navigation/native';
 import HealthScoreCard from '../components/HealthScoreCard';
 
 const WATER_GOAL_ML = 2000;
@@ -35,6 +36,7 @@ function caloriesFromSteps(steps: number, weightKg: number): number {
 }
 
 export default function DashboardScreen() {
+  const navigation = useNavigation<any>();
   const { profile } = useProfile();
   const { totalCalories, meals, refresh: refreshMeals } = useMeals();
   const { weather, refresh: refreshWeather } = useWeather();
@@ -50,6 +52,7 @@ export default function DashboardScreen() {
     deselect: deselectSupplement,
   } = useSupplementCatalog();
   const [supplementQuery, setSupplementQuery] = useState('');
+  const [supplementQty, setSupplementQty] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<RecommendationResponse | null>(null);
@@ -91,15 +94,16 @@ export default function DashboardScreen() {
     await load();
   };
 
-  // Supplement macros: sum nutrition from all taken supplements.
+  // Supplement macros: sum nutrition from all taken supplements × quantity.
   const supplementMacros = mySupplements.reduce(
     (acc, s) => {
       if (stats?.supplements?.[s.name]) {
-        acc.calories += s.calories || 0;
-        acc.proteinG += s.proteinG || 0;
-        acc.carbsG += s.carbsG || 0;
-        acc.fatG += s.fatG || 0;
-        acc.fiberG += s.fiberG || 0;
+        const qty = supplementQty[s.id] || 1;
+        acc.calories += (s.calories || 0) * qty;
+        acc.proteinG += (s.proteinG || 0) * qty;
+        acc.carbsG += (s.carbsG || 0) * qty;
+        acc.fatG += (s.fatG || 0) * qty;
+        acc.fiberG += (s.fiberG || 0) * qty;
       }
       return acc;
     },
@@ -173,6 +177,16 @@ export default function DashboardScreen() {
 
       <HealthScoreCard />
 
+      {/* Weekly Meal Plan link */}
+      <Pressable style={styles.weeklyPlanLink} onPress={() => navigation.navigate('WeeklyPlan')}>
+        <Text style={styles.weeklyPlanIcon}>🍽️</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.weeklyPlanTitle}>Weekly Meal Plan</Text>
+          <Text style={styles.weeklyPlanSub}>View your 7-day plan, shopping list & meal prep</Text>
+        </View>
+        <Text style={styles.weeklyPlanArrow}>›</Text>
+      </Pressable>
+
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Steps</Text>
         <View style={styles.bigStatRow}>
@@ -189,14 +203,17 @@ export default function DashboardScreen() {
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Today's calories</Text>
-        <Row label="Consumed" value={`${balance.caloriesIn} kcal`} />
+        <Row label="Food" value={`${balance.caloriesIn} kcal`} />
+        {supplementMacros.calories > 0 && (
+          <Row label="Supplements" value={`${supplementMacros.calories} kcal`} />
+        )}
+        <Row label="Total consumed" value={`${balance.caloriesIn + supplementMacros.calories} kcal`} valueStyle={{ fontWeight: '700' }} />
         <Row label="Spent (steps + activity)" value={`${balance.caloriesBurnedExercise} kcal`} />
         <Row label="Target" value={`${balance.target} kcal`} />
-        <Row label="Net" value={`${balance.net} kcal`} />
         <View style={styles.divider} />
         <Row
           label="Balance"
-          value={`${balance.surplus > 0 ? '+' : ''}${balance.surplus} kcal (${balance.status.replace('_', ' ')})`}
+          value={`${balance.surplus > 0 ? '+' : ''}${balance.surplus + supplementMacros.calories} kcal (${balance.status.replace('_', ' ')})`}
           valueStyle={{ color: statusColor, fontWeight: '700' }}
         />
       </View>
@@ -241,35 +258,57 @@ export default function DashboardScreen() {
         )}
         {mySupplements.map((s) => {
           const taken = Boolean(stats?.supplements?.[s.name]);
+          const qty = supplementQty[s.id] || 1;
           return (
-            <Pressable
-              key={s.id}
-              style={styles.supplementRow}
-              onPress={() => toggleSupplement(s.name)}
-              onLongPress={() =>
-                Alert.alert('Remove supplement?', `Remove "${s.name}" from your list?`, [
-                  { text: 'Cancel', style: 'cancel' },
-                  { text: 'Remove', style: 'destructive', onPress: () => deselectSupplement(s.id) },
-                ])
-              }
-            >
-              <View style={[styles.checkbox, taken && styles.checkboxOn]}>
-                {taken && <Text style={styles.checkmark}>✓</Text>}
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.supplementName, taken && styles.supplementNameOn]}>
-                  {s.name}
-                </Text>
-                <Text style={styles.supplementDose}>
-                  {[s.brand, s.defaultDose].filter(Boolean).join(' · ') || ''}
-                </Text>
-              </View>
-              {taken && (s.calories > 0 || s.proteinG > 0) && (
-                <Text style={styles.supplementMacro}>
-                  {s.calories > 0 ? `${s.calories} kcal` : `${s.proteinG}g P`}
-                </Text>
+            <View key={s.id}>
+              <Pressable
+                style={styles.supplementRow}
+                onPress={() => toggleSupplement(s.name)}
+                onLongPress={() =>
+                  Alert.alert('Remove supplement?', `Remove "${s.name}" from your list?`, [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Remove', style: 'destructive', onPress: () => deselectSupplement(s.id) },
+                  ])
+                }
+              >
+                <View style={[styles.checkbox, taken && styles.checkboxOn]}>
+                  {taken && <Text style={styles.checkmark}>✓</Text>}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.supplementName, taken && styles.supplementNameOn]}>
+                    {s.name}
+                  </Text>
+                  <Text style={styles.supplementDose}>
+                    {[s.brand, s.defaultDose].filter(Boolean).join(' · ') || ''}
+                  </Text>
+                </View>
+                {taken && (s.calories > 0 || s.proteinG > 0) && (
+                  <Text style={styles.supplementMacro}>
+                    {Math.round((s.calories || 0) * qty)} kcal
+                  </Text>
+                )}
+              </Pressable>
+              {/* Quantity adjuster — shown when supplement is taken */}
+              {taken && (
+                <View style={styles.qtyRow}>
+                  <Pressable
+                    style={styles.qtyBtn}
+                    onPress={() => setSupplementQty((prev) => ({ ...prev, [s.id]: Math.max(0.5, (prev[s.id] || 1) - 0.5) }))}
+                  >
+                    <Text style={styles.qtyBtnText}>−</Text>
+                  </Pressable>
+                  <Text style={styles.qtyValue}>
+                    {qty} {qty === 1 ? 'serving' : 'servings'}
+                  </Text>
+                  <Pressable
+                    style={styles.qtyBtn}
+                    onPress={() => setSupplementQty((prev) => ({ ...prev, [s.id]: (prev[s.id] || 1) + 0.5 }))}
+                  >
+                    <Text style={styles.qtyBtnText}>+</Text>
+                  </Pressable>
+                </View>
               )}
-            </Pressable>
+            </View>
           );
         })}
 
@@ -392,6 +431,20 @@ const styles = StyleSheet.create({
     borderColor: '#c5ddf5',
   },
   goalText: { fontSize: 15, fontWeight: '600', color: '#1a4a7a', lineHeight: 22 },
+  weeklyPlanLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#e5e5ea',
+  },
+  weeklyPlanIcon: { fontSize: 24 },
+  weeklyPlanTitle: { fontSize: 15, fontWeight: '700', color: '#222' },
+  weeklyPlanSub: { fontSize: 12, color: '#888' },
+  weeklyPlanArrow: { fontSize: 24, color: '#ccc' },
   title: { fontSize: 24, fontWeight: '700' },
   muted: { color: '#666' },
   err: { color: '#c0392b', fontWeight: '600' },
@@ -451,6 +504,10 @@ const styles = StyleSheet.create({
   supplementNameOn: { color: '#2e7d32', fontWeight: '600' },
   supplementDose: { fontSize: 12, color: '#888' },
   supplementMacro: { fontSize: 12, color: '#1e6fb8', fontWeight: '600' },
+  qtyRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 34, paddingVertical: 4 },
+  qtyBtn: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#e5e5ea', alignItems: 'center', justifyContent: 'center' },
+  qtyBtnText: { fontSize: 16, fontWeight: '700', color: '#444' },
+  qtyValue: { fontSize: 13, fontWeight: '600', color: '#333', minWidth: 80, textAlign: 'center' },
   supplementMacroSummary: { marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: '#e5e5ea' },
   searchResults: { marginTop: 4, borderTopWidth: 1, borderTopColor: '#e5e5ea', paddingTop: 4 },
   addRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
