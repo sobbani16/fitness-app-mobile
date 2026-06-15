@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { getHealthScore, HealthScoreResponse } from '../api/healthScore';
 
 interface Props {
@@ -16,12 +17,16 @@ export default function HealthScoreCard({ onPress }: Props) {
   const [data, setData] = useState<HealthScoreResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    getHealthScore()
-      .then(setData)
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+  // Re-fetch every time the screen is focused (after logging meals, returning from detail, etc.)
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(true);
+      getHealthScore()
+        .then(setData)
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    }, []),
+  );
 
   if (loading) return <View style={styles.card}><ActivityIndicator /></View>;
   if (!data) return null;

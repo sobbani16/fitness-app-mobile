@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   getHealthScore, getActions, getHealthTrend,
   HealthScoreResponse, ImprovementAction, TrendPoint,
@@ -34,12 +35,16 @@ export default function HealthScoreDetailScreen() {
   const [trendDays, setTrendDays] = useState(7);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    Promise.all([getHealthScore(), getActions(), getHealthTrend(trendDays)])
-      .then(([s, a, t]) => { setData(s); setActions(a.actions); setTrend(t); })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [trendDays]);
+  // Re-fetch fresh data every time this screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(true);
+      Promise.all([getHealthScore(), getActions(), getHealthTrend(trendDays)])
+        .then(([s, a, t]) => { setData(s); setActions(a.actions); setTrend(t); })
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    }, [trendDays]),
+  );
 
   if (loading) return <View style={styles.center}><ActivityIndicator size="large" /></View>;
   if (!data) return <View style={styles.center}><Text style={styles.muted}>No data yet. Log some meals!</Text></View>;
