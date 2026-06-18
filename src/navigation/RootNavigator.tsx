@@ -5,6 +5,12 @@ import OnboardingScreen from '../screens/OnboardingScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import HealthScoreDetailScreen from '../screens/HealthScoreDetailScreen';
 import WeeklyPlanScreen from '../screens/WeeklyPlanScreen';
+import TrainerListScreen from '../screens/TrainerListScreen';
+import TrainerDetailScreen from '../screens/TrainerDetailScreen';
+import TrainerSignupScreen from '../screens/TrainerSignupScreen';
+import ClientProgressScreen from '../screens/ClientProgressScreen';
+import TrainerDropFormScreen from '../screens/TrainerDropFormScreen';
+import ClientDropSurveyScreen from '../screens/ClientDropSurveyScreen';
 import MainTabs from './MainTabs';
 import { useProfile } from '../context/ProfileContext';
 
@@ -14,6 +20,12 @@ export type RootStackParamList = {
   EditProfile: undefined;
   HealthScoreDetail: undefined;
   WeeklyPlan: undefined;
+  TrainerList: undefined;
+  TrainerDetail: { trainerId: string };
+  TrainerSignup: undefined;
+  ClientProgress: { clientId: string };
+  TrainerDropForm: { clientId: string };
+  ClientDropSurvey: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -49,9 +61,46 @@ export default function RootNavigator() {
             component={WeeklyPlanScreen}
             options={{ headerShown: true, title: 'Weekly Meal Plan' }}
           />
+          <Stack.Screen
+            name="TrainerList"
+            component={TrainerListScreen}
+            options={{ headerShown: true, title: 'Find a Trainer' }}
+          />
+          <Stack.Screen
+            name="TrainerDetail"
+            component={TrainerDetailScreen}
+            options={{ headerShown: true, title: 'Trainer' }}
+          />
+          <Stack.Screen
+            name="TrainerSignup"
+            component={TrainerSignupScreen}
+            options={{ headerShown: true, title: 'Become a Trainer' }}
+          />
+          <Stack.Screen
+            name="ClientProgress"
+            component={ClientProgressScreen}
+            options={{ headerShown: true, title: 'Client Progress' }}
+          />
+          <Stack.Screen
+            name="TrainerDropForm"
+            component={TrainerDropFormScreen}
+            options={{ headerShown: true, title: 'Drop Client', presentation: 'modal' }}
+          />
+          <Stack.Screen
+            name="ClientDropSurvey"
+            component={ClientDropSurveyScreen}
+            options={{ headerShown: true, title: 'Leave Trainer', presentation: 'modal' }}
+          />
         </>
       ) : (
-        <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+        <>
+          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+          <Stack.Screen
+            name="TrainerSignup"
+            component={TrainerSignupScreen}
+            options={{ headerShown: true, title: 'Become a Trainer' }}
+          />
+        </>
       )}
     </Stack.Navigator>
   );

@@ -3,14 +3,17 @@ import {
   View,
   Text,
   StyleSheet,
-  Button,
   Alert,
   ScrollView,
   ActivityIndicator,
   RefreshControl,
   Pressable,
+  TouchableOpacity,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../navigation/RootNavigator';
 import { useProfile } from '../context/ProfileContext';
 import { useMeals } from '../context/MealsContext';
 import { useWeather } from '../hooks/useWeather';
@@ -19,7 +22,7 @@ import { formatHeight, formatWeight } from '../util/units';
 import { UnitSystem } from '../storage/profile';
 
 export default function SummaryScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { profile, reset, update } = useProfile();
   const { meals, refresh: refreshMeals } = useMeals();
   const { weather, refresh: refreshWeather } = useWeather();
@@ -161,6 +164,31 @@ export default function SummaryScreen() {
         </View>
       )}
 
+      {/* Trainer section */}
+      <TouchableOpacity
+        style={styles.trainerCard}
+        onPress={() => navigation.navigate('TrainerList')}
+        activeOpacity={0.85}
+      >
+        <View style={styles.trainerCardLeft}>
+          <Ionicons name="barbell-outline" size={24} color="#1e6fb8" />
+        </View>
+        <View style={styles.trainerCardBody}>
+          <Text style={styles.trainerCardTitle}>Find a Trainer</Text>
+          <Text style={styles.trainerCardSub}>Browse Standard, Pro &amp; Elite coaches</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color="#ccc" />
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.becomeTrainerBtn}
+        onPress={() => navigation.navigate('TrainerSignup')}
+        activeOpacity={0.85}
+      >
+        <Ionicons name="ribbon-outline" size={16} color="#5c8a5c" />
+        <Text style={styles.becomeTrainerText}>Become a Trainer</Text>
+      </TouchableOpacity>
+
       <View style={{ height: 12 }} />
       <View style={styles.actions}>
         <Pressable style={[styles.actionBtn, styles.editBtn]} onPress={onEdit}>
@@ -228,4 +256,37 @@ const styles = StyleSheet.create({
   editBtnText: { color: '#fff', fontWeight: '700' },
   deleteBtn: { backgroundColor: '#fff', borderColor: '#c0392b' },
   deleteBtnText: { color: '#c0392b', fontWeight: '700' },
+  trainerCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#c8ddf5',
+    gap: 12,
+  },
+  trainerCardLeft: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#e8f0fb',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  trainerCardBody: { flex: 1 },
+  trainerCardTitle: { fontSize: 15, fontWeight: '700', color: '#1a1a2e' },
+  trainerCardSub: { fontSize: 12, color: '#888', marginTop: 2 },
+  becomeTrainerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    gap: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#5c8a5c',
+    backgroundColor: '#f4faf4',
+  },
+  becomeTrainerText: { fontSize: 14, fontWeight: '600', color: '#5c8a5c' },
 });
