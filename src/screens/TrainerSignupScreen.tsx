@@ -18,9 +18,9 @@ import { RootStackParamList } from '../navigation/RootNavigator';
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'TrainerSignup'>;
 
 const TIERS = [
-  { key: 'standard', label: 'Standard', price: '$30/mo', desc: 'Great for new trainers' },
-  { key: 'pro', label: 'Pro', price: '$50/mo', desc: 'For experienced coaches' },
-  { key: 'elite', label: 'Elite', price: '$100/mo', desc: 'Top-tier performance coaching' },
+  { key: 'standard', label: 'Standard', desc: 'Great for new trainers' },
+  { key: 'pro', label: 'Pro', desc: 'For experienced coaches' },
+  { key: 'elite', label: 'Elite', desc: 'Top-tier performance coaching' },
 ] as const;
 
 const TIER_COLORS: Record<string, string> = {
@@ -148,7 +148,7 @@ export default function TrainerSignupScreen() {
 
       {/* Tier selection */}
       <Text style={styles.label}>Tier *</Text>
-      <Text style={styles.tierNote}>Your tier determines your monthly rate. You can request a tier change after verification.</Text>
+      <Text style={styles.tierNote}>Your tier determines your client capacity and platform placement. Compensation is set by the admin team based on your client base and tier.</Text>
       {TIERS.map((t) => {
         const isSelected = tier === t.key;
         const color = TIER_COLORS[t.key];
@@ -163,7 +163,7 @@ export default function TrainerSignupScreen() {
               <Text style={styles.tierBadgeText}>{t.label.toUpperCase()}</Text>
             </View>
             <View style={styles.tierInfo}>
-              <Text style={styles.tierPrice}>{t.price}</Text>
+              <Text style={styles.tierName}>{t.label}</Text>
               <Text style={styles.tierDesc}>{t.desc}</Text>
             </View>
             {isSelected && <Ionicons name="checkmark-circle" size={22} color={color} />}
@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
   tierBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
   tierBadgeText: { fontSize: 11, fontWeight: '700', color: '#fff' },
   tierInfo: { flex: 1 },
-  tierPrice: { fontSize: 16, fontWeight: '700', color: '#1a1a2e' },
+  tierName: { fontSize: 16, fontWeight: '700', color: '#1a1a2e' },
   tierDesc: { fontSize: 12, color: '#888' },
 
   infoBox: {

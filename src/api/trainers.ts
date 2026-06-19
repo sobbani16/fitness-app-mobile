@@ -12,7 +12,6 @@ export interface TrainerProfile {
   certifications: string[];
   specialties: string[];
   yearsExperience: number;
-  monthlyRateUsd: number | null;
   tier: 'standard' | 'pro' | 'elite';
   location: string | null;
   verified: boolean;

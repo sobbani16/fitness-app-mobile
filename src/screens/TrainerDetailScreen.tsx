@@ -24,8 +24,6 @@ const TIER_COLORS: Record<string, string> = {
   elite: '#b8860b',
 };
 
-const TIER_PRICES: Record<string, number> = { standard: 30, pro: 50, elite: 100 };
-
 function StarRating({ rating, count }: { rating: number | null; count: number }) {
   const stars = rating ? Math.round(rating) : 0;
   return (
@@ -102,7 +100,6 @@ export default function TrainerDetailScreen() {
 
   const isMyTrainer = assigned?.trainerId === trainerId;
   const tierColor = TIER_COLORS[trainer.tier] ?? '#555';
-  const price = trainer.monthlyRateUsd ?? TIER_PRICES[trainer.tier] ?? 0;
   const isLocked = assigned && assigned.trainerId !== trainerId && assigned.lockedUntil && new Date() < new Date(assigned.lockedUntil);
   const isFull = trainer.spotsLeft === 0;
 
@@ -192,12 +189,6 @@ export default function TrainerDetailScreen() {
         </View>
       )}
 
-      {/* Price & CTA */}
-      <View style={styles.priceSection}>
-        <Text style={styles.priceLabel}>Monthly Rate</Text>
-        <Text style={styles.priceValue}>${price} / month</Text>
-      </View>
-
       <TouchableOpacity
         style={[styles.ctaBtn, buttonDisabled && styles.ctaBtnDisabled]}
         onPress={handleSubscribe}
@@ -264,10 +255,6 @@ const styles = StyleSheet.create({
 
   certRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
   certText: { fontSize: 14, color: '#333' },
-
-  priceSection: { alignItems: 'center', marginBottom: 16 },
-  priceLabel: { fontSize: 13, color: '#888', marginBottom: 2 },
-  priceValue: { fontSize: 28, fontWeight: '800', color: '#1a1a2e' },
 
   ctaBtn: {
     backgroundColor: '#1e6fb8',

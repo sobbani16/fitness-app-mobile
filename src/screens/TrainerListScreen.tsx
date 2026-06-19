@@ -30,12 +30,6 @@ const TIER_COLORS: Record<string, string> = {
   elite: '#b8860b',
 };
 
-const TIER_PRICES: Record<string, number> = {
-  standard: 30,
-  pro: 50,
-  elite: 100,
-};
-
 function StarRating({ rating }: { rating: number | null }) {
   const stars = rating ? Math.round(rating) : 0;
   return (
@@ -57,7 +51,6 @@ function StarRating({ rating }: { rating: number | null }) {
 
 function TrainerCard({ trainer, onPress }: { trainer: TrainerProfile; onPress: () => void }) {
   const tierColor = TIER_COLORS[trainer.tier] ?? '#555';
-  const price = trainer.monthlyRateUsd ?? TIER_PRICES[trainer.tier] ?? 0;
   const isFull = trainer.spotsLeft === 0;
 
   return (
@@ -96,7 +89,6 @@ function TrainerCard({ trainer, onPress }: { trainer: TrainerProfile; onPress: (
           </Text>
         )}
         <View style={styles.cardFooter}>
-          <Text style={styles.price}>${price}/mo</Text>
           {!isFull && (
             <Text style={styles.spots}>
               {trainer.spotsLeft} spot{trainer.spotsLeft !== 1 ? 's' : ''} left
@@ -266,7 +258,6 @@ const styles = StyleSheet.create({
   specialties: { fontSize: 11, color: '#999', marginBottom: 4 },
 
   cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  price: { fontSize: 14, fontWeight: '700', color: '#1e6fb8' },
   spots: { fontSize: 12, color: '#2e7d32', fontWeight: '600' },
 
   chevron: { marginLeft: 4 },
