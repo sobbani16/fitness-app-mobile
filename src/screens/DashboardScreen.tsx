@@ -90,21 +90,14 @@ export default function DashboardScreen() {
     }
   }, [profile, totalCalories, weather, steps]);
 
-  // Sync steps to backend so health score sees activity
+  // Sync steps to backend and then refresh the health score so it reflects activity
   useEffect(() => {
     if (steps <= 0) return;
     const timeout = setTimeout(() => {
-      syncSteps(steps).catch(() => {});
+      syncSteps(steps)
+        .catch(() => {})
+        .finally(() => bumpHealthScore());
     }, 2000);
-    return () => clearTimeout(timeout);
-  }, [steps]);
-
-  // Sync steps and refresh health score whenever activity data changes meaningfully
-  useEffect(() => {
-    if (steps <= 0) return;
-    const timeout = setTimeout(() => {
-      bumpHealthScore();
-    }, 2500);
     return () => clearTimeout(timeout);
   }, [steps, bumpHealthScore]);
 
@@ -116,6 +109,7 @@ export default function DashboardScreen() {
     setRefreshing(true);
     await Promise.all([refreshMeals(), refreshWeather(), refreshStats(), refreshSupplements()]);
     await load();
+    bumpHealthScore();
   };
 
   // Supplement macros: sum nutrition from all taken supplements × quantity.
