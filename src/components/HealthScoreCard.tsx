@@ -40,8 +40,33 @@ export default function HealthScoreCard({ onPress, refreshKey }: Props) {
     fetchScore();
   }, [refreshKey, isFocused, fetchScore]);
 
-  if (loading) return <View style={styles.card}><ActivityIndicator /></View>;
-  if (!data) return null;
+  if (loading) {
+    return (
+      <Pressable style={styles.card} onPress={() => navigation.navigate('HealthScoreDetail')}>
+        <View style={styles.row}>
+          <ActivityIndicator />
+          <Text style={styles.loadingText}>Loading health score...</Text>
+        </View>
+      </Pressable>
+    );
+  }
+
+  if (!data) {
+    return (
+      <Pressable style={styles.card} onPress={() => navigation.navigate('HealthScoreDetail')}>
+        <View style={styles.row}>
+          <View style={[styles.circle, { borderColor: '#888' }]}>
+            <Text style={[styles.score, { color: '#888' }]}>—</Text>
+          </View>
+          <View style={styles.info}>
+            <Text style={styles.title}>Health Score</Text>
+            <Text style={[styles.status, { color: '#888' }]}>Not available yet</Text>
+          </View>
+        </View>
+        <Text style={styles.tap}>Tap to open →</Text>
+      </Pressable>
+    );
+  }
 
   const color = SCORE_COLORS[data.status as keyof typeof SCORE_COLORS] || '#666';
   const emoji = STATUS_EMOJI[data.status as keyof typeof STATUS_EMOJI] || '';
@@ -101,6 +126,7 @@ const styles = StyleSheet.create({
   info: { flex: 1 },
   title: { fontSize: 17, fontWeight: '700', color: '#222' },
   status: { fontSize: 14, fontWeight: '600', marginTop: 2 },
+  loadingText: { fontSize: 14, color: '#666', marginLeft: 12 },
   insight: { fontSize: 13, color: '#555', paddingLeft: 4 },
   insightCritical: { color: '#c0392b', fontWeight: '600' },
   contributorRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingLeft: 4 },
