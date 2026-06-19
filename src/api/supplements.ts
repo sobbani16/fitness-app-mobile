@@ -20,6 +20,19 @@ export interface Supplement {
   lastTakenAt?: string | null;
 }
 
+export interface SupplementLog {
+  id: string;
+  userSupplementId: string;
+  supplementName: string;
+  quantity: number;
+  calories: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+  fiberG: number;
+  date: string;
+}
+
 export interface AddSupplementInput {
   name: string;
   category?: string;
@@ -80,4 +93,30 @@ export async function deselectSupplement(supplementId: string): Promise<void> {
 export async function addSupplement(input: AddSupplementInput): Promise<Supplement> {
   const res = await api.post<Supplement>('/supplements', input);
   return res.data;
+}
+
+export async function logSupplement(userSupplementId: string, quantity: number = 1, date?: string): Promise<SupplementLog> {
+  const userId = await getDeviceId();
+  const res = await api.post<SupplementLog>(
+    '/supplements/log',
+    { userSupplementId, quantity, date },
+    { headers: { 'x-user-id': userId } },
+  );
+  return res.data;
+}
+
+export async function deleteSupplementLog(logId: string): Promise<void> {
+  const userId = await getDeviceId();
+  await api.delete(`/supplements/log/${logId}`, { headers: { 'x-user-id': userId } });
+}
+
+export async function getSupplementLogs(date?: string): Promise<SupplementLog[]> {
+  const userId = await getDeviceId();
+  const params: Record<string, string> = {};
+  if (date) params.date = date;
+  const res = await api.get<{ logs: SupplementLog[] }>('/supplements/log', {
+    params,
+    headers: { 'x-user-id': userId },
+  });
+  return res.data.logs ?? [];
 }

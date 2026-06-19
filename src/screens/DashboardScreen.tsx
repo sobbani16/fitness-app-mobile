@@ -22,6 +22,7 @@ import { useStepCounter } from '../hooks/useStepCounter';
 import { useDailyStats } from '../hooks/useDailyStats';
 import { useSupplementCatalog } from '../hooks/useSupplementCatalog';
 import { Supplement } from '../api/supplements';
+import { syncSteps } from '../api/dailyStats';
 import { GLASS_ML } from '../storage/dailyStats';
 import { formatWeight } from '../util/units';
 import { useNavigation } from '@react-navigation/native';
@@ -41,7 +42,7 @@ export default function DashboardScreen() {
   const { totalCalories, meals, refresh: refreshMeals } = useMeals();
   const { weather, refresh: refreshWeather } = useWeather();
   const { steps, available: stepsAvailable } = useStepCounter();
-  const { stats, addWater, toggleSupplement, refresh: refreshStats } = useDailyStats();
+  const { stats, addWater, toggleSupplement, updateSupplementLog, refresh: refreshStats } = useDailyStats();
   const {
     mySupplements,
     searchResults,
@@ -57,8 +58,13 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<RecommendationResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [healthScoreRefreshKey, setHealthScoreRefreshKey] = useState(0);
 
   const stepCalories = profile ? caloriesFromSteps(steps, profile.weightKg) : 0;
+
+  const bumpHealthScore = useCallback(() => {
+    setHealthScoreRefreshKey((k) => k + 1);
+  }, []);
 
   const load = useCallback(async () => {
     if (!profile) return;
@@ -83,6 +89,24 @@ export default function DashboardScreen() {
       setRefreshing(false);
     }
   }, [profile, totalCalories, weather, steps]);
+
+  // Sync steps to backend so health score sees activity
+  useEffect(() => {
+    if (steps <= 0) return;
+    const timeout = setTimeout(() => {
+      syncSteps(steps).catch(() => {});
+    }, 2000);
+    return () => clearTimeout(timeout);
+  }, [steps]);
+
+  // Sync steps and refresh health score whenever activity data changes meaningfully
+  useEffect(() => {
+    if (steps <= 0) return;
+    const timeout = setTimeout(() => {
+      bumpHealthScore();
+    }, 2500);
+    return () => clearTimeout(timeout);
+  }, [steps, bumpHealthScore]);
 
   useEffect(() => {
     if (profile) load();
@@ -114,6 +138,15 @@ export default function DashboardScreen() {
     setSupplementQuery(text);
     searchSupplementCatalog(text);
   };
+
+  const adjustSupplementQty = useCallback(async (s: Supplement, delta: number) => {
+    const nextQty = Math.max(0.5, (supplementQty[s.id] || 1) + delta);
+    setSupplementQty((prev) => ({ ...prev, [s.id]: nextQty }));
+    if (stats?.supplements[s.name]) {
+      await updateSupplementLog(s, nextQty);
+      bumpHealthScore();
+    }
+  }, [supplementQty, stats, updateSupplementLog, bumpHealthScore]);
 
   if (loading) {
     return (
@@ -175,7 +208,7 @@ export default function DashboardScreen() {
         </Text>
       )}
 
-      <HealthScoreCard />
+      <HealthScoreCard refreshKey={healthScoreRefreshKey} />
 
       {/* Weekly Meal Plan link */}
       <Pressable style={styles.weeklyPlanLink} onPress={() => navigation.navigate('WeeklyPlan')}>
@@ -234,7 +267,10 @@ export default function DashboardScreen() {
           />
         </View>
         <View style={styles.waterRow}>
-          <Pressable style={styles.waterBtn} onPress={() => addWater(-GLASS_ML)}>
+          <Pressable
+            style={styles.waterBtn}
+            onPress={async () => { await addWater(-GLASS_ML); bumpHealthScore(); }}
+          >
             <Text style={styles.waterBtnText}>− glass</Text>
           </Pressable>
           <Text style={styles.waterGlasses}>
@@ -242,7 +278,7 @@ export default function DashboardScreen() {
           </Text>
           <Pressable
             style={[styles.waterBtn, styles.waterBtnPrimary]}
-            onPress={() => addWater(GLASS_ML)}
+            onPress={async () => { await addWater(GLASS_ML); bumpHealthScore(); }}
           >
             <Text style={[styles.waterBtnText, styles.waterBtnPrimaryText]}>+ glass</Text>
           </Pressable>
@@ -263,7 +299,7 @@ export default function DashboardScreen() {
             <View key={s.id}>
               <Pressable
                 style={styles.supplementRow}
-                onPress={() => toggleSupplement(s.name)}
+                onPress={async () => { await toggleSupplement(s, qty); bumpHealthScore(); }}
                 onLongPress={() =>
                   Alert.alert('Remove supplement?', `Remove "${s.name}" from your list?`, [
                     { text: 'Cancel', style: 'cancel' },
@@ -293,7 +329,7 @@ export default function DashboardScreen() {
                 <View style={styles.qtyRow}>
                   <Pressable
                     style={styles.qtyBtn}
-                    onPress={() => setSupplementQty((prev) => ({ ...prev, [s.id]: Math.max(0.5, (prev[s.id] || 1) - 0.5) }))}
+                    onPress={() => adjustSupplementQty(s, -0.5)}
                   >
                     <Text style={styles.qtyBtnText}>−</Text>
                   </Pressable>
@@ -302,7 +338,7 @@ export default function DashboardScreen() {
                   </Text>
                   <Pressable
                     style={styles.qtyBtn}
-                    onPress={() => setSupplementQty((prev) => ({ ...prev, [s.id]: (prev[s.id] || 1) + 0.5 }))}
+                    onPress={() => adjustSupplementQty(s, 0.5)}
                   >
                     <Text style={styles.qtyBtnText}>+</Text>
                   </Pressable>

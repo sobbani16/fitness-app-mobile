@@ -1,32 +1,44 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { useFocusEffect } from '@react-navigation/native';
 import { getHealthScore, HealthScoreResponse } from '../api/healthScore';
 
 interface Props {
   onPress?: (data: HealthScoreResponse) => void;
+  refreshKey?: number | string;
 }
 
 const SCORE_COLORS = { elite: '#2e7d32', excellent: '#2e7d32', good: '#1e6fb8', fair: '#e6a817', needs_attention: '#c0392b' };
 const STATUS_EMOJI = { elite: '🏆', excellent: '🟢', good: '🔵', fair: '🟡', needs_attention: '🔴' };
 const STATUS_LABEL = { elite: 'Elite', excellent: 'Excellent', good: 'Good', fair: 'Fair', needs_attention: 'Needs Attention' };
 
-export default function HealthScoreCard({ onPress }: Props) {
+export default function HealthScoreCard({ onPress, refreshKey }: Props) {
   const navigation = useNavigation<any>();
+  const isFocused = useIsFocused();
   const [data, setData] = useState<HealthScoreResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Re-fetch every time the screen is focused (after logging meals, returning from detail, etc.)
+  const fetchScore = useCallback(() => {
+    setLoading(true);
+    getHealthScore()
+      .then(setData)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Re-fetch every time the screen is focused
   useFocusEffect(
     useCallback(() => {
-      setLoading(true);
-      getHealthScore()
-        .then(setData)
-        .catch(() => {})
-        .finally(() => setLoading(false));
-    }, []),
+      fetchScore();
+    }, [fetchScore]),
   );
+
+  // Re-fetch when refreshKey changes while the screen is already focused
+  useEffect(() => {
+    if (!isFocused) return;
+    fetchScore();
+  }, [refreshKey, isFocused, fetchScore]);
 
   if (loading) return <View style={styles.card}><ActivityIndicator /></View>;
   if (!data) return null;
