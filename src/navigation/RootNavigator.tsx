@@ -11,6 +11,7 @@ import TrainerSignupScreen from '../screens/TrainerSignupScreen';
 import ClientProgressScreen from '../screens/ClientProgressScreen';
 import TrainerDropFormScreen from '../screens/TrainerDropFormScreen';
 import ClientDropSurveyScreen from '../screens/ClientDropSurveyScreen';
+import ClientMealPlanScreen from '../screens/ClientMealPlanScreen';
 import MainTabs from './MainTabs';
 import { useProfile } from '../context/ProfileContext';
 
@@ -26,6 +27,7 @@ export type RootStackParamList = {
   ClientProgress: { clientId: string };
   TrainerDropForm: { clientId: string };
   ClientDropSurvey: undefined;
+  ClientMealPlan: { clientId: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -85,6 +87,11 @@ export default function RootNavigator() {
             name="TrainerDropForm"
             component={TrainerDropFormScreen}
             options={{ headerShown: true, title: 'Drop Client', presentation: 'modal' }}
+          />
+          <Stack.Screen
+            name="ClientMealPlan"
+            component={ClientMealPlanScreen}
+            options={{ headerShown: true, title: 'Client Meal Plan' }}
           />
           <Stack.Screen
             name="ClientDropSurvey"

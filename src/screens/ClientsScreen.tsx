@@ -105,6 +105,12 @@ export default function ClientsScreen() {
                   <Ionicons name="stats-chart-outline" size={18} color="#1e6fb8" />
                 </TouchableOpacity>
                 <TouchableOpacity
+                  style={styles.actionBtn}
+                  onPress={() => nav.navigate('ClientMealPlan', { clientId: item.clientId })}
+                >
+                  <Ionicons name="restaurant-outline" size={18} color="#5c8a5c" />
+                </TouchableOpacity>
+                <TouchableOpacity
                   style={[styles.actionBtn, styles.dropBtn]}
                   onPress={() => nav.navigate('TrainerDropForm', { clientId: item.clientId })}
                 >
