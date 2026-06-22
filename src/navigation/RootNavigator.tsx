@@ -12,6 +12,8 @@ import ClientProgressScreen from '../screens/ClientProgressScreen';
 import TrainerDropFormScreen from '../screens/TrainerDropFormScreen';
 import ClientDropSurveyScreen from '../screens/ClientDropSurveyScreen';
 import ClientMealPlanScreen from '../screens/ClientMealPlanScreen';
+import LabelScannerScreen from '../screens/LabelScannerScreen';
+import PortionAdjustScreen from '../screens/PortionAdjustScreen';
 import MainTabs from './MainTabs';
 import { useProfile } from '../context/ProfileContext';
 
@@ -28,6 +30,8 @@ export type RootStackParamList = {
   TrainerDropForm: { clientId: string };
   ClientDropSurvey: undefined;
   ClientMealPlan: { clientId: string };
+  LabelScanner: { mealType?: string };
+  PortionAdjust: { extracted: any; photoUri: string | null; ocrRawText: string; mealType: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -97,6 +101,16 @@ export default function RootNavigator() {
             name="ClientDropSurvey"
             component={ClientDropSurveyScreen}
             options={{ headerShown: true, title: 'Leave Trainer', presentation: 'modal' }}
+          />
+          <Stack.Screen
+            name="LabelScanner"
+            component={LabelScannerScreen}
+            options={{ headerShown: true, title: 'Scan Label' }}
+          />
+          <Stack.Screen
+            name="PortionAdjust"
+            component={PortionAdjustScreen}
+            options={{ headerShown: true, title: 'Adjust Portion' }}
           />
         </>
       ) : (

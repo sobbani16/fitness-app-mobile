@@ -39,7 +39,7 @@ function caloriesFromSteps(steps: number, weightKg: number): number {
 export default function DashboardScreen() {
   const navigation = useNavigation<any>();
   const { profile } = useProfile();
-  const { totalCalories, meals, refresh: refreshMeals } = useMeals();
+  const { totalCalories, meals, refresh: refreshMeals, syncAll: syncMeals } = useMeals();
   const { weather, refresh: refreshWeather } = useWeather();
   const { steps, available: stepsAvailable } = useStepCounter();
   const { stats, addWater, toggleSupplement, updateSupplementLog, refresh: refreshStats } = useDailyStats();
@@ -108,6 +108,7 @@ export default function DashboardScreen() {
   const onRefresh = async () => {
     setRefreshing(true);
     await Promise.all([refreshMeals(), refreshWeather(), refreshStats(), refreshSupplements()]);
+    await syncMeals().catch(() => {});
     await load();
     bumpHealthScore();
   };

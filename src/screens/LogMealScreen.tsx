@@ -23,6 +23,7 @@ import { MealType, LoggedMeal, Macros } from '../storage/meals';
 import ScaleConnectCard from '../components/ScaleConnectCard';
 import { useScale } from '../hooks/useScale';
 import { caloriesForPortion, macrosForPortion } from '../services/foodCalories';
+import { useNavigation } from '@react-navigation/native';
 
 const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
 
@@ -51,6 +52,7 @@ function macroStringsForPortion(per100: Macros, grams: number) {
 }
 
 export default function LogMealScreen() {
+  const navigation = useNavigation<any>();
   const { meals, totalCalories, add, remove } = useMeals();
   const scale = useScale();
 
@@ -234,6 +236,13 @@ export default function LogMealScreen() {
         <Text style={styles.muted}>
           Today: {meals.length} meal{meals.length === 1 ? '' : 's'} · {totalCalories} kcal
         </Text>
+
+        <Pressable
+          style={styles.scanLabelBtn}
+          onPress={() => navigation.navigate('LabelScanner', { mealType })}
+        >
+          <Text style={styles.scanLabelBtnText}>📷 Scan Nutrition Label</Text>
+        </Pressable>
 
         <Text style={styles.label}>Photo (optional)</Text>
         {photoUri ? (
@@ -481,4 +490,13 @@ const styles = StyleSheet.create({
   macroRow: { flexDirection: 'row', gap: 8 },
   macroField: { flex: 1, gap: 4 },
   macroLabel: { fontSize: 12, color: '#666', fontWeight: '600' },
+  scanLabelBtn: {
+    backgroundColor: '#6c63ff',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  scanLabelBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });

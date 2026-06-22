@@ -16,6 +16,7 @@ interface MealsContextValue {
   add: (m: LoggedMeal) => Promise<void>;
   remove: (id: string) => Promise<void>;
   refresh: () => Promise<void>;
+  syncAll: () => Promise<void>;
 }
 
 const MealsContext = createContext<MealsContextValue | undefined>(undefined);
@@ -67,9 +68,15 @@ export function MealsProvider({ children }: { children: React.ReactNode }) {
     setMeals(next);
   }, []);
 
+  const syncAll = useCallback(async () => {
+    for (const m of meals) {
+      await syncMealToBackend(m);
+    }
+  }, [meals]);
+
   return (
     <MealsContext.Provider
-      value={{ meals, totalCalories: sumCalories(meals), loading, add, remove, refresh }}
+      value={{ meals, totalCalories: sumCalories(meals), loading, add, remove, refresh, syncAll }}
     >
       {children}
     </MealsContext.Provider>
