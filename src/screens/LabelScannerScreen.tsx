@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
+  TextInput,
   StyleSheet,
   Pressable,
   ActivityIndicator,
@@ -10,6 +11,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import TextRecognition from '@react-native-ml-kit/text-recognition';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { extractFromOcrText, ExtractedNutrition } from '../api/labelScanner';
@@ -24,9 +26,10 @@ export default function LabelScannerScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<any>(null);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [ocrText, setOcrText] = useState('');
-  const [showManualEntry, setShowManualEntry] = useState(false);
+  const [editingText, setEditingText] = useState(false);
 
   if (!permission) {
     return (
@@ -49,31 +52,45 @@ export default function LabelScannerScreen() {
 
   const takePhoto = async () => {
     if (!cameraRef.current) return;
+    setScanning(true);
     try {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.8, base64: false });
       setPhotoUri(photo.uri);
+
+      // Auto-run OCR on the captured photo
+      const result = await TextRecognition.recognize(photo.uri);
+      const text = result.text || '';
+      setOcrText(text);
+
+      if (!text.trim()) {
+        Alert.alert(
+          'No text detected',
+          'Could not read any text from the photo. Try taking a clearer photo, or enter the label info manually.',
+        );
+      }
     } catch (err: any) {
-      Alert.alert('Error', err?.message || 'Failed to take photo');
+      Alert.alert('Error', err?.message || 'Failed to capture/scan photo');
+    } finally {
+      setScanning(false);
     }
   };
 
   const retakePhoto = () => {
     setPhotoUri(null);
     setOcrText('');
-    setShowManualEntry(false);
+    setEditingText(false);
   };
 
   const processLabel = async () => {
     if (!ocrText.trim()) {
-      Alert.alert('Enter label text', 'Please type or paste the nutrition label text visible in the photo.');
-      setShowManualEntry(true);
+      Alert.alert('No text', 'Please take a clearer photo or type the label text manually.');
+      setEditingText(true);
       return;
     }
 
     setExtracting(true);
     try {
       const extracted: ExtractedNutrition = await extractFromOcrText(ocrText);
-      // Navigate to portion adjustment screen with extracted data
       navigation.navigate('PortionAdjust', {
         extracted,
         photoUri,
@@ -87,60 +104,85 @@ export default function LabelScannerScreen() {
     }
   };
 
-  // If photo is taken, show the review + text input
+  // If photo is taken, show the review screen with OCR results
   if (photoUri) {
     return (
       <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>Review Label Photo</Text>
+        <Text style={styles.title}>Scanned Label</Text>
         <Image source={{ uri: photoUri }} style={styles.preview} resizeMode="contain" />
 
-        <Text style={styles.label}>
-          Type or paste the nutrition facts text from the label below:
-        </Text>
-        <Pressable style={styles.textArea} onPress={() => setShowManualEntry(true)}>
-          {ocrText ? (
-            <Text style={styles.ocrPreview}>{ocrText}</Text>
-          ) : (
-            <Text style={styles.placeholder}>Tap to enter label text...</Text>
-          )}
-        </Pressable>
-
-        {showManualEntry && (
-          <View style={styles.manualInput}>
-            <TextInputMultiline
-              value={ocrText}
-              onChangeText={setOcrText}
-              placeholder="e.g. Serving Size 30g, Calories 120, Protein 5g, Carbs 20g, Fat 3g..."
-            />
+        {scanning ? (
+          <View style={styles.scanningBox}>
+            <ActivityIndicator size="large" color="#1e6fb8" />
+            <Text style={styles.scanningText}>Reading label text...</Text>
           </View>
-        )}
-
-        <View style={styles.buttonRow}>
-          <Pressable style={[styles.btn, styles.btnSecondary]} onPress={retakePhoto}>
-            <Text style={styles.btnSecondaryText}>Retake</Text>
-          </Pressable>
-          <Pressable style={styles.btn} onPress={processLabel} disabled={extracting}>
-            {extracting ? (
-              <ActivityIndicator color="#fff" />
+        ) : (
+          <>
+            <Text style={styles.sectionLabel}>Extracted Text</Text>
+            {ocrText.trim() ? (
+              <View style={styles.ocrBox}>
+                {editingText ? (
+                  <TextInput
+                    style={styles.multilineInput}
+                    value={ocrText}
+                    onChangeText={setOcrText}
+                    multiline
+                    numberOfLines={8}
+                    textAlignVertical="top"
+                    autoCapitalize="none"
+                    placeholder="Edit the scanned text..."
+                  />
+                ) : (
+                  <Pressable onPress={() => setEditingText(true)}>
+                    <Text style={styles.ocrPreview}>{ocrText}</Text>
+                    <Text style={styles.editHint}>Tap to edit if needed</Text>
+                  </Pressable>
+                )}
+              </View>
             ) : (
-              <Text style={styles.btnText}>Extract Nutrition</Text>
+              <View style={styles.ocrBox}>
+                <Text style={styles.noText}>No text detected from the photo.</Text>
+                <TextInput
+                  style={[styles.multilineInput, { marginTop: 8 }]}
+                  value={ocrText}
+                  onChangeText={setOcrText}
+                  multiline
+                  numberOfLines={6}
+                  textAlignVertical="top"
+                  autoCapitalize="none"
+                  placeholder="Type the nutrition label info here: Serving Size, Calories, Protein, Carbs, Fat..."
+                />
+              </View>
             )}
-          </Pressable>
-        </View>
 
-        <Pressable
-          style={[styles.btn, { marginTop: 12, backgroundColor: '#6c63ff' }]}
-          onPress={() => {
-            navigation.navigate('PortionAdjust', {
-              extracted: null,
-              photoUri,
-              ocrRawText: ocrText,
-              mealType,
-            });
-          }}
-        >
-          <Text style={styles.btnText}>Enter Manually Instead</Text>
-        </Pressable>
+            <View style={styles.buttonRow}>
+              <Pressable style={[styles.btn, styles.btnSecondary]} onPress={retakePhoto}>
+                <Text style={styles.btnSecondaryText}>Retake</Text>
+              </Pressable>
+              <Pressable style={styles.btn} onPress={processLabel} disabled={extracting}>
+                {extracting ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.btnText}>Extract Nutrition</Text>
+                )}
+              </Pressable>
+            </View>
+
+            <Pressable
+              style={[styles.btn, { marginTop: 12, backgroundColor: '#6c63ff' }]}
+              onPress={() => {
+                navigation.navigate('PortionAdjust', {
+                  extracted: null,
+                  photoUri,
+                  ocrRawText: ocrText,
+                  mealType,
+                });
+              }}
+            >
+              <Text style={styles.btnText}>Enter Manually Instead</Text>
+            </Pressable>
+          </>
+        )}
       </ScrollView>
     );
   }
@@ -172,46 +214,29 @@ export default function LabelScannerScreen() {
   );
 }
 
-// Simple multiline text input component
-function TextInputMultiline({ value, onChangeText, placeholder }: {
-  value: string;
-  onChangeText: (t: string) => void;
-  placeholder?: string;
-}) {
-  const { TextInput } = require('react-native');
-  return (
-    <TextInput
-      style={styles.multilineInput}
-      value={value}
-      onChangeText={onChangeText}
-      placeholder={placeholder}
-      multiline
-      numberOfLines={6}
-      textAlignVertical="top"
-      autoCapitalize="none"
-    />
-  );
-}
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8f9fa' },
   scrollContent: { padding: 20, paddingBottom: 40 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   permText: { fontSize: 16, color: '#333', textAlign: 'center', marginBottom: 16 },
   title: { fontSize: 22, fontWeight: '700', color: '#1a1a2e', marginBottom: 12 },
-  label: { fontSize: 14, fontWeight: '600', color: '#555', marginTop: 16, marginBottom: 8 },
+  sectionLabel: { fontSize: 15, fontWeight: '700', color: '#1a1a2e', marginTop: 16, marginBottom: 8 },
   preview: { width: '100%', height: 250, borderRadius: 12, backgroundColor: '#eee' },
-  textArea: {
+
+  scanningBox: { alignItems: 'center', paddingVertical: 30 },
+  scanningText: { marginTop: 12, fontSize: 15, color: '#1e6fb8', fontWeight: '600' },
+
+  ocrBox: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 14,
     borderWidth: 1,
     borderColor: '#ddd',
-    borderRadius: 10,
-    padding: 14,
-    minHeight: 80,
-    backgroundColor: '#fff',
   },
-  ocrPreview: { fontSize: 14, color: '#333' },
-  placeholder: { fontSize: 14, color: '#aaa' },
-  manualInput: { marginTop: 8 },
+  ocrPreview: { fontSize: 14, color: '#333', lineHeight: 20 },
+  editHint: { fontSize: 12, color: '#999', marginTop: 8, fontStyle: 'italic' },
+  noText: { fontSize: 14, color: '#c0392b', fontWeight: '600' },
+
   multilineInput: {
     borderWidth: 1,
     borderColor: '#ddd',
@@ -219,8 +244,9 @@ const styles = StyleSheet.create({
     padding: 14,
     minHeight: 120,
     fontSize: 14,
-    backgroundColor: '#fff',
+    backgroundColor: '#fafafa',
   },
+
   buttonRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 20, gap: 12 },
   btn: {
     backgroundColor: '#1e6fb8',
