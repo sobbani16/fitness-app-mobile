@@ -36,6 +36,8 @@
 
 **Mobile repository checkpoint — October 16, 2026:** Owner requested committing all pending mobile project work. Source, native OCR module, pose model asset, tests, release configuration and handoff documentation are included in the local checkpoint. Credential-pattern and large-file checks found no flagged files; git whitespace check passed. Ignored dependencies/build outputs and credentials are excluded. This source-control checkpoint does not revalidate feature acceptance; N13/N16 and signed-device checks retain their existing status. No remote push requested.
 
+**Backend repository checkpoint — October 16, 2026:** Remaining historical endpoint verification reports committed locally; backend implementation was already committed in 8c6a99a. No push or cloud build requested by this checkpoint. No .github or .eas workflow files found in either repository; dashboard-only triggers were not inspected. Local commits do not trigger iOS builds.
+
 Use this file as the work tracker. Assign an owner to each open item, record evidence when it is completed, and update the status before release.
 
 ## Status definitions
