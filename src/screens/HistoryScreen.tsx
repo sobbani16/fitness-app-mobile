@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,10 @@ import {
   Pressable,
 } from 'react-native';
 import { useProfile } from '../context/ProfileContext';
-import { loadHistory } from '../storage/meals';
+import { useFocusEffect } from '@react-navigation/native';
+import { reconcileMealDays } from '../services/mealSync';
+import { getSession } from '../storage/session';
+import { DaySummary, loadHistory } from '../storage/meals';
 import { getHistory, HistoryEntry, HistoryResponse } from '../api/history';
 
 const DAYS = 28; // 4 weeks
@@ -22,6 +25,9 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function HistoryScreen() {
   const { profile } = useProfile();
+  const [offset, setOffset] = useState(0);
+  const [savedDays, setSavedDays] = useState<DaySummary[]>([]);
+  const request = useRef(0);
   const [data, setData] = useState<HistoryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -29,38 +35,53 @@ export default function HistoryScreen() {
   const [selected, setSelected] = useState<HistoryEntry | null>(null);
 
   const load = useCallback(async () => {
-    if (!profile) return;
+    const generation = ++request.current;
+    const userId = getSession()?.user.id;
+    const current = () => generation === request.current && !!userId && getSession()?.user.id === userId;
+    if (!profile) { setLoading(false); return; }
     setError(null);
+    setData(null);
+    setSavedDays([]);
+    const ending = new Date(); ending.setHours(0, 0, 0, 0);
+    ending.setDate(ending.getDate() - offset);
     try {
-      const local = await loadHistory(DAYS);
+      const cached = await loadHistory(DAYS, ending);
+      if (!current()) return;
+      setSavedDays(cached);
+      setLoading(false);
+      setRefreshing(true);
+      try {
+        await reconcileMealDays(cached.map(day => new Date(day.date + 'T12:00:00')));
+      } catch {
+        if (!current()) return;
+        setError('Could not sync history. Showing saved meals; pull to retry.');
+      }
+      if (!current()) return;
+      const local = await loadHistory(DAYS, ending);
+      if (!current()) return;
+      setSavedDays(local);
       const res = await getHistory({
         profile: {
-          sex: profile.sex,
-          weightKg: profile.weightKg,
-          heightCm: profile.heightCm,
-          age: profile.age,
-          activityLevel: profile.activityLevel,
-          goal: profile.goal,
+          sex: profile.sex, weightKg: profile.weightKg, heightCm: profile.heightCm,
+          age: profile.age, activityLevel: profile.activityLevel, goal: profile.goal,
         },
-        days: local.map((d) => ({
-          date: d.date,
-          caloriesIn: d.caloriesIn,
-          mealCount: d.mealCount,
-        })),
+        days: local,
       });
+      if (!current()) return;
       setData(res);
       setSelected(res.entries[res.entries.length - 1] ?? null);
-    } catch (e: any) {
-      setError(e?.message ?? 'Could not load history');
+    } catch {
+      if (current()) setError('Could not load history analysis. Showing saved meal totals; pull to retry.');
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (current()) { setLoading(false); setRefreshing(false); }
     }
-  }, [profile]);
+  }, [profile, offset]);
 
-  useEffect(() => {
-    if (profile) load();
-  }, [load, profile]);
+  useFocusEffect(useCallback(() => {
+    setLoading(true);
+    void load();
+    return () => { request.current++; };
+  }, [load]));
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -112,18 +133,30 @@ export default function HistoryScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       <Text style={styles.title}>History</Text>
+      {refreshing && <Text style={styles.muted}>Updating history…</Text>}
       {error && <Text style={styles.err}>{error}</Text>}
 
+      <View style={styles.row}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Older 4 weeks" onPress={() => setOffset(n => n + DAYS)}><Text>← Older 4 weeks</Text></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Newer 4 weeks" disabled={offset === 0} onPress={() => setOffset(n => Math.max(0, n - DAYS))}><Text style={offset === 0 ? styles.muted : undefined}>Newer 4 weeks →</Text></Pressable>
+      </View>
+      <Text style={styles.muted}>{savedDays[0]?.date} – {savedDays[savedDays.length - 1]?.date}</Text>
+      {!data && savedDays.map(day => (
+        <View key={day.date} style={styles.row}>
+          <Text>{formatDate(day.date)}</Text>
+          <Text>{day.mealCount} meals · {day.caloriesIn} kcal saved</Text>
+        </View>
+      ))}
       {data && (
         <>
           <View style={styles.streakRow}>
-            <StreakCard label="Logging streak" value={data.streaks.logged} unit="days" color="#1e6fb8" />
-            <StreakCard label="On-target streak" value={data.streaks.onTarget} unit="days" color="#2e7d32" />
+            <StreakCard label="Window logging streak" value={data.streaks.logged} unit="days" color="#1e6fb8" />
+            <StreakCard label="Window on-target streak" value={data.streaks.onTarget} unit="days" color="#2e7d32" />
           </View>
 
           {weekly && (
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>This week</Text>
+              <Text style={styles.cardTitle}>Last 7 days of this window</Text>
               <Row label="Days logged" value={`${weekly.daysLogged} / 7`} />
               <Row label="Avg net" value={`${weekly.avgNet} kcal`} />
               <Row
@@ -141,7 +174,7 @@ export default function HistoryScreen() {
             </View>
           )}
 
-          <Text style={styles.muted}>Last {DAYS} days · TDEE {data.tdee} kcal</Text>
+          <Text style={styles.muted}>{DAYS}-day window · TDEE {data.tdee} kcal</Text>
 
           <View style={styles.weekHeader}>
             {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (

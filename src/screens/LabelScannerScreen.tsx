@@ -11,7 +11,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import TextRecognition from '@react-native-ml-kit/text-recognition';
+import { recognizeLabel } from '../services/ocr';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { extractFromOcrText, ExtractedNutrition } from '../api/labelScanner';
@@ -58,7 +58,7 @@ export default function LabelScannerScreen() {
       setPhotoUri(photo.uri);
 
       // Auto-run OCR on the captured photo
-      const result = await TextRecognition.recognize(photo.uri);
+      const result = await recognizeLabel(photo.uri);
       const text = result.text || '';
       setOcrText(text);
 

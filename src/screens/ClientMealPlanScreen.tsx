@@ -23,7 +23,7 @@ export default function ClientMealPlanScreen() {
   const loadPlan = async () => {
     try {
       const userId = await getDeviceId();
-      const res = await api.get('/weekly-plan/current', { headers: { 'x-user-id': clientId } });
+      const res = await api.get('/weekly-plan/current', { params: { clientId } });
       setPlan(res.data);
     } catch (e: any) {
       if (e.response?.status === 404) {

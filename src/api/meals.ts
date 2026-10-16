@@ -1,7 +1,7 @@
 import { api } from './client';
 import { MealType, Macros } from '../storage/meals';
 
-export interface MealAnalysis {
+export interface MealAnalysis extends FoodDetection {
   name: string;
   calories: number;
   macros: Macros;
@@ -11,6 +11,7 @@ export interface MealAnalysis {
 }
 
 export interface AnalyzeMealRequest {
+  imageDataUrl?: string;
   description?: string;
   mealType?: MealType;
   hasPhoto?: boolean;
@@ -22,6 +23,9 @@ export async function analyzeMeal(req: AnalyzeMealRequest): Promise<MealAnalysis
 }
 
 export interface FoodDetection {
+  uncertainty: string;
+  needsReview: boolean;
+  lowConfidence: boolean;
   foodName: string;
   caloriesPer100g: number;
   suggestedPortionGrams: number;

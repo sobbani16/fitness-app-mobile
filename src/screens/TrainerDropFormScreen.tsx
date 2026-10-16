@@ -111,7 +111,7 @@ export default function TrainerDropFormScreen() {
         })}
       </View>
 
-      <Text style={styles.label}>Candidate's Goals (for next trainer)</Text>
+      <Text style={styles.label}>Candidate&apos;s Goals (for next trainer)</Text>
       <TextInput
         style={[styles.input, styles.textArea]}
         value={candidateGoals}

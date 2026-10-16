@@ -57,7 +57,7 @@ export function getRealEngine(): RealEngineHandle {
     isReal() { return isPoseDetectorAvailable(); },
 
     async init() {
-      // Model loads inside PoseCameraView when it mounts.
+      if (!isPoseDetectorAvailable()) throw new Error('Pose detection requires the native app build.');
     },
 
     async start(exerciseType: string) {
@@ -128,7 +128,7 @@ export function createRealDetectionEngine(): DetectionEngine {
 
 /**
  * True when all native pieces (VisionCamera + a pose backend) are present.
- * Drives whether `detectionService` picks the real vs mock engine.
+ * Unsupported builds report unavailable; detection never falls back to simulation.
  */
 export function isRealDetectionAvailable(): boolean {
   if (!isPoseDetectorAvailable()) return false;

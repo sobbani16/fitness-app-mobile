@@ -67,7 +67,7 @@ export default function PoseCameraScreen({ visible, onClose, detection }: Props)
       onRequestClose={handleClose}
     >
       <View style={styles.root} onLayout={onLayout}>
-        <PoseCameraView facing={facing} onError={(m) => console.warn('[PoseCamera]', m)} />
+        {visible && <PoseCameraView facing={facing} />}
 
         {posture && size.width > 0 && (
           <PoseOverlay assessment={posture} width={size.width} height={size.height} />

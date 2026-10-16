@@ -1,0 +1,617 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fitness app · Production handoff</title>
+<style>
+:root{color-scheme:light;--ink:#172b3b;--muted:#526475;--line:#dce4eb;--brand:#12645a}*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:110px}body{margin:0;background:#f4f7fa;color:var(--ink);font:15px/1.65 system-ui,-apple-system,sans-serif}header{background:#102c39;color:white;padding:32px max(24px,4vw)}.eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.16em;color:#9fdbd0}.hero{font-size:32px;font-weight:750;margin:6px 0}.summary{display:flex;gap:12px;flex-wrap:wrap}.summary span{border:1px solid #45616d;padding:7px 14px;border-radius:8px}.layout{display:grid;grid-template-columns:235px minmax(0,1fr);max-width:1800px;margin:auto}aside{padding:24px 16px;position:sticky;top:0;align-self:start;max-height:100vh;overflow:auto}aside a{display:block;padding:8px 12px;color:var(--muted);font-size:13px;text-decoration:none;border-radius:6px}aside a:hover{background:#e3eeeb;color:var(--brand)}main{min-width:0;padding:24px 32px 64px;background:white}.controls{display:flex;gap:12px;flex-wrap:wrap;padding:14px;background:#eef4f5;border:1px solid var(--line);border-radius:10px}label{font-size:12px;font-weight:650;display:flex;flex-direction:column;gap:4px}input,select,button{font:inherit;color:var(--ink);background:white;border:1px solid #a9b8c3;border-radius:6px;padding:9px 12px}input{min-width:250px}button{cursor:pointer;align-self:end}input:focus,select:focus,button:focus,a:focus{outline:3px solid #53b8a6;outline-offset:2px}.note{font-size:13px;color:var(--muted)}h1{font-size:27px;line-height:1.3}h2{margin-top:42px;padding-top:16px;border-top:2px solid #dbe9e6;font-size:23px;line-height:1.35}h3{font-size:18px}.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;margin:18px 0}table{width:100%;border-collapse:collapse;font-size:13px;line-height:1.55}th{text-align:left;background:#eaf1f3;font-size:12px;padding:12px;color:#324a5a}td{padding:13px 12px;border-top:1px solid var(--line);vertical-align:top}tr:nth-child(even){background:#f8fafc}tr.tracked td:first-child{font-weight:750;white-space:nowrap;color:var(--brand)}tr.tracked td:nth-child(2){min-width:150px;font-weight:600}tr.tracked td:nth-child(4),tr.tracked td:nth-child(5){min-width:230px}tr.tracked td:last-child{min-width:65px}.badge{display:inline-block;border-radius:6px;font-size:11px;font-weight:700;padding:4px 7px;min-width:110px}.pending{background:#e3eeff;color:#244577}.blocked{background:#ffe7e4;color:#8b302c}.partial{background:#fff1cf;color:#775714}a{color:var(--brand)}pre{white-space:pre-wrap;background:#eef3f7;border-left:4px solid var(--brand);padding:20px;border-radius:6px}code{font-size:.9em}li{margin:10px 0}[hidden]{display:none!important}.empty{padding:15px;background:#fff1cf}footer{margin-top:32px;color:var(--muted);font-size:12px}@media(max-width:900px){.layout{display:block}aside{position:static;max-height:none;display:flex;overflow:auto;padding:10px}aside a{min-width:160px}main{padding:18px}header{padding:24px}.hero{font-size:26px}}@media print{header{background:white;color:black;padding:0}.layout{display:block}aside,.controls,.note,.empty{display:none}main{padding:0}body{background:white;font-size:10px}.table-wrap{overflow:visible;border:0}table{font-size:8px}td,th{padding:5px}tr.tracked td{min-width:0!important}.badge{min-width:0}h2{break-after:avoid}tr{break-inside:avoid}thead{display:table-header-group}}
+</style></head><body>
+<header><div class="eyebrow">Fitness app / Release workspace</div><div class="hero">Production status &amp; handoff</div><div class="summary"><span>59 tracked features &amp; gates</span><span>26 P0 items, including conditional priorities</span><span>Source: PRODUCTION_HANDOFF.md</span></div></header>
+<div class="layout"><aside aria-label="Sections"><a href="#section-0">Status definitions</a><a href="#section-1">1. Accounts, profile and personal data</a><a href="#section-2">2. Food, nutrition and meal planning</a><a href="#section-3">3. Activity, coaching and dashboard</a><a href="#section-4">4. Trainers, nutritionists and administration</a><a href="#section-5">5. Shared deployment gates</a><a href="#section-6">6. Verification already completed</a><a href="#section-7">7. Recommended order to continue</a><a href="#section-8">8. Supporting documents</a></aside><main>
+<div class="controls"><label>Search tracked items<input id="search" type="search" placeholder="Feature, ID, evidence…"></label><label>Priority<select id="priority"><option value="">All priorities</option><option>P0</option><option>P1</option></select></label><label>Status<select id="status"><option value="">All statuses</option></select></label><button id="reset">Reset</button><button id="print">Print / save PDF</button></div>
+<p class="note" id="freshness">Standalone snapshot. To refresh from Markdown, run <code>python3 scripts/handoff.py</code>. For automatic updates, run <code>python3 scripts/handoff.py --serve</code> and open <a href="http://127.0.0.1:8765/docs/PRODUCTION_HANDOFF.html">the live view</a>.</p><p id="results" class="note" aria-live="polite"></p><p id="empty" class="empty" hidden>No tracked items match. Reset the filters to see all items.</p>
+<h1 id="section-0">Production feature status and handoff</h1>
+<p><strong>Status date: October 14, 2026 (A04–A05, N04, N08–N09 updated; A03 evidence October 13; remaining feature evidence October 9)</strong>  <br><strong>Scope:</strong> fitness-app-mobile and fitness-app-backend  <br><strong>Overall decision: NOT READY for public production deployment.</strong> No production deployment has been performed. This document summarizes the implementation and verification from the readiness work; A03 implementation was added October 13; A04–A05, N04 and N08–N09 were updated October 14 with automated verification. Latest regression checks passed: 100 mobile tests, 240 backend tests, 37 authenticated PostgreSQL integration tests, TypeScript and Android/iOS JavaScript exports. N08–N09 live AI acceptance remains blocked by the absent server key. Signed-device acceptance and remaining feature evidence have not been renewed.</p>
+<p><strong>TestFlight-only update — October 15, 2026, 02:48 UTC:</strong> Owner confirmed beta distribution only; public App Store release is deferred. Corrected backend <code>https://fitness-app-backend-production-c5d4.up.railway.app/health</code> returned HTTP 200 with <code>status: ok</code>. Preview/production build settings now use this URL; the <code>testflight</code> profile inherits it. Earlier 404 checks were for the superseded domain. Health success does not verify authentication, database persistence or device flows. Privacy-policy URL is now configured; content corrections remain outstanding (see latest update below). No cloud build, signing credentials or submission performed. <a href="TESTFLIGHT_RELEASE.md">Configuration and remaining gates</a>. Earlier feature test counts are historical, not rerun by this configuration update.</p>
+<p><strong>Privacy-policy update — October 15, 2026 UTC:</strong> Public GitHub Pages policy returned HTTP 200 and is configured for TestFlight. Local TestFlight release configuration check passed. Policy still contains pre-publication placeholders and mismatches involving HealthKit, microphone access, account deletion and beta AI availability; content review remains blocked. See <a href="TESTFLIGHT_RELEASE.md">release notes</a>. No cloud build or submission initiated.</p>
+<p><strong>Policy revision recheck — October 15, 2026 UTC:</strong> Published corrections are live: draft placeholders removed; HealthKit/microphone disabled and deletion implementation accurately qualified. Remaining alignment: distinguish available on-device label OCR/posture processing from disabled server AI; match policy age eligibility to adult-only onboarding. <a href="TESTFLIGHT_RELEASE.md">Details</a>. TestFlight only; no build/submission performed.</p>
+<p><strong>Latest policy verification — October 15, 2026 UTC:</strong> Both requested corrections are live: section 4 distinguishes on-device processing from disabled server AI; section 12 states adults 18+. Earlier policy findings above are historical. Section 5 could use the same “server-based AI” wording for consistency. Native release, authenticated API and signed-device acceptance remain pending. No cloud build/submission initiated. <a href="TESTFLIGHT_RELEASE.md">Evidence</a>.</p>
+<p><strong>Approved TestFlight attempt — October 15, 2026:</strong> Owner authorized build, submission and internal testing. EAS retry reached the service but reports <code>Not logged in</code>; local Expo login is required before proceeding. No build/submission/tester setup completed. <a href="TESTFLIGHT_RELEASE.md">Attempt details</a>.</p>
+<p><strong>Latest TestFlight attempt — October 15, 2026:</strong> Expo login confirmed; local configuration passes. EAS created the TestFlight channel/branch and incremented remote build number to 3 across two signing-setup attempts. Build blocked by required Apple Developer login/signing setup; interactive prompt canceled without credentials. No build artifact, submission or internal tester setup completed. <a href="TESTFLIGHT_RELEASE.md">Details</a>.</p>
+<p><strong>Latest build repair — October 15, 2026:</strong> Build 4 failed due to profile-dependent <code>updates.enabled</code> causing local/cloud fingerprint mismatch. Static OTA-disabled configuration now resolves identically across profiles; release checks pass. Replacement TestFlight build 5 (<code>153aa078-235d-4cd9-a777-38384a1cfba0</code>) uploaded with existing signing credentials; final result/submission pending. <a href="TESTFLIGHT_RELEASE.md">Evidence</a>.</p>
+<p><strong>Signed iOS build — October 15, 2026:</strong> TestFlight build 5 succeeded after the fingerprint configuration fix. Exact-build submission <code>727256fe-7cb6-42f5-96a3-e802e54a4763</code> is queued at EAS; Apple processing and internal tester setup are not confirmed. Browser setup connection failed; physical-device acceptance remains pending. <a href="TESTFLIGHT_RELEASE.md">Release evidence</a>.</p>
+<p><strong>Latest TestFlight status — October 15, 2026:</strong> EAS submission FINISHED with no error for build 1.0.0 (5). Owner screenshot confirms internal group <code>test</code> and one tester, but zero builds visible/assigned. Apple processing/availability and device installation remain pending; no duplicate upload needed. <a href="TESTFLIGHT_RELEASE.md">Evidence</a>.</p>
+<p><strong>Latest Apple TestFlight evidence — October 15, 2026:</strong> Owner screenshot confirms build 1.0.0 (5) processed, Ready to Submit, assigned to the internal group with one invitation. Internal installation can proceed; no installs/sessions or device acceptance evidenced yet. Public release remains deferred. <a href="TESTFLIGHT_RELEASE.md">Details</a>.</p>
+<p><strong>Device acceptance blocker — October 15, 2026:</strong> TestFlight register/login fail. Live POST auth probes return 404; Railway runs legacy commit <code>da84fab</code> without auth routes. Required auth/email settings are absent. Compatible backend deployment/migrations/configuration are needed before a usable beta account can be created. No credentials issued or production data changed. <a href="TESTFLIGHT_RELEASE.md">Diagnosis</a>.</p>
+<p><strong>Backend push — October 15, 2026:</strong> Commit <code>8c6a99a</code> pushed to backend main; Railway deployment <code>be9f0aaf-5dd7-4cea-8919-3e62575bfd11</code> is BUILDING. 240 unit/API and 37 local PostgreSQL tests passed. Auth secret/origin configured; Resend key/sender still absent at last check. Deployment/auth acceptance and test-account creation remain pending. <a href="TESTFLIGHT_RELEASE.md">Details</a>.</p>
+<p><strong>Latest deployment result:</strong> Owner screenshot confirms Railway deployment <code>be9f0aaf</code> CRASHED at startup because RESEND_API_KEY/AUTH_EMAIL_FROM are missing. Pre-deploy protection was not verified effective; deployment configuration/migration execution require inspection. Backend login remains blocked. <a href="TESTFLIGHT_RELEASE.md">Details</a>.</p>
+<p><strong>Restart prerequisite check — October 15, 2026:</strong> Active production/backend settings still lack RESEND_API_KEY. Owner-selected sender saved directly without deployment. Restart not triggered because the required key is absent; latest deployment remains crashed. <a href="TESTFLIGHT_RELEASE.md">Details</a>.</p>
+<p><strong>Latest live auth result — October 16, 2026 UTC:</strong> Database backed up; 11 missing migrations and RBAC seed applied successfully. Registration 201 and login 200 verified for owner-requested beta account; verification email/inbox and device acceptance pending. Earlier 404/500 findings are historical. No passwords/tokens recorded here. Railway automatic migration/proxy configuration still needs review. <a href="TESTFLIGHT_RELEASE.md">Evidence</a>.</p>
+<p><strong>Mobile repository checkpoint — October 16, 2026:</strong> Owner requested committing all pending mobile project work. Source, native OCR module, pose model asset, tests, release configuration and handoff documentation are included in the local checkpoint. Credential-pattern and large-file checks found no flagged files; git whitespace check passed. Ignored dependencies/build outputs and credentials are excluded. This source-control checkpoint does not revalidate feature acceptance; N13/N16 and signed-device checks retain their existing status. No remote push requested.</p>
+<p>Use this file as the work tracker. Assign an owner to each open item, record evidence when it is completed, and update the status before release.</p>
+<h2 id="section-0">Status definitions</h2>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Meaning table"><table><thead><tr><th scope="col">Status</th><th scope="col">Meaning</th></tr></thead><tbody>
+<tr>
+<td>IMPLEMENTED — acceptance pending</td>
+<td>Code exists and the recorded automated/API checks passed where applicable. Staging/device acceptance and the shared release gates still apply.</td>
+</tr>
+<tr>
+<td>PARTIAL</td>
+<td>A material implementation, data-quality or synchronization gap remains.</td>
+</tr>
+<tr>
+<td>BLOCKED</td>
+<td>The feature cannot currently be accepted for production because a required service, dataset or validation is missing.</td>
+</tr>
+<tr>
+<td>MISSING</td>
+<td>Required capability is not implemented or has not been established.</td>
+</tr>
+</tbody></table></div>
+<p><strong>No feature is labeled production-approved.</strong> Passing a unit test, HTTP request or native build does not establish complete end-to-end correctness. Priority P0 means resolve before public launch; P1 means resolve before enabling the affected feature, or explicitly defer and disable it.</p>
+<h2 id="section-1">1. Accounts, profile and personal data</h2>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Feature table"><table><thead><tr><th scope="col">ID</th><th scope="col">Feature</th><th scope="col">Production status</th><th scope="col">Evidence / current behavior</th><th scope="col">Remaining work and acceptance condition</th><th scope="col">Priority</th></tr></thead><tbody>
+<tr class="tracked" data-priority="P0" data-status="IMPLEMENTED">
+<td>A01</td>
+<td>Register, sign in and sign out</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>Live registration/login/logout and invalid-login checks passed.</td>
+<td>Verify complete signed-app flows, errors and expired sessions against staging. Depends on A03–A06 and shared security gates.</td>
+<td>P0</td>
+</tr>
+<tr class="tracked" data-priority="P0" data-status="IMPLEMENTED">
+<td>A02</td>
+<td>Password hashing, bearer sessions and secure token storage</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>Hashed passwords; expiring/revocable server sessions; mobile SecureStore; account-switch/expiry tests.</td>
+<td>Review auth security, brute-force controls, multi-instance limits and stolen/revoked-session behavior.</td>
+<td>P0</td>
+</tr>
+<tr class="tracked" data-priority="P0" data-status="IMPLEMENTED">
+<td>A03</td>
+<td>Password recovery and email verification</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>Resend queue, hosted link pages, mobile recovery/verification gate, expiring single-use links, shared rate limits and reset session revocation. 13 real-database auth tests; 219 backend and 67 mobile tests passed. <a href="A03_AUTH_LIFECYCLE.md">Setup and evidence</a>.</td>
+<td>Configure Resend sender/key, signing secret and HTTPS origin; verify staging inbox delivery and signed iOS/Android flows. Browser visual verification was blocked by tool connection failure.</td>
+<td>P0</td>
+</tr>
+<tr class="tracked" data-priority="P0" data-status="IMPLEMENTED">
+<td>A04</td>
+<td>Account deletion, data export and retention</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>Password-confirmed export/deletion, dependent-record cleanup, retention maintenance, mobile privacy controls and cache cleanup. 11 A04 database tests; Android/iOS bundles generated. <a href="A04_ACCOUNT_LIFECYCLE.md">Policy, setup and evidence</a>.</td>
+<td>Verify signed Android/iOS export and deletion; enforce hosting/provider retention and rehearse backup deletion replay. Native builds must include expo-sharing.</td>
+<td>P0</td>
+</tr>
+<tr class="tracked" data-priority="P0" data-status="IMPLEMENTED">
+<td>A05</td>
+<td>Existing device-ID account migration</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>Independently reviewed, account-bound single-use grants; in-place member-account upgrade; guarded legacy local import. Six database migration tests; prior-app storage fixtures; Android/iOS bundles. <a href="A05_LEGACY_ACCOUNT_MIGRATION.md">Policy and evidence</a>.</td>
+<td>Establish independent ownership review and test signed installed-app upgrades. Unprovable claims remain quarantined; populated destinations and privileged accounts require separate review, not automatic merging.</td>
+<td>P0 if existing users/data are retained</td>
+</tr>
+<tr class="tracked" data-priority="P0" data-status="IMPLEMENTED">
+<td>A06</td>
+<td>Per-account storage and isolation</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>Scoped caches, authenticated server ownership, account-switch checks.</td>
+<td>Verify two-account/device flows, logout during requests, reinstalls and absence of cross-account data exposure.</td>
+<td>P0</td>
+</tr>
+<tr class="tracked" data-priority="P0" data-status="IMPLEMENTED">
+<td>A07</td>
+<td>Onboarding and profile editing</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>Server profile persistence; age/body measurements/activity/goals; adult-age form validation.</td>
+<td>Verify onboarding/edit errors, units, supported bounds and server/cache consistency on both platforms.</td>
+<td>P0</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
+<td>A08</td>
+<td>Weight history and default macro targets</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>Profile writes update weight history and default targets.</td>
+<td>Validate target calculations and custom-target preservation with representative profiles.</td>
+<td>P1</td>
+</tr>
+</tbody></table></div>
+<h2 id="section-2">2. Food, nutrition and meal planning</h2>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Feature table"><table><thead><tr><th scope="col">ID</th><th scope="col">Feature</th><th scope="col">Production status</th><th scope="col">Evidence / current behavior</th><th scope="col">Remaining work and acceptance condition</th><th scope="col">Priority</th></tr></thead><tbody>
+<tr class="tracked" data-priority="P0" data-status="IMPLEMENTED">
+<td>N01</td>
+<td>Meal logging, portions, calories and macros</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>Stable IDs, timestamp/fiber preservation and deduplicated API writes.</td>
+<td>Verify manual logging/editing flows, units, deletion, invalid inputs and daily totals in the UI.</td>
+<td>P0</td>
+</tr>
+<tr class="tracked" data-priority="P0" data-status="IMPLEMENTED">
+<td>N02</td>
+<td>Offline meal upload/retry and deletion</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>Persisted outbox, serialized changes and deletion coalescing; retry tests pass.</td>
+<td>Test real network loss, app termination/restart, failed writes and retry recovery.</td>
+<td>P0</td>
+</tr>
+<tr class="tracked" data-priority="P0" data-status="IMPLEMENTED">
+<td>N03</td>
+<td>Today&#x27;s meals across devices</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>Pending changes flush before server reconciliation; failed refresh preserves cache; local-day filtering tests.</td>
+<td>Verify real two-device updates/deletions and midnight/DST boundaries.</td>
+<td>P0</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
+<td>N04</td>
+<td>Older meal history across devices</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>Server hydration for navigable four-week windows; offline cache, pending changes and account isolation preserved. Automated cache-wipe and fresh-session recovery tests pass.</td>
+<td>Run signed Android/iOS reinstall and two-device acceptance; see <a href="N04_MEAL_HISTORY.md">N04 validation</a>.</td>
+<td>P1</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
+<td>N05</td>
+<td>USDA ingredient search and caching</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>Configured provider returned successful live responses; fabricated fallback removed.</td>
+<td>Verify production credentials, quota/entitlements, empty/error states and nutritional attribution.</td>
+<td>P1</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
+<td>N06</td>
+<td>Spoonacular recipe search and nutrition</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>Live recipe and nutrition requests succeeded.</td>
+<td>Verify production subscription/quota, attribution and UI result/error flows.</td>
+<td>P1</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
+<td>N07</td>
+<td>Recipes by ingredients</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>Feature exists and relevant API paths were exercised.</td>
+<td>Accept search relevance, quantity handling and unavailable-provider behavior in staging.</td>
+<td>P1</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="BLOCKED">
+<td>N08</td>
+<td>Food recognition from a meal photo</td>
+<td><span class="badge blocked">BLOCKED — live acceptance</span></td>
+<td>Photo validation, uncertain/no-food handling, required review and persistent account/global budgets implemented; automated provider/HTTP/mobile tests pass. Server OpenAI key remains absent.</td>
+<td>Configure server key; run three-photo live smoke and signed Android/iOS checks in <a href="N08_FOOD_PHOTO_RECOGNITION.md">N08 validation</a>.</td>
+<td>P1</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="BLOCKED">
+<td>N09</td>
+<td>Meal analysis from text</td>
+<td><span class="badge blocked">BLOCKED — live acceptance</span></td>
+<td>Text-only UI now uses /meals/analyze; portion basis, uncertainty and required review preserved. Automated HTTP/provider-adapter/mobile tests pass; server key remains absent.</td>
+<td>Run live text smoke with server credentials and signed Android/iOS presentation checks; see <a href="N09_TEXT_MEAL_ANALYSIS.md">N09 validation</a>.</td>
+<td>P1</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
+<td>N10</td>
+<td>Label OCR</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>Apple Vision on iOS; ML Kit on Android; both native builds pass.</td>
+<td>Test real labels, rotation, lighting, permissions, unreadable labels and correction flow on devices.</td>
+<td>P1</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
+<td>N11</td>
+<td>Editable label text, nutrition parsing and portion adjustment</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>Parsing/portion APIs tested; repeated saves retain fiber and avoid duplicate logs.</td>
+<td>Check serving-size units, decimal values, incomplete labels and final saved totals.</td>
+<td>P1</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="BLOCKED">
+<td>N12</td>
+<td>Bluetooth food scale</td>
+<td><span class="badge blocked">BLOCKED — device acceptance</span></td>
+<td>Native BLE adapter and decoding exist; simulated fallback removed.</td>
+<td>Test a named supported scale. Standard GATT support does not establish compatibility with proprietary kitchen scales.</td>
+<td>P1</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="PARTIAL">
+<td>N13</td>
+<td>Weekly meal preferences and generation</td>
+<td><span class="badge partial">PARTIAL</span></td>
+<td>API flow works; catalog contains estimated seeded recipe nutrition.</td>
+<td>Replace/review catalog with attributable nutrition data; validate preferences and goal fit.</td>
+<td>P1</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
+<td>N14</td>
+<td>Meal alternatives, swaps and confirmations</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>API workflows and ownership exercised.</td>
+<td>Verify UI behavior and repeated confirmation/unconfirmation. Depends on reviewed N13 data.</td>
+<td>P1</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
+<td>N15</td>
+<td>Ingredient shopping list and checked items</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>API exercised; shopping route interception fixed.</td>
+<td>Validate aggregation, portions, units, swaps and checked-state persistence.</td>
+<td>P1</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="PARTIAL">
+<td>N16</td>
+<td>Supplement catalog and logging</td>
+<td><span class="badge partial">PARTIAL</span></td>
+<td>Catalog/logging routes exercised.</td>
+<td>Review catalog; add durable/idempotent offline handling; verify repeated taps and retries do not duplicate logs.</td>
+<td>P1</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="BLOCKED">
+<td>N17</td>
+<td>Ingredient/condition safety checks</td>
+<td><span class="badge blocked">BLOCKED</span></td>
+<td>Safety seed references dummy ingredient IDs and skips missing entries.</td>
+<td>Populate reviewed attributes/rules for actual ingredients; validate coverage and unknown-data handling. Keep condition-specific claims disabled until accepted.</td>
+<td>P1</td>
+</tr>
+</tbody></table></div>
+<h2 id="section-3">3. Activity, coaching and dashboard</h2>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Feature table"><table><thead><tr><th scope="col">ID</th><th scope="col">Feature</th><th scope="col">Production status</th><th scope="col">Evidence / current behavior</th><th scope="col">Remaining work and acceptance condition</th><th scope="col">Priority</th></tr></thead><tbody>
+<tr class="tracked" data-priority="P0" data-status="IMPLEMENTED">
+<td>F01</td>
+<td>Manual workout sessions and sets</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>Production data moved from memory to PostgreSQL; creation/read checks passed.</td>
+<td>Verify end-to-end logging, app/server restart persistence and history in staging.</td>
+<td>P0</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
+<td>F02</td>
+<td>Exercise calorie estimates and suggested weights</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>Existing heuristic calculations and unit coverage.</td>
+<td>Review representative inputs, limits and estimate wording; do not imply measured accuracy.</td>
+<td>P1</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="BLOCKED">
+<td>F03</td>
+<td>Camera pose detection</td>
+<td><span class="badge blocked">BLOCKED — device acceptance</span></td>
+<td>Real bundled MediaPipe model, VisionCamera, landmark mapping; iOS/Android builds pass.</td>
+<td>Test orientation, visibility, distance, lighting, permissions, backgrounding and performance on physical devices.</td>
+<td>P1</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="BLOCKED">
+<td>F04</td>
+<td>Automatic rep counting and form feedback</td>
+<td><span class="badge blocked">BLOCKED — accuracy acceptance</span></td>
+<td>Rep/posture tests pass; real native frames are integrated.</td>
+<td>Compare counts/form feedback against observed exercises; calibrate 2D aspect-ratio/view effects and reject low-confidence observations.</td>
+<td>P1</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
+<td>F05</td>
+<td>Spoken coaching feedback</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>Speech feedback feature exists.</td>
+<td>Verify timing, repeated prompts, mute/volume behavior and app lifecycle on devices. Depends on F04.</td>
+<td>P1</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
+<td>F06</td>
+<td>Step tracking</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>Sensor integration and account-scoped storage exist.</td>
+<td>Test permissions, unsupported devices, lifecycle, day rollover and accuracy.</td>
+<td>P1</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="PARTIAL">
+<td>F07</td>
+<td>Water, sleep and daily activity stats</td>
+<td><span class="badge partial">PARTIAL</span></td>
+<td>Daily-stat endpoints exercised.</td>
+<td>Complete durable/idempotent offline sync and consistent local-day/UTC reporting.</td>
+<td>P1</td>
+</tr>
+<tr class="tracked" data-priority="P0" data-status="IMPLEMENTED">
+<td>F08</td>
+<td>Dashboard, calorie balance and daily summary</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>Summary/stat APIs exercised.</td>
+<td>Verify displayed totals match saved meals/activity, refresh correctly and handle unavailable sources.</td>
+<td>P0</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
+<td>F09</td>
+<td>Macro score</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>API paths exercised.</td>
+<td>Validate score explanation/calculations against accepted targets and incomplete data.</td>
+<td>P1</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="PARTIAL">
+<td>F10</td>
+<td>Health score, detail/history and progress</td>
+<td><span class="badge partial">PARTIAL</span></td>
+<td>API and ownership checks passed; heuristic wellness scoring.</td>
+<td>Review calculation/data quality and wording; no clinical validation is established.</td>
+<td>P1</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="PARTIAL">
+<td>F11</td>
+<td>BMR/TDEE and goal recommendations</td>
+<td><span class="badge partial">PARTIAL</span></td>
+<td>Calculation/recommendation endpoints exist and were exercised.</td>
+<td>Remove demo profile/calorie defaults or require complete inputs; validate supported profiles and presentation.</td>
+<td>P1</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
+<td>F12</td>
+<td>Weather/location suggestions</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>Live weather endpoint succeeded.</td>
+<td>Test denied location permission, unavailable weather and appropriate fallback behavior.</td>
+<td>P1</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="BLOCKED">
+<td>F13</td>
+<td>AI chat assistant and daily quota</td>
+<td><span class="badge blocked">BLOCKED</span></td>
+<td>Real Responses API and database-backed quota; no configured OpenAI key found.</td>
+<td>Configure upstream service and budget; verify real responses, quota enforcement and failures.</td>
+<td>P1</td>
+</tr>
+</tbody></table></div>
+<h2 id="section-4">4. Trainers, nutritionists and administration</h2>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Feature table"><table><thead><tr><th scope="col">ID</th><th scope="col">Feature</th><th scope="col">Production status</th><th scope="col">Evidence / current behavior</th><th scope="col">Remaining work and acceptance condition</th><th scope="col">Priority</th></tr></thead><tbody>
+<tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
+<td>C01</td>
+<td>Trainer enrollment, listing, detail and verification</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>Live API/role workflows passed.</td>
+<td>Complete trainer/member/admin UI acceptance, including rejected/unverified states.</td>
+<td>P1</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
+<td>C02</td>
+<td>Trainer/client assignment and progress</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>Privileged assignment and active-relationship checks; live scenarios passed.</td>
+<td>Verify access starts/ends correctly with assignment changes.</td>
+<td>P1</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
+<td>C03</td>
+<td>Trainer workout plans</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>API creation/access exercised with relationship checks.</td>
+<td>Complete trainer-to-client plan lifecycle in the app.</td>
+<td>P1</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
+<td>C04</td>
+<td>Coach notes and visibility</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>Author/client visibility and relationship checks added.</td>
+<td>Verify private/client-visible behavior and removed-assignment access.</td>
+<td>P1</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
+<td>C05</td>
+<td>Trainer drop workflows and client surveys</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>Routes and associated screens exist; API paths exercised.</td>
+<td>Complete both sides of the workflow, repeated submissions and error states.</td>
+<td>P1</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="PARTIAL">
+<td>C06</td>
+<td>Nutritionist enrollment, verification and assignment</td>
+<td><span class="badge partial">PARTIAL</span></td>
+<td>Backend routes exercised; mobile management coverage is incomplete.</td>
+<td>Complete required mobile/admin management flows or explicitly limit initial scope.</td>
+<td>P1</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="PARTIAL">
+<td>C07</td>
+<td>Nutritionist meal plans</td>
+<td><span class="badge partial">PARTIAL</span></td>
+<td>Backend plan routes exist and were exercised.</td>
+<td>Verify full creation-to-client delivery workflow and reviewed nutrition data.</td>
+<td>P1</td>
+</tr>
+<tr class="tracked" data-priority="P0" data-status="IMPLEMENTED">
+<td>C08</td>
+<td>Roles, permissions and ownership enforcement</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>Unauthorized/member rejection and authorized administrative scenarios passed.</td>
+<td>Review complete role matrix and regression-test role/assignment removal.</td>
+<td>P0</td>
+</tr>
+<tr class="tracked" data-priority="P0" data-status="MISSING">
+<td>C09</td>
+<td>Initial administrator bootstrap</td>
+<td><span class="badge blocked">MISSING — operational process</span></td>
+<td>Test harness grants a fixture administrator; no production bootstrap process established.</td>
+<td>Define and test controlled initial admin provisioning and recovery; no default/shared credentials.</td>
+<td>P0</td>
+</tr>
+<tr class="tracked" data-priority="P0" data-status="PARTIAL">
+<td>C10</td>
+<td>Audit logs and operational administration</td>
+<td><span class="badge partial">PARTIAL</span></td>
+<td>Audit-log endpoints exercised.</td>
+<td>Review event coverage, retention, access and management workflow.</td>
+<td>P0</td>
+</tr>
+</tbody></table></div>
+<h2 id="section-5">5. Shared deployment gates</h2>
+<p>These apply to every feature retained in the release. Feature-level implementation does not bypass them.</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Gate table"><table><thead><tr><th scope="col">ID</th><th scope="col">Gate</th><th scope="col">Status</th><th scope="col">Required completion evidence</th><th scope="col">Priority</th></tr></thead><tbody>
+<tr class="tracked" data-priority="P0" data-status="NOT ESTABLISHED">
+<td>D01</td>
+<td>Production host and database</td>
+<td><span class="badge partial">NOT ESTABLISHED</span></td>
+<td>Selected host; independent staging/production DBs; verified deployment configuration. Owner corrected the beta domain to <code>fitness-app-backend-production-c5d4.up.railway.app</code>; <code>/health</code> returned HTTP 200 on October 15. Authenticated API/database acceptance and environment isolation remain unverified.</td>
+<td>P0</td>
+</tr>
+<tr class="tracked" data-priority="P0" data-status="PARTIAL">
+<td>D02</td>
+<td>Secrets, TLS, CORS and proxy configuration</td>
+<td><span class="badge partial">PARTIAL</span></td>
+<td>Server-only secrets, HTTPS mobile API URL, intended CORS origins and verified proxy settings. USDA/Spoonacular keys found locally; OpenAI key missing.</td>
+<td>P0</td>
+</tr>
+<tr class="tracked" data-priority="P0" data-status="LOCAL CHECK PASSED">
+<td>D03</td>
+<td>Schema migrations and seed data</td>
+<td><span class="badge partial">LOCAL CHECK PASSED</span></td>
+<td>Fresh local DB accepted 14 migrations. Rehearse release migration and rollback/forward-fix; seed RBAC and reviewed catalog data only.</td>
+<td>P0</td>
+</tr>
+<tr class="tracked" data-priority="P0" data-status="OPEN">
+<td>D04</td>
+<td>Dependency security</td>
+<td><span class="badge partial">OPEN</span></td>
+<td>Snapshot: backend 3 high/1 moderate; mobile 28 high/14 moderate; no critical advisories. Refresh audit, assess reachability and resolve or formally review exceptions.</td>
+<td>P0</td>
+</tr>
+<tr class="tracked" data-priority="P0" data-status="PARTIAL">
+<td>D05</td>
+<td>API hardening and abuse controls</td>
+<td><span class="badge partial">PARTIAL</span></td>
+<td>Headers, validation, body limits and rate limits exist. Review route-specific errors/logging; use shared/edge limits for multiple instances.</td>
+<td>P0</td>
+</tr>
+<tr class="tracked" data-priority="P0" data-status="NOT VERIFIED">
+<td>D06</td>
+<td>Backups, restore, monitoring and rollback</td>
+<td><span class="badge partial">NOT VERIFIED</span></td>
+<td>Restore drill, readiness monitoring, alerts, previous release artifacts and named rollback owner.</td>
+<td>P0</td>
+</tr>
+<tr class="tracked" data-priority="P0" data-status="MANUAL EVIDENCE AVAILABLE">
+<td>D07</td>
+<td>Automated release checks</td>
+<td><span class="badge partial">MANUAL EVIDENCE AVAILABLE</span></td>
+<td>Repeatable release checks cover migrations, tests, builds and disposable staging API flows. Local execution is not evidence of enforced CI gates.</td>
+<td>P0</td>
+</tr>
+<tr class="tracked" data-priority="P0" data-status="IOS BUILD PASSED">
+<td>D08</td>
+<td>Signed release apps</td>
+<td><span class="badge partial">IOS BUILD PASSED — acceptance pending</span></td>
+<td>Signed iOS version 1.0.0 build 5 succeeded on EAS; TestFlight upload completed; internal group/tester created by owner. Build availability/assignment and device acceptance and signed Android release remain pending. See TESTFLIGHT_RELEASE.md.</td>
+<td>P0</td>
+</tr>
+<tr class="tracked" data-priority="P0" data-status="PENDING">
+<td>D09</td>
+<td>Physical-device and full UI acceptance</td>
+<td><span class="badge partial">PENDING</span></td>
+<td>iOS/Android happy paths, failure states, permissions, offline recovery and accessibility signed off.</td>
+<td>P0</td>
+</tr>
+<tr class="tracked" data-priority="P0" data-status="PENDING REVIEW">
+<td>D10</td>
+<td>Privacy, data handling and distribution</td>
+<td><span class="badge partial">PENDING REVIEW</span></td>
+<td>Published/accepted disclosures, deletion/retention process, provider handling, model attribution and applicable store submission requirements reviewed.</td>
+<td>P0</td>
+</tr>
+<tr class="tracked" data-priority="P0" data-status="NOT PERFORMED">
+<td>D11</td>
+<td>Public deployment and rollout</td>
+<td><span class="badge partial">NOT PERFORMED</span></td>
+<td>Staging sign-off, production readiness probe, monitored staged rollout and rollback availability.</td>
+<td>P0</td>
+</tr>
+</tbody></table></div>
+<h2 id="section-6">6. Verification already completed</h2>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Recorded result table"><table><thead><tr><th scope="col">Check</th><th scope="col">Recorded result</th><th scope="col">Limit</th></tr></thead><tbody>
+<tr>
+<td>Backend unit suite</td>
+<td>26 suites / 219 tests passed</td>
+<td>Includes mocked dependencies and fixtures.</td>
+</tr>
+<tr>
+<td>Mobile unit suite</td>
+<td>9 suites / 62 tests passed</td>
+<td>Does not establish native sensor accuracy or full UI behavior.</td>
+</tr>
+<tr>
+<td>Live backend HTTP</td>
+<td>109/109 route signatures exercised; 136 checks; 3 AI checks blocked</td>
+<td>Expected rejection tests count as passes; route coverage is not exhaustive input/branch coverage.</td>
+</tr>
+<tr>
+<td>Database migrations</td>
+<td>14 applied to fresh isolated PostgreSQL</td>
+<td>Production migration rehearsal still required.</td>
+</tr>
+<tr>
+<td>TypeScript</td>
+<td>Passed</td>
+<td>Static verification only.</td>
+</tr>
+<tr>
+<td>iOS/Android JS exports</td>
+<td>Passed</td>
+<td>Does not verify native runtime behavior.</td>
+</tr>
+<tr>
+<td>iOS native build</td>
+<td>Simulator Debug build passed</td>
+<td>Unsigned; no physical-device acceptance.</td>
+</tr>
+<tr>
+<td>Android native build</td>
+<td>ARM64 Debug APK built successfully</td>
+<td>No physical-device acceptance or signed-release validation.</td>
+</tr>
+<tr>
+<td>Food/recipe/weather upstreams</td>
+<td>Successful live responses recorded</td>
+<td>Production credentials, entitlement and resilience checks remain.</td>
+</tr>
+<tr>
+<td>AI upstream</td>
+<td>Not successfully verified</td>
+<td>Missing server OpenAI key.</td>
+</tr>
+</tbody></table></div>
+<h2 id="section-7">7. Recommended order to continue</h2>
+<ol>
+<li><strong>Decide the first-release feature set.</strong> For each P1 feature, either schedule its remaining work or explicitly disable its entry points and backend access. A note in this document alone does not disable a feature.</li>
+<li><strong>Resolve launch-wide P0 items:</strong> account lifecycle, existing-data policy, security advisories, admin bootstrap, staging/production setup and data consistency for core logging/dashboard flows.</li>
+<li><strong>Complete data/service dependencies:</strong> real AI configuration if enabled; reviewed recipe/supplement/safety data; remove demo recommendation defaults.</li>
+<li><strong>Run end-to-end staging acceptance:</strong> register → profile → meals → exercise → dashboard/history → logout/login; repeat with two accounts, two devices, network loss and revoked access.</li>
+<li><strong>Accept specialized features:</strong> actual OCR labels, supported scale, pose/rep calibration, coach/nutritionist workflows and score explanations.</li>
+<li><strong>Produce signed release builds and rehearse deployment:</strong> migration, backup/restore, health checks, monitoring and rollback.</li>
+<li><strong>Approve rollout only after retained features and shared gates have evidence.</strong> Nothing in this report is a production deployment approval.</li>
+</ol>
+<h3 id="section-8">Completion record template</h3>
+<p>Copy this for each open ID:</p>
+<pre>Feature/gate ID:
+Owner:
+Decision: enable at launch / defer and disable
+Work completed:
+Tests and evidence:
+Known limitations:
+Reviewed by:
+Status and date:</pre>
+<h2 id="section-8">8. Supporting documents</h2>
+<ul>
+<li><a href="PRODUCTION_READINESS.md">Detailed findings and production checklist</a></li>
+<li><a href="ENDPOINT_RESULTS.md">Endpoint-by-endpoint HTTP results</a></li>
+<li><a href="NATIVE_VALIDATION.md">Native build findings and reproduction</a></li>
+<li><a href="BACKEND_DEPENDENCY_AUDIT.json">Backend advisory snapshot</a></li>
+<li><a href="MOBILE_DEPENDENCY_AUDIT.json">Mobile advisory snapshot</a></li>
+<li><a href="../README.md">Project setup</a></li>
+</ul>
+<p>The backend also contains <code>scripts/endpoint-smoke.js</code> and <code>docs/endpoint-results.json</code>. The harness mutates data and creates synthetic accounts; run it only against its supported disposable local readiness database, never production. Temporary build artifacts under <code>/private/tmp</code> are not durable release assets.</p>
+<footer>Generated from the Markdown tracker. Status dates and verification evidence are preserved; refreshing this page does not rerun tests or approve a release.</footer></main></div>
+<script>
+const rows=[...document.querySelectorAll('.tracked')],search=document.querySelector('#search'),priority=document.querySelector('#priority'),status=document.querySelector('#status');
+[...new Set(rows.map(r=>r.dataset.status))].sort().forEach(s=>status.add(new Option(s,s)));
+const saved=(()=>{try{return JSON.parse(sessionStorage.getItem('handoffFilters')||'{}')}catch{return {}}})();search.value=saved.search||'';priority.value=saved.priority||'';status.value=saved.status||'';
+function filter(){let count=0;const q=search.value.toLowerCase().trim();rows.forEach(r=>{r.hidden=!(r.textContent.toLowerCase().includes(q)&&(!priority.value||r.dataset.priority===priority.value)&&(!status.value||r.dataset.status===status.value));if(!r.hidden)count++});document.querySelector('#results').textContent=`Showing ${count} of ${rows.length} tracked items. Reference sections remain visible.`;document.querySelector('#empty').hidden=count>0;try{sessionStorage.setItem('handoffFilters',JSON.stringify({search:search.value,priority:priority.value,status:status.value}))}catch{}}
+[search,priority,status].forEach(e=>e.addEventListener('input',filter));document.querySelector('#reset').onclick=()=>{search.value=priority.value=status.value='';filter()};document.querySelector('#print').onclick=()=>window.print();filter();
+if(location.protocol!=='file:'){fetch('/handoff-version',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.text()}).then(hash=>{if(!/^[a-f0-9]{64}$/.test(hash))return;document.querySelector('#freshness').textContent='Live view: checks the Markdown tracker every 5 seconds and reloads when it changes. Keep the local server running.';setInterval(async()=>{try{const r=await fetch('/handoff-version',{cache:'no-store'});if(r.ok&&(await r.text())!=='0c217dc7d2842d1598a3e3bd5f4f1a8285fb8434e14781fd64e818acdb54e72f')location.reload()}catch{document.querySelector('#freshness').textContent='Live connection lost. Restart python3 scripts/handoff.py --serve to resume updates.'}},5000)}).catch(()=>{})}
+</script></body></html>

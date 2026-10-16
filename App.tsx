@@ -1,4 +1,5 @@
 import 'react-native-gesture-handler';
+import AuthGate from './src/components/AuthGate';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -10,7 +11,7 @@ import { RolesProvider } from './src/context/RolesContext';
 export default function App() {
   return (
     <SafeAreaProvider>
-      <ProfileProvider>
+      <AuthGate><ProfileProvider>
         <MealsProvider>
           <RolesProvider>
             <NavigationContainer>
@@ -19,7 +20,7 @@ export default function App() {
             </NavigationContainer>
           </RolesProvider>
         </MealsProvider>
-      </ProfileProvider>
+      </ProfileProvider></AuthGate>
     </SafeAreaProvider>
   );
 }

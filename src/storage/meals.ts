@@ -1,4 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { accountKey } from './session';
+import { accountStorage as AsyncStorage } from './accountStorage';
 
 const KEY_PREFIX = 'fitness.meals.v1.';
 
@@ -8,6 +9,7 @@ export interface Macros {
   protein_g: number;
   carbs_g: number;
   fat_g: number;
+  fiber_g?: number;
 }
 
 export interface LoggedMeal {
@@ -21,13 +23,14 @@ export interface LoggedMeal {
   feedback: string;
   source: string;
   photoUri?: string;
+  quantityG?: number;
 }
 
 export function todayKey(d: Date = new Date()): string {
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
-  return `${KEY_PREFIX}${yyyy}-${mm}-${dd}`;
+  return accountKey(`${KEY_PREFIX}${yyyy}-${mm}-${dd}`);
 }
 
 export async function loadMealsFor(date: Date = new Date()): Promise<LoggedMeal[]> {
@@ -43,7 +46,7 @@ export async function loadMealsFor(date: Date = new Date()): Promise<LoggedMeal[
 
 export async function addMeal(meal: LoggedMeal): Promise<LoggedMeal[]> {
   const list = await loadMealsFor(new Date(meal.createdAt));
-  const next = [...list, meal];
+  const next = [...list.filter(m => m.id !== meal.id), meal];
   await AsyncStorage.setItem(todayKey(new Date(meal.createdAt)), JSON.stringify(next));
   return next;
 }
@@ -76,9 +79,9 @@ function isoDate(d: Date): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-// Returns daily totals for the last N days (inclusive, ending today), oldest first.
-export async function loadHistory(days: number): Promise<DaySummary[]> {
-  const today = new Date();
+// Returns daily totals for N local calendar days, inclusive of ending, oldest first.
+export async function loadHistory(days: number, ending = new Date()): Promise<DaySummary[]> {
+  const today = new Date(ending);
   today.setHours(0, 0, 0, 0);
   const out: DaySummary[] = [];
   for (let i = days - 1; i >= 0; i--) {

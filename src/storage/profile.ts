@@ -1,4 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { accountKey } from './session';
+import { accountStorage as AsyncStorage } from './accountStorage';
 
 const KEY = 'fitness.profile.v1';
 
@@ -46,7 +47,7 @@ export interface Profile {
 
 export async function loadProfile(): Promise<Profile | null> {
   try {
-    const raw = await AsyncStorage.getItem(KEY);
+    const raw = await AsyncStorage.getItem(accountKey(KEY));
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return null;
@@ -58,9 +59,9 @@ export async function loadProfile(): Promise<Profile | null> {
 }
 
 export async function saveProfile(p: Profile): Promise<void> {
-  await AsyncStorage.setItem(KEY, JSON.stringify(p));
+  await AsyncStorage.setItem(accountKey(KEY), JSON.stringify(p));
 }
 
 export async function clearProfile(): Promise<void> {
-  await AsyncStorage.removeItem(KEY);
+  await AsyncStorage.removeItem(accountKey(KEY));
 }

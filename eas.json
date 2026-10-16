@@ -25,11 +25,32 @@
       "channel": "production",
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://fitness-app-backend-production-c5d4.up.railway.app"
+        "EXPO_PUBLIC_API_URL": "https://fitness-app-backend-production-c5d4.up.railway.app",
+        "EXPO_PUBLIC_BETA_SAFE_MODE": "true",
+        "EXPO_PUBLIC_SUPPORT_EMAIL": "sobbani.prashanth@gmail.com",
+        "EXPO_PUBLIC_PRIVACY_POLICY_URL": "https://sobbani16.github.io/humai-privacy/"
+      },
+      "distribution": "store",
+      "environment": "production",
+      "node": "22.20.0",
+      "ios": {
+        "simulator": false
       }
+    },
+    "testflight": {
+      "extends": "production",
+      "channel": "testflight"
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "ascAppId": "6822982480",
+        "appleTeamId": "8FQ5RQS3P8"
+      }
+    },
+    "testflight": {
+      "extends": "production"
+    }
   }
 }

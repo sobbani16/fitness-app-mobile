@@ -1,0 +1,56 @@
+jest.mock('@react-navigation/native', () => ({ useFocusEffect: callback => require('react').useEffect(callback, [callback]) }));
+const mockProfile = { sex: 'male', weightKg: 75, heightCm: 180, age: 30, activityLevel: 'moderate', goal: 'maintain' };
+jest.mock('../../context/ProfileContext', () => ({ useProfile: () => ({ profile: mockProfile }) }));
+jest.mock('../../storage/session', () => ({ getSession: () => ({ user: { id: 'alice' } }) }));
+jest.mock('../../storage/meals', () => ({ loadHistory: jest.fn() }));
+jest.mock('../../services/mealSync', () => ({ reconcileMealDays: jest.fn() }));
+jest.mock('../../api/history', () => ({ getHistory: jest.fn() }));
+const React = require('react');
+const { act, create } = require('react-test-renderer');
+const { Text } = require('react-native');
+const { loadHistory } = require('../../storage/meals');
+const { reconcileMealDays } = require('../../services/mealSync');
+const { getHistory } = require('../../api/history');
+const Screen = require('../HistoryScreen').default;
+let tree;
+beforeEach(() => {
+  jest.clearAllMocks();
+  loadHistory.mockImplementation(async (_count, ending) => [{ date: ending.toISOString().slice(0, 10), caloriesIn: 350, mealCount: 1 }]);
+  reconcileMealDays.mockResolvedValue([]);
+  getHistory.mockImplementation(async ({ days }) => ({ tdee: 2000, entries: days.map(day => ({ ...day, logged: true, target: 2000, net: 350, surplus: -1650, status: 'deficit' })), streaks: { logged: 1, onTarget: 0 } }));
+});
+afterEach(async () => { if (tree) await act(async () => tree.unmount()); });
+it('hydrates before analysis and navigates to older windows and back', async () => {
+  await act(async () => { tree = create(<Screen />); });
+  expect(reconcileMealDays).toHaveBeenCalledTimes(1);
+  expect(reconcileMealDays.mock.invocationCallOrder[0]).toBeLessThan(getHistory.mock.invocationCallOrder[0]);
+  const initial = loadHistory.mock.calls[0][1];
+  const navigation = () => ['Older 4 weeks', 'Newer 4 weeks'].map(accessibilityLabel => tree.root.findAllByProps({ accessibilityLabel })[0]);
+  expect(navigation()[1].props.disabled).toBe(true);
+  await act(async () => navigation()[0].props.onPress());
+  const expected = new Date(initial); expected.setDate(expected.getDate() - 28);
+  expect(loadHistory.mock.calls[2][1]).toEqual(expected);
+  await act(async () => navigation()[1].props.onPress());
+  expect(loadHistory.mock.calls[4][1]).toEqual(initial);
+});
+it('shows saved meal totals when both hydration and analysis are offline', async () => {
+  reconcileMealDays.mockRejectedValue(new Error('offline'));
+  getHistory.mockRejectedValue(new Error('offline'));
+  await act(async () => { tree = create(<Screen />); });
+  const output = tree.root.findAllByType(Text).map(node => node.props.children).flat().join(' ');
+  expect(output).toContain('Showing saved meal totals');
+  expect(output).toContain('350');
+  expect(output).toContain('kcal saved');
+});
+it('keeps cached history visible while syncing and ignores a superseded window response', async () => {
+  let finishFirst;
+  reconcileMealDays.mockImplementationOnce(() => new Promise(resolve => { finishFirst = resolve; }));
+  await act(async () => { tree = create(<Screen />); });
+  expect(tree.root.findAllByType(Text).map(node => node.props.children).flat().join(' ')).toContain('kcal saved');
+  await act(async () => tree.root.findAllByProps({ accessibilityLabel: 'Older 4 weeks' })[0].props.onPress());
+  expect(getHistory).toHaveBeenCalledTimes(1);
+  const olderDate = getHistory.mock.calls[0][0].days[0].date;
+  await act(async () => finishFirst([]));
+  expect(getHistory).toHaveBeenCalledTimes(1);
+  expect(tree.root.findAllByType(Text).map(node => node.props.children).flat().join(' ')).toContain(olderDate);
+});

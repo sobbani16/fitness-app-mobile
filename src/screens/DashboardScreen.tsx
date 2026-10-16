@@ -1,3 +1,4 @@
+import { betaFeatures } from '../config/betaFeatures';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
@@ -39,7 +40,7 @@ function caloriesFromSteps(steps: number, weightKg: number): number {
 export default function DashboardScreen() {
   const navigation = useNavigation<any>();
   const { profile } = useProfile();
-  const { totalCalories, meals, refresh: refreshMeals, syncAll: syncMeals } = useMeals();
+  const { totalCalories, meals, syncError, refresh: refreshMeals, syncAll: syncMeals } = useMeals();
   const { weather, refresh: refreshWeather } = useWeather();
   const { steps, available: stepsAvailable } = useStepCounter();
   const { stats, addWater, toggleSupplement, updateSupplementLog, refresh: refreshStats } = useDailyStats();
@@ -114,7 +115,7 @@ export default function DashboardScreen() {
   };
 
   // Supplement macros: sum nutrition from all taken supplements × quantity.
-  const supplementMacros = mySupplements.reduce(
+  const supplementMacros = (betaFeatures.supplements ? mySupplements : []).reduce(
     (acc, s) => {
       if (stats?.supplements?.[s.name]) {
         const qty = supplementQty[s.id] || 1;
@@ -192,6 +193,7 @@ export default function DashboardScreen() {
         <Text style={styles.goalText}>{dailyGoalMessage}</Text>
       </View>
 
+      {syncError && <Text accessibilityRole="alert" style={{color: '#b42318'}}>{syncError}</Text>}
       <Text style={styles.title}>Hi{profile?.name ? `, ${profile.name}` : ''}</Text>
       <Text style={styles.muted}>
         Goal: {goal.replace(/_/g, ' ')} · Activity: {data.activityLevel.replace('_', ' ')} · {meals.length} meal{meals.length === 1 ? '' : 's'} today
@@ -206,14 +208,14 @@ export default function DashboardScreen() {
       <HealthScoreCard refreshKey={healthScoreRefreshKey} />
 
       {/* Weekly Meal Plan link */}
-      <Pressable style={styles.weeklyPlanLink} onPress={() => navigation.navigate('WeeklyPlan')}>
+      {betaFeatures.weeklyPlans && <Pressable style={styles.weeklyPlanLink} onPress={() => navigation.navigate('WeeklyPlan')}>
         <Text style={styles.weeklyPlanIcon}>🍽️</Text>
         <View style={{ flex: 1 }}>
           <Text style={styles.weeklyPlanTitle}>Weekly Meal Plan</Text>
           <Text style={styles.weeklyPlanSub}>View your 7-day plan, shopping list & meal prep</Text>
         </View>
         <Text style={styles.weeklyPlanArrow}>›</Text>
-      </Pressable>
+      </Pressable>}
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Steps</Text>
@@ -230,7 +232,7 @@ export default function DashboardScreen() {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Today's calories</Text>
+        <Text style={styles.cardTitle}>Today&apos;s calories</Text>
         <Row label="Food" value={`${balance.caloriesIn} kcal`} />
         {supplementMacros.calories > 0 && (
           <Row label="Supplements" value={`${supplementMacros.calories} kcal`} />
@@ -280,7 +282,7 @@ export default function DashboardScreen() {
         </View>
       </View>
 
-      <View style={styles.card}>
+      {betaFeatures.supplements && <View style={styles.card}>
         <Text style={styles.cardTitle}>Supplements</Text>
 
         {/* User's selected supplements */}
@@ -392,7 +394,7 @@ export default function DashboardScreen() {
               ))}
           </View>
         )}
-      </View>
+      </View>}
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Weight goal</Text>

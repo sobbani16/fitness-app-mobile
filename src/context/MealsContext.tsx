@@ -1,13 +1,10 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import {
   LoggedMeal,
-  addMeal as storageAdd,
   loadMealsFor,
-  removeMeal as storageRemove,
   sumCalories,
 } from '../storage/meals';
-import { api } from '../api/client';
-import { getDeviceId } from '../storage/device';
+import { flushMeals, saveMealChange, reconcileMealsFor } from '../services/mealSync';
 
 interface MealsContextValue {
   meals: LoggedMeal[];
@@ -17,39 +14,21 @@ interface MealsContextValue {
   remove: (id: string) => Promise<void>;
   refresh: () => Promise<void>;
   syncAll: () => Promise<void>;
+  syncError: string | null;
 }
 
 const MealsContext = createContext<MealsContextValue | undefined>(undefined);
 
-/**
- * Sync a meal to the backend FoodLog table so the Health Score engine
- * can see it. Fire-and-forget — local storage is the source of truth.
- */
-async function syncMealToBackend(m: LoggedMeal) {
-  try {
-    const userId = await getDeviceId();
-    await api.post('/food-logs', {
-      foodName: m.name,
-      quantityG: 0,
-      calories: m.calories || 0,
-      proteinG: m.macros?.protein_g || 0,
-      carbsG: m.macros?.carbs_g || 0,
-      fatG: m.macros?.fat_g || 0,
-      fiberG: 0,
-      mealType: m.mealType || 'meal',
-    }, { headers: { 'x-user-id': userId } });
-  } catch {
-    // Best-effort sync — don't block the local UX
-  }
-}
-
 export function MealsProvider({ children }: { children: React.ReactNode }) {
+  const [syncError, setSyncError] = useState<string | null>(null);
   const [meals, setMeals] = useState<LoggedMeal[]>([]);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     const list = await loadMealsFor(new Date());
     setMeals(list);
+    try { setMeals(await reconcileMealsFor()); setSyncError(null); }
+    catch { setSyncError('Showing saved meals. Server sync is pending.'); }
   }, []);
 
   useEffect(() => {
@@ -57,26 +36,26 @@ export function MealsProvider({ children }: { children: React.ReactNode }) {
   }, [refresh]);
 
   const add = useCallback(async (m: LoggedMeal) => {
-    const next = await storageAdd(m);
+    const next = await saveMealChange(m);
     setMeals(next);
     // Sync to backend so Health Score engine sees the meal
-    syncMealToBackend(m);
+    flushMeals().then(()=>setSyncError(null)).catch(()=>setSyncError('Meals saved on this device. Sync pending; refresh when connected.'));
   }, []);
 
   const remove = useCallback(async (id: string) => {
-    const next = await storageRemove(id, new Date());
+    const next = await saveMealChange(id);
     setMeals(next);
+    flushMeals().catch(()=>setSyncError('Deletion pending sync.'));
   }, []);
 
   const syncAll = useCallback(async () => {
-    for (const m of meals) {
-      await syncMealToBackend(m);
-    }
-  }, [meals]);
+    try { setMeals(await reconcileMealsFor()); setSyncError(null); }
+    catch (e) { setSyncError('Meals saved on this device. Sync pending.'); throw e; }
+  }, []);
 
   return (
     <MealsContext.Provider
-      value={{ meals, totalCalories: sumCalories(meals), loading, add, remove, refresh, syncAll }}
+      value={{ meals, totalCalories: sumCalories(meals), loading, add, remove, refresh, syncAll, syncError }}
     >
       {children}
     </MealsContext.Provider>

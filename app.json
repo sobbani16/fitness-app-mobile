@@ -4,11 +4,12 @@
     "slug": "fitness-app-mobile",
     "version": "1.0.0",
     "runtimeVersion": {
-      "policy": "appVersion"
+      "policy": "fingerprint"
     },
     "updates": {
       "fallbackToCacheTimeout": 0,
-      "url": "https://u.expo.dev/07e2f44e-7d52-4753-b5e4-5dc7f74d42cb"
+      "url": "https://u.expo.dev/07e2f44e-7d52-4753-b5e4-5dc7f74d42cb",
+      "enabled": false
     },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -23,10 +24,11 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.sobbani.fitnessappmobile",
       "infoPlist": {
-        "NSCameraUsageDescription": "Allow Fitness AI to use the camera to auto-count reps during workouts.",
+        "NSCameraUsageDescription": "Allow Fitness AI to photograph meals, scan nutrition labels, and track exercise repetitions.",
         "NSMotionUsageDescription": "Allow Fitness AI to read your step count to track daily activity.",
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "appleTeamId": "8FQ5RQS3P8"
     },
     "android": {
       "package": "com.sobbani.fitnessappmobile",
@@ -41,8 +43,7 @@
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.CAMERA",
-        "android.permission.ACTIVITY_RECOGNITION",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.ACTIVITY_RECOGNITION"
       ]
     },
     "web": {
@@ -53,24 +54,65 @@
         "expo-image-picker",
         {
           "photosPermission": "Allow Fitness AI to access your photos to log meals.",
-          "cameraPermission": "Allow Fitness AI to use the camera to photograph meals."
+          "cameraPermission": "Allow Fitness AI to photograph meals, scan nutrition labels, and track exercise repetitions.",
+          "microphonePermission": false
         }
       ],
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Allow Fitness AI to use your location to tailor workout suggestions to the current weather."
+          "locationWhenInUsePermission": "Allow Fitness AI to use your location while the app is open for local weather suggestions.",
+          "locationAlwaysPermission": false,
+          "locationAlwaysAndWhenInUsePermission": false,
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false
         }
       ],
       [
         "react-native-vision-camera",
         {
-          "cameraPermissionText": "Allow Fitness AI to use the camera to auto-count reps during workouts.",
+          "cameraPermissionText": "Allow Fitness AI to photograph meals, scan nutrition labels, and track exercise repetitions.",
           "enableMicrophonePermission": false,
           "enableCodeScanner": false
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": false
+        }
+      ],
+      [
+        "react-native-ble-plx",
+        {
+          "bluetoothAlwaysPermission": "Connect to your food scale to measure portions."
+        }
+      ],
+      [
+        "react-native-mediapipe-posedetection",
+        {
+          "assetsPaths": [
+            "./assets/models/"
+          ]
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "15.5"
+          }
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Fitness AI to photograph meals, scan nutrition labels, and track exercise repetitions.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ]
     ],
     "extra": {
       "eas": {

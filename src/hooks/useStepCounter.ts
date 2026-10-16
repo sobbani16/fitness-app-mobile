@@ -1,6 +1,7 @@
+import { accountKey, getSession } from '../storage/session';
 import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { accountStorage as AsyncStorage } from '../storage/accountStorage';
 
 interface UseStepCounter {
   steps: number;
@@ -31,7 +32,7 @@ function todayKey(): string {
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
-  return `fitness.steps.v1.${yyyy}-${mm}-${dd}`;
+  return accountKey(`fitness.steps.v1.${yyyy}-${mm}-${dd}`);
 }
 
 async function loadPersistedSteps(): Promise<number> {
@@ -43,7 +44,8 @@ async function loadPersistedSteps(): Promise<number> {
   }
 }
 
-async function persistSteps(total: number): Promise<void> {
+async function persistSteps(total: number, account: string | undefined): Promise<void> {
+  if (!account || getSession()?.user.id !== account) return;
   try {
     await AsyncStorage.setItem(todayKey(), String(total));
   } catch {
@@ -69,6 +71,7 @@ export function useStepCounter(): UseStepCounter {
   const historicalLoaded = useRef(false);
 
   useEffect(() => {
+    const account = getSession()?.user.id;
     let sub: { remove: () => void } | null = null;
     let cancelled = false;
 
@@ -112,7 +115,7 @@ export function useStepCounter(): UseStepCounter {
               historicalLoaded.current = true;
               gotHistorical = true;
               if (!cancelled) setSteps(n);
-              persistSteps(n);
+              persistSteps(n, account);
             }
           } catch {
             // Health Connect / Google Fit not available
@@ -126,12 +129,13 @@ export function useStepCounter(): UseStepCounter {
           if (!cancelled) setSteps(persisted);
         }
 
+        if (cancelled || getSession()?.user.id !== account) return;
         sub = Pedometer.watchStepCount((res: { steps: number }) => {
           const delta = Number(res?.steps) || 0;
           const total = baseRef.current + delta;
           setSteps(total);
           // Persist so reopening the app doesn't lose the count.
-          persistSteps(total);
+          persistSteps(total, account);
         });
       } catch (e: any) {
         if (!cancelled) {

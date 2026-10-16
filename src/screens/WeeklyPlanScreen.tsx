@@ -9,7 +9,9 @@ import {
   Modal,
   Alert,
   TouchableOpacity,
+  Linking,
 } from 'react-native';
+import WeeklyPreferences from '../components/WeeklyPreferences';
 import { Ionicons } from '@expo/vector-icons';
 import {
   getCurrentPlan,
@@ -70,16 +72,8 @@ export default function WeeklyPlanScreen() {
       const day = today.getDay();
       const monday = new Date(today);
       monday.setDate(today.getDate() - ((day + 6) % 7));
-      const weekStartDate = monday.toISOString().slice(0, 10);
-
-      await apiGeneratePlan({
-        weekStartDate,
-        caloriesTarget: 2200,
-        proteinTarget: 150,
-        carbsTarget: 250,
-        fatTarget: 70,
-        fiberTarget: 30,
-      });
+      const weekStartDate = `${monday.getFullYear()}-${String(monday.getMonth()+1).padStart(2,'0')}-${String(monday.getDate()).padStart(2,'0')}`;
+      await apiGeneratePlan({ weekStartDate });
 
       await loadPlan();
     } catch (e: any) {
@@ -167,14 +161,15 @@ export default function WeeklyPlanScreen() {
 
   if (!plan) {
     return (
-      <View style={styles.center}>
+      <ScrollView contentContainerStyle={styles.container}>
+        <WeeklyPreferences disabled={generating} />
         <Text style={styles.emptyTitle}>No meal plan yet</Text>
-        <Text style={styles.emptyDesc}>Generate a personalized 7-day meal plan based on your goals, conditions, and preferences.</Text>
+        <Text style={styles.emptyDesc}>Generate a 7-day plan from sourced ingredients using your saved nutrition targets and preferences.</Text>
         <Pressable style={styles.generateBtn} onPress={generatePlan} disabled={generating}>
           <Text style={styles.generateBtnText}>{generating ? 'Generating...' : 'Generate Weekly Plan'}</Text>
         </Pressable>
         {error && <Text style={styles.error}>{error}</Text>}
-      </View>
+      </ScrollView>
     );
   }
 
@@ -191,6 +186,8 @@ export default function WeeklyPlanScreen() {
   return (
     <>
       <ScrollView contentContainerStyle={styles.container}>
+        <WeeklyPreferences disabled={generating} />
+        {error && <Text style={styles.error}>{error}</Text>}
         {plan.explanation && (
           <View style={styles.explanationCard}>
             <Text style={styles.explanationText}>{plan.explanation}</Text>
@@ -223,7 +220,9 @@ export default function WeeklyPlanScreen() {
             </ScrollView>
 
             <View style={styles.daySummary}>
-              <Text style={styles.daySummaryText}>{dayCalories} kcal · {dayProtein}g protein</Text>
+              <Text style={styles.daySummaryText}>{Math.round(dayCalories)} / {plan.caloriesTarget} kcal · {Math.round(dayProtein)} / {plan.proteinTarget}g protein</Text>
+              <Text>Estimated totals per person</Text>
+              {!!plan.generationDetails?.days[selectedDay]?.warnings.length && <Text style={styles.error}>Review target gaps: {plan.generationDetails.days[selectedDay].warnings.map(k => `${k}: ${plan.generationDetails!.days[selectedDay].deviations[k]}%`).join(", ")}</Text>}
             </View>
 
             {dayMeals.length === 0 && <Text style={styles.muted}>No meals planned for this day.</Text>}
@@ -236,6 +235,10 @@ export default function WeeklyPlanScreen() {
                 <Text style={styles.mealName}>{m.foodName}</Text>
                 <Text style={styles.mealMacros}>{m.portionG}g · {m.proteinG}g P · {m.carbsG}g C · {m.fatG}g F</Text>
                 {m.prepNote && <Text style={styles.prepNote}>{m.prepNote}</Text>}
+                <Text style={styles.muted}>{m.recipe?.nutritionSource ? 'Nutrition calculated from USDA ingredients' : 'Legacy estimate — source not verified'}</Text>
+                {m.recipe?.nutritionSource?.ingredients.map(ingredient => (
+                  <Text key={ingredient.fdcId} accessibilityRole="link" style={styles.swapHint} onPress={() => Linking.openURL(`https://fdc.nal.usda.gov/food-details/${ingredient.fdcId}/nutrients`).catch(() => Alert.alert('Could not open source'))}>{ingredient.description} · USDA {ingredient.fdcId}</Text>
+                ))}
                 <Text style={styles.swapHint}>Tap to swap</Text>
               </Pressable>
             ))}

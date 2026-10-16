@@ -1,4 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { accountKey } from './session';
+import { accountStorage as AsyncStorage } from './accountStorage';
 
 const KEY_PREFIX = 'fitness.dailyStats.v1.';
 
@@ -27,7 +28,7 @@ function isoDate(d: Date = new Date()): string {
 }
 
 function keyFor(d: Date = new Date()): string {
-  return `${KEY_PREFIX}${isoDate(d)}`;
+  return accountKey(`${KEY_PREFIX}${isoDate(d)}`);
 }
 
 function emptyStats(d: Date = new Date()): DailyStats {

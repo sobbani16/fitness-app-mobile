@@ -117,7 +117,7 @@ export default function ClientDropSurveyScreen() {
       )}
 
       <Text style={styles.intro}>
-        We're sorry to see you go. Your feedback helps us improve trainer matching.
+        We&apos;re sorry to see you go. Your feedback helps us improve trainer matching.
       </Text>
 
       <Text style={styles.label}>Why are you leaving? * (select all that apply)</Text>
@@ -170,7 +170,7 @@ export default function ClientDropSurveyScreen() {
       <View style={styles.infoBox}>
         <Ionicons name="information-circle-outline" size={16} color="#555" />
         <Text style={styles.infoText}>
-          Your rating affects the trainer's public score. Your comments are anonymous to the trainer.
+          Your rating affects the trainer&apos;s public score. Your comments are anonymous to the trainer.
         </Text>
       </View>
 

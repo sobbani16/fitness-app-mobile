@@ -1,3 +1,4 @@
+import { betaFeatures } from '../config/betaFeatures';
 import React from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -62,11 +63,11 @@ export default function RootNavigator() {
             component={HealthScoreDetailScreen}
             options={{ headerShown: true, title: 'Health Score' }}
           />
-          <Stack.Screen
+          {betaFeatures.weeklyPlans && <Stack.Screen
             name="WeeklyPlan"
             component={WeeklyPlanScreen}
             options={{ headerShown: true, title: 'Weekly Meal Plan' }}
-          />
+          />}
           <Stack.Screen
             name="TrainerList"
             component={TrainerListScreen}

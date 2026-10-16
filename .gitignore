@@ -39,3 +39,11 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Local configuration and release credentials
+.env
+.env.*
+!.env.example
+credentials.json
+*.ipa
+*.xcarchive/

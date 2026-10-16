@@ -98,10 +98,12 @@ export default function PortionAdjustScreen() {
         createdAt: new Date().toISOString(),
         name: productName || 'Scanned food',
         calories: adjusted.calories,
+        quantityG: Number(actualPortionG),
         macros: {
           protein_g: adjusted.proteinG,
           carbs_g: adjusted.carbsG,
           fat_g: adjusted.fatG,
+          fiber_g: adjusted.fiberG,
         },
         mealType: params.mealType as any,
         feedback: 'Logged from label scan',
@@ -204,7 +206,7 @@ export default function PortionAdjustScreen() {
       {/* Adjusted Preview */}
       <View style={styles.adjustedCard}>
         <Text style={styles.adjustedTitle}>Adjusted Nutrition</Text>
-        <Text style={styles.adjustedSubtitle}>What you'll actually log</Text>
+        <Text style={styles.adjustedSubtitle}>What you&apos;ll actually log</Text>
         <View style={styles.adjustedRow}>
           <NutrientPill label="Calories" value={adjusted.calories} unit="kcal" />
           <NutrientPill label="Protein" value={adjusted.proteinG} unit="g" />

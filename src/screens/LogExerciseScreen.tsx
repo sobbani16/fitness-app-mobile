@@ -67,9 +67,7 @@ export default function LogExerciseScreen() {
       setCameraVisible(false);
     } else {
       await detection.start(exerciseType);
-      // Always open the form-check overlay. With the real engine it draws the
-      // live pose; in mock mode it animates a form demo so the UX is testable
-      // in Expo Go.
+      // Open the camera overlay; unsupported native builds show an error.
       setCameraVisible(true);
     }
   };
@@ -148,7 +146,7 @@ export default function LogExerciseScreen() {
               </Text>
             </Pressable>
             {detection.isMock && (
-              <Text style={styles.mockTag}>mock</Text>
+              <Text style={styles.mockTag}>unavailable</Text>
             )}
           </View>
           {detection.error && (

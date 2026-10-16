@@ -1,3 +1,4 @@
+import { betaFeatures } from '../config/betaFeatures';
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
@@ -51,7 +52,7 @@ export default function MainTabs() {
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
       <Tab.Screen name="LogMeal" component={LogMealScreen} options={{ title: 'Log Meal' }} />
       <Tab.Screen name="LogExercise" component={LogExerciseScreen} options={{ title: 'Exercise' }} />
-      <Tab.Screen name="Chat" component={ChatScreen} />
+      {betaFeatures.ai && <Tab.Screen name="Chat" component={ChatScreen} />}
       {isTrainerOrNutritionist && (
         <Tab.Screen name="Clients" component={ClientsScreen} />
       )}

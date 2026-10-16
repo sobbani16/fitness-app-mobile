@@ -8,6 +8,7 @@ export interface RecipeIngredient {
 }
 
 export interface Recipe {
+  nutritionSource?: { publisher: string; method: string; ingredients: Array<{ fdcId: number; description: string; url: string; grams: number }> };
   id: string;
   recipeName: string;
   mealType: string;
@@ -50,6 +51,7 @@ export interface ShoppingItem {
 }
 
 export interface WeeklyPlan {
+  generationDetails?: { householdSize: number; days: Array<{ dayOfWeek: number; warnings: string[]; deviations: Record<string, number> }> };
   id: string;
   userId: string;
   weekStartDate: string;
@@ -66,12 +68,6 @@ export interface WeeklyPlan {
 
 export interface GeneratePlanPayload {
   weekStartDate: string;
-  caloriesTarget: number;
-  proteinTarget: number;
-  carbsTarget: number;
-  fatTarget: number;
-  fiberTarget: number;
-  explanation?: string;
 }
 
 async function withUserId<T>(fn: (userId: string) => Promise<T>): Promise<T> {
@@ -91,10 +87,10 @@ export async function getCurrentPlan(): Promise<WeeklyPlan | null> {
   });
 }
 
-export async function generatePlan(payload: GeneratePlanPayload): Promise<WeeklyPlan> {
+export async function generatePlan(payload: GeneratePlanPayload): Promise<{ planId: string }> {
   return withUserId(async (userId) => {
     const res = await api.post('/weekly-plan/generate', payload, { headers: { 'x-user-id': userId } });
-    return res.data as WeeklyPlan;
+    return res.data as { planId: string };
   });
 }
 
@@ -152,4 +148,18 @@ export async function toggleShoppingItem(itemId: string, checked: boolean): Prom
     const res = await api.patch(`/weekly-plan/shopping-list/items/${itemId}/check`, { checked }, { headers: { 'x-user-id': userId } });
     return res.data.item as ShoppingItem;
   });
+}
+
+export interface PlanningPreferences {
+  mealPrepStyle: 'daily_cooking' | 'weekly_prep' | 'twice_weekly_prep';
+  budgetLevel: 'low' | 'medium' | 'high';
+  householdSize: number;
+  dietaryRestrictions: string[];
+  availableEquipment: string[];
+}
+export async function getPlanningPreferences(): Promise<PlanningPreferences> {
+  return (await api.get('/weekly-plan/preferences/me')).data;
+}
+export async function savePlanningPreferences(prefs: PlanningPreferences): Promise<PlanningPreferences> {
+  return (await api.put('/weekly-plan/preferences', prefs)).data;
 }

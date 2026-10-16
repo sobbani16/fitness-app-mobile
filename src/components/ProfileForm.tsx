@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, Pressable, Alert } from 'react-native';
+import AccountPrivacy from './AccountPrivacy';
 import * as Location from 'expo-location';
 import KeyboardAwareScrollView from './KeyboardAwareScrollView';
 import {
@@ -181,7 +182,7 @@ export default function ProfileForm({
     }
 
     if (!name.trim()) return Alert.alert('Missing name', 'Please enter your name.');
-    if (!isFinite(ageN) || ageN <= 0 || ageN > 120) return Alert.alert('Invalid age');
+    if (!Number.isInteger(ageN) || ageN < 18 || ageN > 120) return Alert.alert('Age must be a whole number between 18 and 120.');
 
     await onSubmit({
       name: name.trim(),
@@ -277,6 +278,7 @@ export default function ProfileForm({
 
       <View style={{ height: 8 }} />
       <Button title={saving ? 'Saving…' : submitLabel} onPress={handleSubmit} disabled={saving} />
+      <AccountPrivacy />
       <View style={{ height: 24 }} />
     </KeyboardAwareScrollView>
   );

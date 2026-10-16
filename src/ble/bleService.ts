@@ -1,18 +1,17 @@
 // High-level BLE scale service. UI / hooks depend only on this.
 //
-// Picks the real adapter when react-native-ble-plx is available (dev-client
-// build), otherwise transparently falls back to the mock adapter so Expo Go
-// and tests keep working.
+// Uses the native BLE adapter. Unsupported builds report unavailable;
+// synthetic readings are only available through explicit test injection.
 
 import type { BleAdapter, BleDevice, ScaleReading } from './types';
-import { createMockAdapter } from './mockAdapter';
+
 import { createRealAdapter, isRealBleAvailable } from './realAdapter';
 
 let adapter: BleAdapter | null = null;
 
 function getAdapter(): BleAdapter {
   if (!adapter) {
-    adapter = isRealBleAvailable() ? createRealAdapter() : createMockAdapter();
+    adapter = createRealAdapter();
   }
   return adapter;
 }
@@ -23,7 +22,7 @@ export function __setAdapterForTests(a: BleAdapter | null) {
 }
 
 export function isUsingRealBle(): boolean {
-  return getAdapter().isReal();
+  return isRealBleAvailable();
 }
 
 export async function scanForScale(timeoutMs?: number): Promise<BleDevice> {

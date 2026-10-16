@@ -5,9 +5,9 @@
 //   npx expo install react-native-ble-plx
 //   npx expo prebuild && npx expo run:ios   (or run:android)
 //
-// Until then, `isAvailable()` returns false and `bleService` picks the mock
-// adapter automatically. That keeps Expo Go working out of the box.
+// Until then, availability is false and connection attempts report an error.
 
+import { PermissionsAndroid, Platform, NativeModules } from 'react-native';
 import type { BleAdapter, BleDevice, ScaleReading } from './types';
 import { parseWeight } from './parseWeight';
 
@@ -22,6 +22,7 @@ const SCAN_TIMEOUT_MS = 8000;
 function tryLoadBlePlx(): any | null {
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
+    if (!NativeModules.BleClientManager) return null;
     return require('react-native-ble-plx');
   } catch {
     return null;
@@ -49,7 +50,13 @@ export function createRealAdapter(): BleAdapter {
   return {
     isReal() { return true; },
 
-    scan(timeoutMs = SCAN_TIMEOUT_MS) {
+    async scan(timeoutMs = SCAN_TIMEOUT_MS) {
+      if (Platform.OS === 'android') {
+        const permissions = Number(Platform.Version) >= 31 ? [PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN, PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT] : [PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION];
+        const result = await PermissionsAndroid.requestMultiple(permissions);
+        if (Object.values(result).some(v => v !== PermissionsAndroid.RESULTS.GRANTED)) throw new Error('Bluetooth permission required');
+      }
+      if (await manager.state() !== 'PoweredOn') throw new Error('Turn on Bluetooth and try again.');
       return new Promise<BleDevice>((resolve, reject) => {
         const timeout = setTimeout(() => {
           manager.stopDeviceScan();

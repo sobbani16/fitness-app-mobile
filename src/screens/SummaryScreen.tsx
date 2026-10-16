@@ -1,3 +1,5 @@
+import { api } from '../api/client';
+import { saveSession } from '../storage/session';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
@@ -71,11 +73,11 @@ export default function SummaryScreen() {
 
   const onDelete = () =>
     Alert.alert(
-      'Delete profile?',
-      'This permanently removes your saved profile and returns you to setup.',
+      'Sign out?',
+      'Your data stays in your account. You can sign back in on this device.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => reset() },
+        { text: 'Sign out', onPress: async () => { try { await api.post('/auth/logout'); await saveSession(null); } catch { Alert.alert('Could not sign out', 'Check your connection and try again.'); } } },
       ],
     );
 
@@ -195,7 +197,7 @@ export default function SummaryScreen() {
           <Text style={styles.editBtnText}>Edit profile</Text>
         </Pressable>
         <Pressable style={[styles.actionBtn, styles.deleteBtn]} onPress={onDelete}>
-          <Text style={styles.deleteBtnText}>Delete profile</Text>
+          <Text style={styles.deleteBtnText}>Sign out</Text>
         </Pressable>
       </View>
       <View style={{ height: 24 }} />

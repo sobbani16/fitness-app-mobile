@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import {
   DailyStats,
   addWater as addWaterStore,
@@ -19,10 +19,11 @@ interface UseDailyStats {
 }
 
 /** Local supplement log ID cache: supplement name -> backend log id. */
-const supplementLogIds: Record<string, string> = {};
+
 
 /** Loads + mutates today's water intake and supplement checklist, syncing to backend. */
 export function useDailyStats(): UseDailyStats {
+  const supplementLogIds = useRef<Record<string,string>>({}).current;
   const [stats, setStats] = useState<DailyStats | null>(null);
   const [loading, setLoading] = useState(true);
 

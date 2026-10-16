@@ -30,7 +30,7 @@ export default function ScaleConnectCard({ scale, onWeightLocked }: Props) {
     <View style={styles.card}>
       <View style={styles.headerRow}>
         <Text style={styles.title}>Bluetooth scale</Text>
-        {isMock && <Text style={styles.badge}>mock</Text>}
+        {isMock && <Text style={styles.badge}>unavailable</Text>}
       </View>
 
       {status === 'idle' && (

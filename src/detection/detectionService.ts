@@ -2,7 +2,7 @@
 // Mirrors the pattern used by /ble/bleService.ts.
 
 import type { DetectionEngine, DetectionEvent } from './types';
-import { createMockDetectionEngine } from './mockEngine';
+
 import {
   createRealDetectionEngine,
   isRealDetectionAvailable,
@@ -12,9 +12,7 @@ let engine: DetectionEngine | null = null;
 
 function getEngine(): DetectionEngine {
   if (!engine) {
-    engine = isRealDetectionAvailable()
-      ? createRealDetectionEngine()
-      : createMockDetectionEngine();
+    engine = createRealDetectionEngine();
   }
   return engine;
 }

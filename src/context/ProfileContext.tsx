@@ -1,3 +1,5 @@
+import { getSession } from '../storage/session';
+import { api } from '../api/client';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { Profile, clearProfile, loadProfile, saveProfile } from '../storage/profile';
 
@@ -16,24 +18,29 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadProfile()
+    const account = getSession()?.user.id;
+    api.get('/me/profile').then(async res => { if (getSession()?.user.id !== account) return null; if(res.data.profile) await saveProfile(res.data.profile); return res.data.profile || loadProfile(); }).catch(()=>loadProfile())
       .then(setProfileState)
       .finally(() => setLoading(false));
   }, []);
 
   const setProfile = useCallback(async (p: Profile) => {
+    const account = getSession()?.user.id;
+    await api.put('/me/profile', p);
+    if (getSession()?.user.id !== account) return;
     await saveProfile(p);
     setProfileState(p);
   }, []);
 
   const update = useCallback(async (patch: Partial<Profile>) => {
-    setProfileState((prev) => {
-      if (!prev) return prev;
-      const next = { ...prev, ...patch } as Profile;
-      saveProfile(next);
-      return next;
-    });
-  }, []);
+    if (!profile) return;
+    const next = { ...profile, ...patch };
+    const account = getSession()?.user.id;
+    await api.put('/me/profile', next);
+    if (getSession()?.user.id !== account) return;
+    await saveProfile(next);
+    setProfileState(next);
+  }, [profile]);
 
   const reset = useCallback(async () => {
     await clearProfile();

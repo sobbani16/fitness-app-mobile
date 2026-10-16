@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import { betaFeatures } from '../config/betaFeatures';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -17,12 +18,13 @@ import RecipeByIngredients from '../components/RecipeByIngredients';
 import IngredientSearch from '../components/IngredientSearch';
 import { RecipeNutrition } from '../api/recipes';
 import { IngredientResult } from '../api/ingredients';
-import { detectFood, FoodDetection } from '../api/meals';
+import { analyzeMeal, detectFood, FoodDetection } from '../api/meals';
 import { useMeals } from '../context/MealsContext';
 import { MealType, LoggedMeal, Macros } from '../storage/meals';
 import ScaleConnectCard from '../components/ScaleConnectCard';
 import { useScale } from '../hooks/useScale';
 import { caloriesForPortion, macrosForPortion } from '../services/foodCalories';
+import { getSession } from '../storage/session';
 import { useNavigation } from '@react-navigation/native';
 
 const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
@@ -39,6 +41,9 @@ interface PreviewForm {
   caloriesPer100g: number;
   macrosPer100g: Macros;
   source: string;
+  needsReview?: boolean;
+  uncertainty?: string;
+  lowConfidence?: boolean;
 }
 
 // Macro grams (as strings for controlled inputs) for a given portion.
@@ -58,9 +63,14 @@ export default function LogMealScreen() {
 
   const [description, setDescription] = useState('');
   const [mealType, setMealType] = useState<MealType>('lunch');
+  const [photoBase64, setPhotoBase64] = useState<string | null>(null);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [detecting, setDetecting] = useState(false);
   const [preview, setPreview] = useState<PreviewForm | null>(null);
+  const request = useRef(0);
+  const [reviewed, setReviewed] = useState(false);
+  const invalidate = () => { request.current++; setPreview(null); setReviewed(false); setDetecting(false); };
+  useEffect(() => () => { request.current++; }, []);
   const [error, setError] = useState<string | null>(null);
 
   // When the scale locks a stable weight, autofill the portion field and
@@ -91,46 +101,50 @@ export default function LogMealScreen() {
     setPreview(next);
   };
 
-  const pickFromLibrary = async () => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Permission required', 'Photo library access is needed.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.6,
-    });
-    if (!result.canceled && result.assets?.[0]?.uri) {
-      setPhotoUri(result.assets[0].uri);
-    }
+  const choosePhoto = async (camera: boolean) => {
+    invalidate();
+    const generation = request.current;
+    const userId = getSession()?.user.id;
+    const current = () => generation === request.current && userId === getSession()?.user.id;
+    setError(null);
+    try {
+      const perm = camera ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!current()) return;
+      if (!perm.granted) { setError('Photo permission is required. You can still describe or search for food.'); return; }
+      const options = { allowsEditing: true, quality: 0.5, base64: true };
+      const result = camera ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync({ ...options, mediaTypes: ImagePicker.MediaTypeOptions.Images });
+      if (!current() || result.canceled) return;
+      const asset = result.assets?.[0];
+      if (!asset?.base64 || !asset.uri) throw new Error('Photo data is unavailable. Choose another photo.');
+      // Expo ImagePicker documents base64 as JPEG data on both native platforms.
+      if (asset.base64.length > Math.ceil(5 * 1024 * 1024 / 3) * 4) throw new Error('Choose a smaller photo (up to 5 MB).');
+      setPhotoUri(asset.uri);
+      setPhotoBase64(`data:image/jpeg;base64,${asset.base64}`);
+    } catch (e: any) { if (current()) setError(e?.message || 'Could not open photo. Please retry.'); }
   };
-
-  const takePhoto = async () => {
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Permission required', 'Camera access is needed.');
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, quality: 0.6 });
-    if (!result.canceled && result.assets?.[0]?.uri) {
-      setPhotoUri(result.assets[0].uri);
-    }
-  };
-
-  const clearPhoto = () => setPhotoUri(null);
+  const pickFromLibrary = () => choosePhoto(false);
+  const takePhoto = () => choosePhoto(true);
+  const clearPhoto = () => { invalidate(); setPhotoUri(null); setPhotoBase64(null); };
 
   const onDetect = async () => {
+    if (!betaFeatures.ai) return;
+    const generation = ++request.current;
+    const userId = getSession()?.user.id;
+    const current = () => generation === request.current && userId === getSession()?.user.id;
     setError(null);
+    setPreview(null);
+    setReviewed(false);
     setDetecting(true);
     try {
-      const result: FoodDetection = await detectFood({
+      const result: FoodDetection = await (photoUri ? detectFood : analyzeMeal)({
         description: description.trim() || undefined,
         mealType,
         hasPhoto: Boolean(photoUri),
+        imageDataUrl: photoBase64 || undefined,
       });
+      if (!current()) return;
       setPreview({
+        needsReview: true, uncertainty: result.uncertainty, lowConfidence: result.lowConfidence,
         name: result.foodName,
         portionGrams: String(result.suggestedPortionGrams),
         calories: String(result.estimatedCalories),
@@ -140,15 +154,16 @@ export default function LogMealScreen() {
         source: result.source,
       });
     } catch (e: any) {
-      setError(e?.message ?? 'Detection failed');
+      if (current()) setError(e?.response?.data?.error ?? e?.message ?? 'Detection failed');
     } finally {
-      setDetecting(false);
+      if (current()) setDetecting(false);
     }
   };
 
   // Fill the preview card from a selected USDA ingredient (per-100g nutrition).
   // Defaults the portion to 100g; the user can adjust portion/macros below.
   const onIngredientSelected = (ing: IngredientResult) => {
+    invalidate();
     setError(null);
     const grams = 100;
     setPreview({
@@ -164,6 +179,7 @@ export default function LogMealScreen() {
 
   // Fill the preview card from a selected recipe's nutrition.
   const onRecipeSelected = (n: RecipeNutrition) => {
+    invalidate();
     setError(null);
     const grams = n.servingWeightGrams > 0 ? n.servingWeightGrams : 100;
     setPreview({
@@ -178,8 +194,11 @@ export default function LogMealScreen() {
   };
 
   const onSave = async () => {
-    if (!preview) return;
+    if (!preview || (preview.needsReview && !reviewed)) return;
     const grams = Number(preview.portionGrams);
+    if (!Number.isFinite(grams) || grams <= 0 || grams > 10000) {
+      Alert.alert('Invalid portion', 'Enter a portion between 0 and 10,000 grams.'); return;
+    }
     const kcal = Number(preview.calories);
     if (!Number.isFinite(kcal) || kcal < 0) {
       Alert.alert('Invalid calories', 'Calories must be a non-negative number.');
@@ -210,13 +229,14 @@ export default function LogMealScreen() {
       mealType,
       feedback: preview.source,
       source: preview.source,
+      quantityG: Number(preview.portionGrams),
       photoUri: photoUri ?? undefined,
     };
     try {
       await add(meal);
       setDescription('');
       setPreview(null);
-      setPhotoUri(null);
+      clearPhoto();
       scale.reset();
       Alert.alert('Saved', `${meal.name} · ${meal.calories} kcal`);
     } catch (e: any) {
@@ -245,6 +265,7 @@ export default function LogMealScreen() {
         </Pressable>
 
         <Text style={styles.label}>Photo (optional)</Text>
+        <Text style={styles.muted}>Analysis sends your description and selected photo to our AI provider for an estimate. Review the food and portion before saving.</Text>
         {photoUri ? (
           <View style={styles.photoWrap}>
             <Image source={{ uri: photoUri }} style={styles.photo} resizeMode="cover" />
@@ -282,8 +303,9 @@ export default function LogMealScreen() {
         <TextInput
           style={styles.input}
           value={description}
-          onChangeText={setDescription}
-          placeholder="e.g. grilled chicken with rice"
+          onChangeText={text => { invalidate(); setDescription(text); }}
+          placeholder="e.g. 150g grilled chicken with 200g cooked rice"
+          maxLength={4000}
           autoCapitalize="sentences"
         />
 
@@ -294,7 +316,7 @@ export default function LogMealScreen() {
             return (
               <Pressable
                 key={t}
-                onPress={() => setMealType(t)}
+                onPress={() => { invalidate(); setMealType(t); }}
                 style={[styles.segment, active && styles.segmentActive]}
               >
                 <Text style={[styles.segmentText, active && styles.segmentTextActive]}>{t}</Text>
@@ -304,20 +326,27 @@ export default function LogMealScreen() {
         </View>
 
         <View style={{ height: 8 }} />
-        <Button
-          title={detecting ? 'Detecting…' : 'Detect food'}
+        {betaFeatures.ai && <Button
+          title={detecting ? 'Analyzing…' : photoUri ? 'Detect food' : 'Analyze description'}
           onPress={onDetect}
           disabled={detecting}
-        />
+        />}
 
+        <Button title="Enter nutrition manually" onPress={() => {
+          invalidate(); setError(null);
+          setPreview({ name: description.trim() || 'Meal', portionGrams:'100', calories:'0', protein:'0', carbs:'0', fat:'0', caloriesPer100g:0, macrosPer100g:{protein_g:0,carbs_g:0,fat_g:0}, source:'Manual entry' });
+        }} />
+        {!betaFeatures.ai && <Text style={styles.muted}>AI estimates are unavailable in this beta. Use food search, label scanning or manual entry.</Text>}
         {detecting && <ActivityIndicator style={{ marginTop: 10 }} />}
         {error && <Text style={styles.err}>Error: {error}</Text>}
 
         {preview && (
           <>
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>Detected — edit before saving</Text>
+              <Text style={styles.cardTitle}>Estimated nutrition — edit before saving</Text>
               <Text style={styles.muted}>{preview.source}</Text>
+              {preview.lowConfidence && <Text style={styles.err}>Uncertain estimate — check the food and portion carefully.</Text>}
+              {!!preview.uncertainty && <Text style={styles.muted}>{preview.uncertainty}</Text>}
 
               <Text style={styles.label}>Food name</Text>
               <TextInput
@@ -380,7 +409,8 @@ export default function LogMealScreen() {
               </Text>
 
               <View style={{ height: 6 }} />
-              <Button title="Save meal" onPress={onSave} />
+              <>{preview.needsReview && <Button title={reviewed ? "Estimate reviewed ✓" : "I reviewed the food, portion and nutrition"} onPress={() => setReviewed(true)} />}
+              <Button title="Save meal" onPress={onSave} disabled={!!preview.needsReview && !reviewed} /></>
             </View>
 
             <View style={{ height: 10 }} />
@@ -389,7 +419,7 @@ export default function LogMealScreen() {
         )}
 
         <View style={styles.divider} />
-        <Text style={styles.sectionTitle}>Today's meals</Text>
+        <Text style={styles.sectionTitle}>Today&apos;s meals</Text>
         {meals.length === 0 && <Text style={styles.muted}>No meals logged yet.</Text>}
         {meals.map((m) => (
           <Pressable key={m.id} onLongPress={() => onRemove(m.id)} style={styles.mealRow}>
