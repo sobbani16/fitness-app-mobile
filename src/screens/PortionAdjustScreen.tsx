@@ -1,300 +1,113 @@
-import React, { useCallback, useMemo, useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  Pressable,
-  Alert,
-  ActivityIndicator,
-} from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import React, { useRef, useState } from 'react';
+import { Alert, Image, View } from 'react-native';
+import { useNavigation, useRoute, usePreventRemove } from '@react-navigation/native';
 import KeyboardAwareScrollView from '../components/KeyboardAwareScrollView';
-import { saveLabelAndLog, ExtractedNutrition } from '../api/labelScanner';
+import { saveLabelAndLog, SaveLabelInput, SaveLabelResponse, ExtractedNutrition } from '../api/labelScanner';
 import { useMeals } from '../context/MealsContext';
 import { LoggedMeal } from '../storage/meals';
+import { Action, Card, Copy, Field, Notice } from '../design/components';
+import { useTheme } from '../design/theme';
+import { numeric, portionRatio, scaleLabel } from '../services/labelPortion';
+import { getSession } from '../storage/session';
 
-interface RouteParams {
-  extracted: ExtractedNutrition | null;
-  photoUri: string | null;
-  ocrRawText: string;
-  mealType: string;
-}
-
+const fields = ['Calories', 'Protein', 'Carbs', 'Fat', 'Fiber', 'Sugar'] as const;
 export default function PortionAdjustScreen() {
   const navigation = useNavigation<any>();
-  const route = useRoute();
-  const params = route.params as RouteParams;
+  const route = useRoute<any>();
+  const params = route.params || {};
+  const extracted: ExtractedNutrition | null = params.extracted || null;
   const { add } = useMeals();
-
-  const extracted = params.extracted;
-
-  // Form state — initialized from extracted data or blank for manual entry
-  const [productName, setProductName] = useState(extracted?.productName || '');
-  const [servingSizeG, setServingSizeG] = useState(String(extracted?.servingSizeG || '100'));
-  const [actualPortionG, setActualPortionG] = useState(String(extracted?.servingSizeG || '100'));
-  const [labelCalories, setLabelCalories] = useState(String(extracted?.calories || ''));
-  const [labelProteinG, setLabelProteinG] = useState(String(extracted?.proteinG || ''));
-  const [labelCarbsG, setLabelCarbsG] = useState(String(extracted?.carbsG || ''));
-  const [labelFatG, setLabelFatG] = useState(String(extracted?.fatG || ''));
-  const [labelFiberG, setLabelFiberG] = useState(String(extracted?.fiberG || ''));
-  const [labelSugarG, setLabelSugarG] = useState(String(extracted?.sugarG || ''));
+  const { colors } = useTheme();
+  const [name, setName] = useState(extracted?.productName || '');
   const [ingredients, setIngredients] = useState(extracted?.ingredients || '');
-  const [saving, setSaving] = useState(false);
-
-  // Calculate adjusted values in real-time
-  const adjusted = useMemo(() => {
-    const serving = Number(servingSizeG) || 1;
-    const portion = Number(actualPortionG) || 0;
-    const ratio = portion / serving;
-    return {
-      calories: Math.round((Number(labelCalories) || 0) * ratio),
-      proteinG: Math.round(((Number(labelProteinG) || 0) * ratio) * 10) / 10,
-      carbsG: Math.round(((Number(labelCarbsG) || 0) * ratio) * 10) / 10,
-      fatG: Math.round(((Number(labelFatG) || 0) * ratio) * 10) / 10,
-      fiberG: Math.round(((Number(labelFiberG) || 0) * ratio) * 10) / 10,
-      sugarG: Math.round(((Number(labelSugarG) || 0) * ratio) * 10) / 10,
-    };
-  }, [servingSizeG, actualPortionG, labelCalories, labelProteinG, labelCarbsG, labelFatG, labelFiberG, labelSugarG]);
-
-  const portionRatio = useMemo(() => {
-    const s = Number(servingSizeG) || 1;
-    const p = Number(actualPortionG) || 0;
-    return p / s;
-  }, [servingSizeG, actualPortionG]);
-
-  const onSave = useCallback(async () => {
-    if (!Number(actualPortionG)) {
-      Alert.alert('Enter portion', 'Please enter the actual portion size in grams.');
-      return;
+  const [basis, setBasis] = useState(extracted?.servingSizeG == null ? '' : String(extracted.servingSizeG));
+  const [mass, setMass] = useState('');
+  const [amount, setAmount] = useState('');
+  const [unit, setUnit] = useState<'g' | 'ml' | 'servings' | 'package'>('g');
+  const [packageServings, setPackageServings] = useState(extracted?.servingsPerContainer == null ? '' : String(extracted.servingsPerContainer));
+  const [values, setValues] = useState([extracted?.calories, extracted?.proteinG, extracted?.carbsG, extracted?.fatG, extracted?.fiberG, extracted?.sugarG].map(value => value == null ? '' : String(value)));
+  const [reviewed, setReviewed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [removed, setRemoved] = useState(false);
+  const [error, setError] = useState('');
+  const lock = useRef(false);
+  const stableId = useRef(`label-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  const pending = useRef<SaveLabelInput | null>(null);
+  const response = useRef<SaveLabelResponse | null>(null);
+  const createdAt = useRef(new Date().toISOString());
+  usePreventRemove(!saved && !removed && Boolean(name || values.some(value => value !== '') || amount), ({ data }) => {
+    if (busy) return;
+    Alert.alert('Leave label review?', pending.current ? 'The server may already have saved this entry. Check your diary before starting another scan.' : 'Your unsaved corrections will be discarded.', [
+      { text: 'Keep reviewing', style: 'cancel' }, { text: 'Leave', style: 'destructive', onPress: () => navigation.dispatch(data.action) },
+    ]);
+  });
+  const ratio = portionRatio(basis, amount, unit, packageServings);
+  const adjusted = values.map((value, index) => scaleLabel(value, ratio, index === 0));
+  const servingMass = numeric(unit === 'ml' ? mass : basis);
+  function edit(action: () => void) { action(); setReviewed(false); setError(''); }
+  async function save() {
+    if (lock.current || saved) return;
+    if (!pending.current) {
+      if (!reviewed || !name.trim() || !ratio || !servingMass || servingMass > 10000 || servingMass * ratio > 10000 || values.slice(0, 4).some(value => numeric(value) === null)
+        || adjusted.slice(0, 4).some(value => value === null) || values.slice(4).some((value, index) => value.trim() !== '' && (numeric(value) === null || adjusted[index + 4] === null))) {
+        setError('Review the food name, portion and required nutrition. Missing values are not zero. Portion mass must be between 0 and 10,000 g.'); return;
+      }
+      pending.current = { id: stableId.current, productName: name.trim(), ingredients: ingredients.trim() || undefined,
+        servingSizeG: servingMass, actualPortionG: servingMass * ratio, servingsPerContainer: numeric(packageServings) || undefined,
+        labelCalories: numeric(values[0])!, labelProteinG: numeric(values[1])!, labelCarbsG: numeric(values[2])!, labelFatG: numeric(values[3])!,
+        labelFiberG: numeric(values[4]), labelSugarG: numeric(values[5]),
+        mealType: params.mealType || 'lunch', photoUri: params.photoUri || undefined, ocrRawText: params.ocrRawText || undefined };
     }
-    if (!Number(labelCalories) && !Number(labelProteinG)) {
-      Alert.alert('Missing data', 'Please enter at least calories or protein from the label.');
-      return;
-    }
-
-    setSaving(true);
+    lock.current = true; setBusy(true); setError('');
+    const account = getSession()?.user.id;
     try {
-      const result = await saveLabelAndLog({
-        productName: productName || undefined,
-        ingredients: ingredients || undefined,
-        servingSizeG: Number(servingSizeG),
-        labelCalories: Number(labelCalories) || 0,
-        labelProteinG: Number(labelProteinG) || 0,
-        labelCarbsG: Number(labelCarbsG) || 0,
-        labelFatG: Number(labelFatG) || 0,
-        labelFiberG: Number(labelFiberG) || 0,
-        labelSugarG: Number(labelSugarG) || 0,
-        actualPortionG: Number(actualPortionG),
-        mealType: params.mealType,
-        photoUri: params.photoUri || undefined,
-        ocrRawText: params.ocrRawText || undefined,
-        aiConfidence: extracted?.confidence,
-      });
-
-      // Also add to local meals context so it appears immediately on dashboard
-      const localMeal: LoggedMeal = {
-        id: result.foodLog.id,
-        createdAt: new Date().toISOString(),
-        name: productName || 'Scanned food',
-        calories: adjusted.calories,
-        quantityG: Number(actualPortionG),
-        macros: {
-          protein_g: adjusted.proteinG,
-          carbs_g: adjusted.carbsG,
-          fat_g: adjusted.fatG,
-          fiber_g: adjusted.fiberG,
-        },
-        mealType: params.mealType as any,
-        feedback: 'Logged from label scan',
-        source: 'label_scan',
-        photoUri: params.photoUri || undefined,
-      };
-      await add(localMeal);
-
-      Alert.alert('Saved!', `${productName || 'Food'} logged: ${adjusted.calories} kcal`, [
-        { text: 'OK', onPress: () => navigation.navigate('Main') },
-      ]);
-    } catch (err: any) {
-      Alert.alert('Error', err?.message || 'Failed to save.');
-    } finally {
-      setSaving(false);
+      response.current ??= await saveLabelAndLog(pending.current);
+      if (getSession()?.user.id !== account) throw new Error('Account changed');
+      const result = response.current;
+      const log = result.foodLog;
+      const meal: LoggedMeal = { id: log.id, createdAt: log.loggedAt || createdAt.current, name: log.foodName, calories: log.calories,
+        quantityG: log.quantityG, macros: { protein_g: log.proteinG, carbs_g: log.carbsG, fat_g: log.fatG,
+          ...(log.fiberG == null ? {} : { fiber_g: log.fiberG }) }, mealType: params.mealType || 'lunch',
+        feedback: 'Reviewed label nutrition', source: 'label_scan', photoUri: params.photoUri || undefined };
+      await add(meal); setSaved(true);
+    } catch (failure: any) {
+      if (failure?.response?.status === 400) { pending.current = null; setReviewed(false); setError('The server could not accept these values. Check the name, units, portion and nutrition before saving again.'); }
+      else if (failure?.response?.status === 410) { setRemoved(true); setError('This meal was removed from your diary. It will not be recreated by a retry.'); }
+      else setError('Could not finish saving. Retry this same entry when connected; your reviewed values are kept.');
     }
-  }, [productName, ingredients, servingSizeG, actualPortionG, labelCalories, labelProteinG, labelCarbsG, labelFatG, labelFiberG, labelSugarG, adjusted, params, extracted, navigation, add]);
-
-  return (
-    <KeyboardAwareScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Adjust Portion</Text>
-      {extracted?.confidence != null && (
-        <Text style={styles.confidence}>
-          AI Confidence: {Math.round(extracted.confidence * 100)}%
-        </Text>
-      )}
-
-      {/* Product Info */}
-      <Text style={styles.sectionTitle}>Product Info</Text>
-      <Text style={styles.label}>Product Name</Text>
-      <TextInput style={styles.input} value={productName} onChangeText={setProductName} placeholder="e.g. Granola Bar" />
-
-      {ingredients ? (
-        <View style={styles.ingredientsBox}>
-          <Text style={styles.ingredientsLabel}>Ingredients:</Text>
-          <Text style={styles.ingredientsText}>{ingredients}</Text>
-        </View>
-      ) : null}
-
-      {/* Label Nutrition (per serving) */}
-      <Text style={styles.sectionTitle}>Label Nutrition (per serving)</Text>
-
-      <View style={styles.row}>
-        <View style={styles.field}>
-          <Text style={styles.label}>Serving Size (g)</Text>
-          <TextInput style={styles.input} value={servingSizeG} onChangeText={setServingSizeG} keyboardType="decimal-pad" />
-        </View>
-        <View style={styles.field}>
-          <Text style={styles.label}>Calories</Text>
-          <TextInput style={styles.input} value={labelCalories} onChangeText={setLabelCalories} keyboardType="decimal-pad" />
-        </View>
-      </View>
-
-      <View style={styles.row}>
-        <View style={styles.field}>
-          <Text style={styles.label}>Protein (g)</Text>
-          <TextInput style={styles.input} value={labelProteinG} onChangeText={setLabelProteinG} keyboardType="decimal-pad" />
-        </View>
-        <View style={styles.field}>
-          <Text style={styles.label}>Carbs (g)</Text>
-          <TextInput style={styles.input} value={labelCarbsG} onChangeText={setLabelCarbsG} keyboardType="decimal-pad" />
-        </View>
-        <View style={styles.field}>
-          <Text style={styles.label}>Fat (g)</Text>
-          <TextInput style={styles.input} value={labelFatG} onChangeText={setLabelFatG} keyboardType="decimal-pad" />
-        </View>
-      </View>
-
-      <View style={styles.row}>
-        <View style={styles.field}>
-          <Text style={styles.label}>Fiber (g)</Text>
-          <TextInput style={styles.input} value={labelFiberG} onChangeText={setLabelFiberG} keyboardType="decimal-pad" />
-        </View>
-        <View style={styles.field}>
-          <Text style={styles.label}>Sugar (g)</Text>
-          <TextInput style={styles.input} value={labelSugarG} onChangeText={setLabelSugarG} keyboardType="decimal-pad" />
-        </View>
-      </View>
-
-      {/* Portion Input */}
-      <Text style={styles.sectionTitle}>Your Portion</Text>
-      <Text style={styles.hint}>
-        How much did you actually eat? Weigh your food or estimate in grams.
-      </Text>
-      <TextInput
-        style={[styles.input, styles.portionInput]}
-        value={actualPortionG}
-        onChangeText={setActualPortionG}
-        keyboardType="decimal-pad"
-        placeholder="e.g. 150"
-      />
-      <Text style={styles.ratioText}>
-        {portionRatio === 1
-          ? 'Eating exactly 1 serving'
-          : portionRatio < 1
-          ? `Eating ${Math.round(portionRatio * 100)}% of a serving`
-          : `Eating ${portionRatio.toFixed(1)}× servings`}
-      </Text>
-
-      {/* Adjusted Preview */}
-      <View style={styles.adjustedCard}>
-        <Text style={styles.adjustedTitle}>Adjusted Nutrition</Text>
-        <Text style={styles.adjustedSubtitle}>What you&apos;ll actually log</Text>
-        <View style={styles.adjustedRow}>
-          <NutrientPill label="Calories" value={adjusted.calories} unit="kcal" />
-          <NutrientPill label="Protein" value={adjusted.proteinG} unit="g" />
-          <NutrientPill label="Carbs" value={adjusted.carbsG} unit="g" />
-          <NutrientPill label="Fat" value={adjusted.fatG} unit="g" />
-        </View>
-        <View style={styles.adjustedRow}>
-          <NutrientPill label="Fiber" value={adjusted.fiberG} unit="g" />
-          <NutrientPill label="Sugar" value={adjusted.sugarG} unit="g" />
-        </View>
-      </View>
-
-      {/* Save Button */}
-      <Pressable style={styles.saveBtn} onPress={onSave} disabled={saving}>
-        {saving ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.saveBtnText}>Log This Meal</Text>
-        )}
-      </Pressable>
-
-      <View style={{ height: 40 }} />
-    </KeyboardAwareScrollView>
-  );
+    finally { lock.current = false; setBusy(false); }
+  }
+  return <KeyboardAwareScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, gap: 16, width: '100%', maxWidth: 760, alignSelf: 'center' }}>
+    <Copy size="heading" accessibilityRole="header">Review label & portion</Copy>
+    {saved ? <Card><Notice title="Meal saved" message="Your reviewed label is now in your food diary." /><Action label="Done" onPress={() => navigation.navigate('Main', { screen: 'LogMeal' })} /></Card> : pending.current ?
+      <Card><Copy>{pending.current.productName} · {adjusted[0]} kcal</Copy><Copy tone="muted">This entry is locked while saving or retrying, so the same meal is not submitted twice.</Copy>
+        {error !== '' && <Notice error title="Save incomplete" message={error} />}{removed ? <Action label="Open food diary" onPress={() => navigation.navigate('Main', { screen: 'LogMeal' })} /> : <Action label={busy ? 'Saving…' : 'Retry save'} disabled={busy} onPress={() => { void save(); }} />}</Card> : <>
+      <Notice title="Check against the package" message="OCR can miss values or mix columns. Choose one column (per serving or per 100 g/ml) and review every value. Unknown is not zero." />
+      {params.photoUri && <Image accessibilityLabel="Captured nutrition label" source={{ uri: params.photoUri }} style={{ width: '100%', height: 220 }} resizeMode="contain" />}
+      <Card><Field label="Food name" maxLength={300} value={name} onChangeText={value => edit(() => setName(value))} />
+        <Field label="Ingredients (optional, editable)" maxLength={20000} multiline value={ingredients} onChangeText={value => edit(() => setIngredients(value))} />
+        {params.ocrRawText ? <Copy size="caption" tone="muted">Label text: {params.ocrRawText}</Copy> : null}
+      </Card>
+      <Card><Copy size="title">Nutrition column & quantity</Copy>
+        <Copy tone="muted">For per-100-g nutrition, enter 100 as the label basis. For per-serving nutrition, enter the serving’s labeled weight.</Copy>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{(['g', 'ml', 'servings', 'package'] as const).map(value => <Action secondary key={value} label={value} selected={unit === value} onPress={() => edit(() => { setUnit(value); setAmount(''); })} />)}</View>
+        <Field label={unit === 'ml' ? 'Label basis (ml)' : 'Label basis / serving weight (g)'} value={basis} keyboardType="decimal-pad" onChangeText={value => edit(() => setBasis(value))} />
+        {unit === 'ml' && <><Copy tone="muted">Volume is not weight. Enter the measured or labeled mass for the label basis above. We never assume 1 ml = 1 g.</Copy>
+          <Field label="Mass of label basis (g)" value={mass} keyboardType="decimal-pad" onChangeText={value => edit(() => setMass(value))} /></>}
+        {unit === 'package' && <Copy tone="muted">Use the per-serving nutrition column and serving weight for package portions.</Copy>}
+        {unit === 'package' && <Field label="Servings per package" value={packageServings} keyboardType="decimal-pad" onChangeText={value => edit(() => setPackageServings(value))} />}
+        <Field label={`Your portion (${unit})`} value={amount} keyboardType="decimal-pad" onChangeText={value => edit(() => setAmount(value))} />
+        {fields.map((field, index) => <Field key={field} label={`${field} (${index === 0 ? 'kcal' : 'g'}) per label basis${index >= 4 ? ' — optional' : ''}`} value={values[index]}
+          keyboardType="decimal-pad" onChangeText={value => edit(() => setValues(previous => previous.map((item, i) => i === index ? value : item)))} />)}
+      </Card>
+      <Card><Copy size="title">What you’ll log</Copy><Copy tone="muted">{ratio ? `${Number(ratio.toFixed(3))} × the label basis` : 'Enter a valid label basis and portion'}</Copy>
+        {fields.map((field, index) => <Copy key={field}>{field}: {adjusted[index] == null ? 'Unknown' : `${adjusted[index]} ${index === 0 ? 'kcal' : 'g'}`}</Copy>)}
+        <Copy size="caption" tone="muted">Calories rounded to whole kcal; nutrients to 0.1 g. Values remain label estimates.</Copy>
+        <Action secondary label={reviewed ? 'Reviewed ✓' : 'I checked the label, units and portion'} onPress={() => setReviewed(true)} />
+        {error !== '' && <Notice error title="Check your entry" message={error} />}
+        <Action label="Save reviewed meal" disabled={!reviewed} onPress={() => { void save(); }} />
+      </Card>
+    </>}
+  </KeyboardAwareScrollView>;
 }
-
-function NutrientPill({ label, value, unit }: { label: string; value: number; unit: string }) {
-  return (
-    <View style={styles.pill}>
-      <Text style={styles.pillValue}>{value}{unit}</Text>
-      <Text style={styles.pillLabel}>{label}</Text>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: { padding: 20, paddingBottom: 40 },
-  title: { fontSize: 24, fontWeight: '800', color: '#1a1a2e', marginBottom: 4 },
-  confidence: { fontSize: 13, color: '#6c63ff', fontWeight: '600', marginBottom: 12 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1a1a2e', marginTop: 20, marginBottom: 8 },
-  label: { fontSize: 12, fontWeight: '600', color: '#666', marginBottom: 4 },
-  hint: { fontSize: 13, color: '#888', marginBottom: 8 },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
-    backgroundColor: '#fff',
-  },
-  portionInput: { fontSize: 20, fontWeight: '700', textAlign: 'center', paddingVertical: 14 },
-  row: { flexDirection: 'row', gap: 10, marginBottom: 10 },
-  field: { flex: 1 },
-  ratioText: { fontSize: 13, color: '#1e6fb8', fontWeight: '600', marginTop: 6, textAlign: 'center' },
-  ingredientsBox: { backgroundColor: '#f0f0f0', borderRadius: 8, padding: 10, marginTop: 8 },
-  ingredientsLabel: { fontSize: 12, fontWeight: '700', color: '#555' },
-  ingredientsText: { fontSize: 13, color: '#333', marginTop: 4 },
-
-  adjustedCard: {
-    backgroundColor: '#e8f4fd',
-    borderRadius: 14,
-    padding: 16,
-    marginTop: 20,
-    borderWidth: 1,
-    borderColor: '#b8daef',
-  },
-  adjustedTitle: { fontSize: 16, fontWeight: '700', color: '#1a1a2e' },
-  adjustedSubtitle: { fontSize: 12, color: '#666', marginBottom: 12 },
-  adjustedRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
-  pill: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 10,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
-  pillValue: { fontSize: 16, fontWeight: '700', color: '#1a1a2e' },
-  pillLabel: { fontSize: 11, color: '#888', marginTop: 2 },
-
-  saveBtn: {
-    backgroundColor: '#2e7d32',
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 24,
-  },
-  saveBtnText: { color: '#fff', fontSize: 17, fontWeight: '700' },
-});

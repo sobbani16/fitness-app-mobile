@@ -1,193 +1,57 @@
-import React, { useCallback, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import React, { useCallback, useRef, useState } from 'react';
+import { ScrollView, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import {
-  getHealthScore, getActions, getHealthTrend,
-  HealthScoreResponse, ImprovementAction, TrendPoint,
-} from '../api/healthScore';
-
-const C = { green: '#2e7d32', yellow: '#e6a817', red: '#c0392b', blue: '#1e6fb8' };
-
-function colorForScore(s: number) {
-  if (s >= 80) return C.green;
-  if (s >= 60) return C.yellow;
-  return C.red;
-}
-
-function ComponentBar({ label, score, weight }: { label: string; score: number; weight: number }) {
-  const color = colorForScore(score);
-  return (
-    <View style={styles.compRow}>
-      <Text style={styles.compLabel}>{label}</Text>
-      <View style={styles.compBarTrack}>
-        <View style={[styles.compBarFill, { width: `${score}%`, backgroundColor: color }]} />
-      </View>
-      <Text style={[styles.compScore, { color }]}>{score}</Text>
-      <Text style={styles.compWeight}>{Math.round(weight * 100)}%</Text>
-    </View>
-  );
-}
-
+import { Action, BarChart, Card, Copy, Notice, Progress, Skeleton } from '../design/components';
+import { useTheme } from '../design/theme';
+import { getHealthScore, getHealthTrend, HealthScoreResponse, TrendPoint } from '../api/healthScore';
+import { getSession } from '../storage/session';
+const valid = (n: number) => Number.isFinite(n) && n >= 0 && n <= 100;
+const labels = { macro: 'Logged nutrients', condition: 'Condition-rule estimate', foodQuality: 'Food-rule estimate', activity: 'Recorded activity', recovery: 'Recorded recovery' };
 export default function HealthScoreDetailScreen() {
-  const [data, setData] = useState<HealthScoreResponse | null>(null);
-  const [actions, setActions] = useState<ImprovementAction[]>([]);
-  const [trend, setTrend] = useState<TrendPoint[]>([]);
-  const [trendDays, setTrendDays] = useState(7);
-  const [loading, setLoading] = useState(true);
-
-  // Re-fetch fresh data every time this screen is focused
-  useFocusEffect(
-    useCallback(() => {
-      setLoading(true);
-      Promise.all([getHealthScore(), getActions(), getHealthTrend(trendDays)])
-        .then(([s, a, t]) => { setData(s); setActions(a.actions); setTrend(t); })
-        .catch(() => {})
-        .finally(() => setLoading(false));
-    }, [trendDays]),
-  );
-
-  if (loading) return <View style={styles.center}><ActivityIndicator size="large" /></View>;
-  if (!data) return <View style={styles.center}><Text style={styles.muted}>No data yet. Log some meals!</Text></View>;
-
-  const { components: comp } = data;
-
-  return (
-    <ScrollView contentContainerStyle={styles.container}>
-      {/* Big score */}
-      <View style={styles.header}>
-        <View style={[styles.bigCircle, { borderColor: colorForScore(data.score) }]}>
-          <Text style={[styles.bigNum, { color: colorForScore(data.score) }]}>{data.score}</Text>
-          <Text style={styles.sub}>/100</Text>
-        </View>
-      </View>
-
-      {/* Component breakdown */}
-      <Text style={styles.sectionTitle}>Score Components</Text>
-      <View style={styles.sectionCard}>
-        <ComponentBar label="Macros" score={comp.macro.score} weight={comp.macro.weight} />
-        <ComponentBar label="Conditions" score={comp.condition.score} weight={comp.condition.weight} />
-        <ComponentBar label="Food Quality" score={comp.foodQuality.score} weight={comp.foodQuality.weight} />
-        <ComponentBar label="Activity" score={comp.activity.score} weight={comp.activity.weight} />
-        <ComponentBar label="Recovery" score={comp.recovery.score} weight={comp.recovery.weight} />
-      </View>
-
-      {/* Insights */}
-      {data.insights.length > 0 && (
-        <>
-          <Text style={styles.sectionTitle}>Insights</Text>
-          <View style={styles.sectionCard}>
-            {data.insights.map((ins, i) => (
-              <View key={i} style={styles.insightRow}>
-                <Text style={styles.insightDot}>{ins.severity === 'critical' ? '🔴' : ins.severity === 'warning' ? '🟡' : 'ℹ️'}</Text>
-                <Text style={styles.insightText}>{ins.message}</Text>
-              </View>
-            ))}
-          </View>
-        </>
-      )}
-
-      {/* All contributors */}
-      <Text style={styles.sectionTitle}>What Affected Your Score</Text>
-      <View style={styles.sectionCard}>
-        {data.allContributors.sort((a, b) => Math.abs(b.scoreImpact) - Math.abs(a.scoreImpact)).map((c, i) => (
-          <View key={i} style={styles.contribRow}>
-            <View style={styles.contribLeft}>
-              <Text style={styles.contribName}>{c.itemName}</Text>
-              <Text style={styles.contribReason}>{c.reason}</Text>
-            </View>
-            <Text style={[styles.contribImpact, { color: c.scoreImpact > 0 ? C.green : C.red }]}>
-              {c.scoreImpact > 0 ? '+' : ''}{c.scoreImpact}
-            </Text>
-          </View>
-        ))}
-        {data.allContributors.length === 0 && <Text style={styles.muted}>No contributors yet.</Text>}
-      </View>
-
-      {/* Improvement actions */}
-      {actions.length > 0 && (
-        <>
-          <Text style={styles.sectionTitle}>How to Improve</Text>
-          <View style={styles.sectionCard}>
-            {actions.map((a, i) => (
-              <View key={i} style={styles.actionRow}>
-                <View style={styles.actionLeft}>
-                  <Text style={styles.actionText}>{a.action}</Text>
-                  <Text style={styles.actionSuggestion}>{a.suggestion}</Text>
-                </View>
-                <View style={styles.gainBadge}>
-                  <Text style={styles.gainText}>+{a.potentialGain}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        </>
-      )}
-
-      {/* Trend */}
-      <View style={styles.trendHeader}>
-        <Text style={styles.sectionTitle}>Trend</Text>
-        <View style={styles.toggleRow}>
-          {[7, 30, 90].map((d) => (
-            <Pressable key={d} style={[styles.toggleBtn, trendDays === d && styles.toggleActive]} onPress={() => setTrendDays(d)}>
-              <Text style={[styles.toggleText, trendDays === d && styles.toggleTextActive]}>{d}d</Text>
-            </Pressable>
-          ))}
-        </View>
-      </View>
-      {trend.length > 0 ? (
-        <View style={styles.chart}>
-          {trend.map((t, i) => (
-            <View key={i} style={styles.chartBar}>
-              <View style={[styles.chartFill, { height: Math.max(4, (t.score / 100) * 80), backgroundColor: colorForScore(t.score) }]} />
-              <Text style={styles.chartLabel}>{t.date.slice(5)}</Text>
-            </View>
-          ))}
-        </View>
-      ) : (
-        <Text style={styles.muted}>Keep logging meals to see your trend!</Text>
-      )}
-    </ScrollView>
-  );
+  const { colors } = useTheme();
+  const [score, setScore] = useState<HealthScoreResponse | null>(null), [trend, setTrend] = useState<TrendPoint[]>([]);
+  const [days, setDays] = useState(7), [retry, setRetry] = useState(0);
+  const [loading, setLoading] = useState(true), [error, setError] = useState('');
+  const generation = useRef(0);
+  useFocusEffect(useCallback(() => {
+    const token = ++generation.current, account = getSession()?.user.id;
+    setLoading(true); setError(''); setScore(null); setTrend([]);
+    Promise.allSettled([getHealthScore(), getHealthTrend(days)]).then(([current, history]) => {
+      if (token !== generation.current || account !== getSession()?.user.id) return;
+      if (current.status === 'fulfilled') setScore(current.value);
+      if (history.status === 'fulfilled') setTrend(history.value);
+      if (current.status === 'rejected' || history.status === 'rejected') setError('Some score information could not load. Try again when connected.');
+      setLoading(false);
+    });
+    return () => { generation.current++; };
+    // Retry intentionally refreshes the focused request without changing its parameters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [days, retry]));
+  const size = Math.max(1, Math.ceil(trend.length / 10));
+  const points = [];
+  for (let i = 0; i < trend.length; i += size) {
+    const batch = trend.slice(i, i + size), values = batch.filter(t => valid(t.score));
+    points.push({ label: `${batch[0].date.slice(0, 10)}${batch.length > 1 ? ` – ${batch.at(-1)!.date.slice(0, 10)}` : ''} · ${values.length} snapshots`, value: values.length ? Math.round(values.reduce((s, t) => s + t.score, 0) / values.length) : null });
+  }
+  return <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 40 }}>
+    <Copy size="title" accessibilityRole="header">Understanding your score</Copy>
+    <Notice title="Provisional estimate" message="This score summarizes logged nutrients, food rules, activity and recovery. It is not a medical assessment or a grade for your day." />
+    <Card><Copy size="heading">Data completeness is unknown</Copy><Copy>Missing meals, activity or recovery records can change the result. This version cannot confirm that a day is fully logged or finalize a score.</Copy><Copy tone="muted">A low score may reflect missing records. You do not need to exercise to compensate for eating.</Copy></Card>
+    {loading && <Skeleton label="Loading score details" />}
+    {!!error && <Card><Notice title="Score unavailable" message={error} error /><Action label="Retry score" onPress={() => setRetry(v => v + 1)} /></Card>}
+    {score && <Card><Copy size="heading">Current provisional score</Copy><Copy>{valid(score.score) ? `${score.score} / 100` : 'Score unavailable: the result is outside the supported range.'}</Copy>
+      {(Object.keys(labels) as (keyof typeof labels)[]).map(key => {
+        const component = score.components[key];
+        return <View key={key} style={{ gap: 4 }}><Copy>{labels[key]}: {component && valid(component.score) ? `${component.score} / 100` : 'Unavailable'}</Copy>
+          <Progress label={labels[key]} value={component && valid(component.score) ? component.score : null} target={100} />
+          {component && Number.isFinite(component.weight) && <Copy size="caption" tone="muted">{Math.round(component.weight * 100)}% of the current formula</Copy>}
+        </View>;
+      })}
+      <Copy tone="muted">Component rules and weights are heuristics. Condition and food rules have not been clinically validated; personalized disease restrictions and food-ranking advice are not shown here.</Copy>
+    </Card>}
+    <Card><Copy size="heading">Saved score snapshots</Copy><View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{[7, 30, 90].map(n => <Action key={n} label={`${n} days`} selected={days === n} secondary={days !== n} onPress={() => setDays(n)} />)}</View>
+      <Copy tone="muted">Snapshots are provisional and may reflect different logging coverage. Missing dates are not zero; grouped bars average available snapshots only.</Copy>
+      {points.length ? <BarChart points={points} unit="points" /> : !loading && <Copy>No saved snapshots available.</Copy>}
+    </Card>
+  </ScrollView>;
 }
-
-const styles = StyleSheet.create({
-  container: { padding: 20, gap: 14, paddingBottom: 40 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  muted: { color: '#888', textAlign: 'center' },
-  header: { alignItems: 'center', marginBottom: 4 },
-  bigCircle: { width: 110, height: 110, borderRadius: 55, borderWidth: 5, alignItems: 'center', justifyContent: 'center' },
-  bigNum: { fontSize: 40, fontWeight: '800' },
-  sub: { fontSize: 13, color: '#888' },
-  sectionTitle: { fontSize: 17, fontWeight: '700', color: '#222', marginTop: 4 },
-  sectionCard: { backgroundColor: '#fff', borderRadius: 12, padding: 14, gap: 10, borderWidth: 1, borderColor: '#e5e5ea' },
-  compRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  compLabel: { width: 90, fontSize: 13, fontWeight: '600', color: '#444' },
-  compBarTrack: { flex: 1, height: 8, borderRadius: 4, backgroundColor: '#eee', overflow: 'hidden' },
-  compBarFill: { height: '100%', borderRadius: 4 },
-  compScore: { width: 28, textAlign: 'right', fontSize: 13, fontWeight: '700' },
-  compWeight: { width: 32, textAlign: 'right', fontSize: 11, color: '#999' },
-  insightRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
-  insightDot: { fontSize: 12 },
-  insightText: { flex: 1, fontSize: 13, color: '#444' },
-  contribRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  contribLeft: { flex: 1 },
-  contribName: { fontSize: 14, fontWeight: '600', color: '#222' },
-  contribReason: { fontSize: 11, color: '#888' },
-  contribImpact: { fontSize: 16, fontWeight: '800' },
-  actionRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  actionLeft: { flex: 1 },
-  actionText: { fontSize: 14, fontWeight: '600', color: '#222' },
-  actionSuggestion: { fontSize: 12, color: '#666' },
-  gainBadge: { backgroundColor: '#e8f5e9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-  gainText: { fontSize: 14, fontWeight: '800', color: '#2e7d32' },
-  trendHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  toggleRow: { flexDirection: 'row', gap: 6 },
-  toggleBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: '#e5e5ea' },
-  toggleActive: { backgroundColor: '#1e6fb8' },
-  toggleText: { fontSize: 13, fontWeight: '600', color: '#666' },
-  toggleTextActive: { color: '#fff' },
-  chart: { flexDirection: 'row', alignItems: 'flex-end', gap: 3, height: 100, backgroundColor: '#fff', borderRadius: 12, padding: 10, borderWidth: 1, borderColor: '#e5e5ea' },
-  chartBar: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
-  chartFill: { width: '80%', borderRadius: 3 },
-  chartLabel: { fontSize: 7, color: '#999', marginTop: 2 },
-});

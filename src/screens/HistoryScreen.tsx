@@ -1,353 +1,111 @@
-import React, { useCallback, useMemo, useState, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  ActivityIndicator,
-  RefreshControl,
-  Pressable,
-} from 'react-native';
-import { useProfile } from '../context/ProfileContext';
+import React, { useCallback, useRef, useState } from 'react';
+import { View, ScrollView, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { reconcileMealDays } from '../services/mealSync';
+import { Action, BarChart, Card, Copy, Notice, Skeleton } from '../design/components';
+import HistoryCalendar from '../components/HistoryCalendar';
+import { useTheme } from '../design/theme';
+import { useProfile } from '../context/ProfileContext';
+import { cachedProgress, chartPoints, dateWindow, fetchProgress, mean, Metric, ProgressDay } from '../services/progress';
 import { getSession } from '../storage/session';
-import { DaySummary, loadHistory } from '../storage/meals';
-import { getHistory, HistoryEntry, HistoryResponse } from '../api/history';
-
-const DAYS = 28; // 4 weeks
-
-const STATUS_COLORS: Record<string, string> = {
-  on_target: '#2e7d32',
-  surplus: '#b85c00',
-  deficit: '#1e6fb8',
-};
-
+import { loadMealsFor, LoggedMeal } from '../storage/meals';
+import { reconcileMealDays } from '../services/mealSync';
+import { formatWeight } from '../util/units';
+const metrics: { key: Metric; label: string; unit: string }[] = [
+  { key: 'calories', label: 'Logged calories', unit: 'kcal' }, { key: 'weightKg', label: 'Weight', unit: 'kg' },
+  { key: 'protein', label: 'Protein', unit: 'g' }, { key: 'carbs', label: 'Carbohydrate', unit: 'g' },
+  { key: 'fat', label: 'Fat', unit: 'g' }, { key: 'fiber', label: 'Fiber', unit: 'g' },
+  { key: 'waterMl', label: 'Water logged', unit: 'ml' }, { key: 'steps', label: 'Steps recorded', unit: 'steps' },
+  { key: 'workouts', label: 'Workout sessions', unit: 'sessions' },
+];
 export default function HistoryScreen() {
+  const { colors } = useTheme();
   const { profile } = useProfile();
-  const [offset, setOffset] = useState(0);
-  const [savedDays, setSavedDays] = useState<DaySummary[]>([]);
-  const request = useRef(0);
-  const [data, setData] = useState<HistoryResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [selected, setSelected] = useState<HistoryEntry | null>(null);
-
+  const [days, setDays] = useState(7), [offset, setOffset] = useState(0);
+  const [entries, setEntries] = useState<ProgressDay[]>([]);
+  const [loading, setLoading] = useState(true), [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(''), [cached, setCached] = useState(true);
+  const [metric, setMetric] = useState<Metric>('calories');
+  const [selected, setSelected] = useState<string | null>(null);
+  const [meals, setMeals] = useState<LoggedMeal[]>([]), [mealError, setMealError] = useState('');
+  const [mealLoading, setMealLoading] = useState(false);
+  const request = useRef(0), diaryRequest = useRef(0);
   const load = useCallback(async () => {
-    const generation = ++request.current;
-    const userId = getSession()?.user.id;
-    const current = () => generation === request.current && !!userId && getSession()?.user.id === userId;
-    if (!profile) { setLoading(false); return; }
-    setError(null);
-    setData(null);
-    setSavedDays([]);
-    const ending = new Date(); ending.setHours(0, 0, 0, 0);
-    ending.setDate(ending.getDate() - offset);
+    const generation = ++request.current, account = getSession()?.user.id;
+    const current = () => generation === request.current && !!account && getSession()?.user.id === account;
+    diaryRequest.current++; setSelected(null); setMeals([]); setMealLoading(false); setMealError('');
+    const ending = new Date(); ending.setDate(ending.getDate() - offset);
+    const dates = dateWindow(days * 2, ending), zone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+    setError(''); setEntries([]); setLoading(true); setCached(true);
     try {
-      const cached = await loadHistory(DAYS, ending);
+      try { const saved = await cachedProgress(dates, zone); if (current()) setEntries(saved); } catch { /* Still attempt server recovery. */ }
       if (!current()) return;
-      setSavedDays(cached);
-      setLoading(false);
-      setRefreshing(true);
-      try {
-        await reconcileMealDays(cached.map(day => new Date(day.date + 'T12:00:00')));
-      } catch {
-        if (!current()) return;
-        setError('Could not sync history. Showing saved meals; pull to retry.');
-      }
-      if (!current()) return;
-      const local = await loadHistory(DAYS, ending);
-      if (!current()) return;
-      setSavedDays(local);
-      const res = await getHistory({
-        profile: {
-          sex: profile.sex, weightKg: profile.weightKg, heightCm: profile.heightCm,
-          age: profile.age, activityLevel: profile.activityLevel, goal: profile.goal,
-        },
-        days: local,
-      });
-      if (!current()) return;
-      setData(res);
-      setSelected(res.entries[res.entries.length - 1] ?? null);
+      setLoading(false); setRefreshing(true);
+      const result = await fetchProgress(dates, zone);
+      if (current()) { setEntries(result); setCached(false); }
     } catch {
-      if (current()) setError('Could not load history analysis. Showing saved meal totals; pull to retry.');
-    } finally {
-      if (current()) { setLoading(false); setRefreshing(false); }
-    }
-  }, [profile, offset]);
-
-  useFocusEffect(useCallback(() => {
-    setLoading(true);
-    void load();
-    return () => { request.current++; };
-  }, [load]));
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await load();
+      if (current()) setError('Could not sync progress. Showing saved records where available; missing records remain unknown.');
+    } finally { if (current()) { setLoading(false); setRefreshing(false); } }
+  }, [days, offset]);
+  useFocusEffect(useCallback(() => { void load(); return () => { request.current++; diaryRequest.current++; }; }, [load]));
+  const selectDay = async (date: string) => {
+    const token = ++diaryRequest.current, account = getSession()?.user.id;
+    const current = () => token === diaryRequest.current && getSession()?.user.id === account;
+    setSelected(date); setMeals([]); setMealError(''); setMealLoading(true);
+    const day = new Date(`${date}T12:00:00`);
+    try {
+      const saved = await loadMealsFor(day); if (current()) setMeals(saved);
+      await reconcileMealDays([day]);
+      const latest = await loadMealsFor(day); if (current()) setMeals(latest);
+    } catch { if (current()) setMealError('Could not sync this diary. Showing meals saved on this device.'); }
+    finally { if (current()) setMealLoading(false); }
   };
-
-  // Weekly rollup = last 7 entries (they are sorted ascending so tail = most recent).
-  const weekly = useMemo(() => {
-    if (!data) return null;
-    const last7 = data.entries.slice(-7);
-    const logged = last7.filter((e) => e.logged);
-    const daysLogged = logged.length;
-    const avgNet = logged.length
-      ? Math.round(logged.reduce((s, e) => s + e.net, 0) / logged.length)
-      : 0;
-    const avgSurplus = logged.length
-      ? Math.round(logged.reduce((s, e) => s + e.surplus, 0) / logged.length)
-      : 0;
-    // Best day = closest to target among logged days (smallest |surplus|).
-    let best: HistoryEntry | null = null;
-    for (const e of logged) {
-      if (!best || Math.abs(e.surplus) < Math.abs(best.surplus)) best = e;
-    }
-    return { last7, daysLogged, avgNet, avgSurplus, best };
-  }, [data]);
-
-  // Pad calendar with empty cells at the start to align to a Monday grid.
-  const grid = useMemo(() => {
-    if (!data) return { leadingBlanks: 0, entries: [] as HistoryEntry[] };
-    const first = data.entries[0];
-    if (!first) return { leadingBlanks: 0, entries: [] };
-    // getDay: Sun=0..Sat=6 → we want Mon=0..Sun=6
-    const d = new Date(first.date + 'T00:00:00');
-    const offset = (d.getDay() + 6) % 7;
-    return { leadingBlanks: offset, entries: data.entries };
-  }, [data]);
-
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator />
-      </View>
-    );
-  }
-
-  return (
-    <ScrollView
-      contentContainerStyle={styles.container}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-    >
-      <Text style={styles.title}>History</Text>
-      {refreshing && <Text style={styles.muted}>Updating history…</Text>}
-      {error && <Text style={styles.err}>{error}</Text>}
-
-      <View style={styles.row}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Older 4 weeks" onPress={() => setOffset(n => n + DAYS)}><Text>← Older 4 weeks</Text></Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="Newer 4 weeks" disabled={offset === 0} onPress={() => setOffset(n => Math.max(0, n - DAYS))}><Text style={offset === 0 ? styles.muted : undefined}>Newer 4 weeks →</Text></Pressable>
-      </View>
-      <Text style={styles.muted}>{savedDays[0]?.date} – {savedDays[savedDays.length - 1]?.date}</Text>
-      {!data && savedDays.map(day => (
-        <View key={day.date} style={styles.row}>
-          <Text>{formatDate(day.date)}</Text>
-          <Text>{day.mealCount} meals · {day.caloriesIn} kcal saved</Text>
-        </View>
-      ))}
-      {data && (
-        <>
-          <View style={styles.streakRow}>
-            <StreakCard label="Window logging streak" value={data.streaks.logged} unit="days" color="#1e6fb8" />
-            <StreakCard label="Window on-target streak" value={data.streaks.onTarget} unit="days" color="#2e7d32" />
-          </View>
-
-          {weekly && (
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Last 7 days of this window</Text>
-              <Row label="Days logged" value={`${weekly.daysLogged} / 7`} />
-              <Row label="Avg net" value={`${weekly.avgNet} kcal`} />
-              <Row
-                label="Avg vs target"
-                value={`${weekly.avgSurplus > 0 ? '+' : ''}${weekly.avgSurplus} kcal`}
-              />
-              <Row
-                label="Best day"
-                value={
-                  weekly.best
-                    ? `${formatDate(weekly.best.date)} (${weekly.best.surplus > 0 ? '+' : ''}${weekly.best.surplus} kcal)`
-                    : '—'
-                }
-              />
-            </View>
-          )}
-
-          <Text style={styles.muted}>{DAYS}-day window · TDEE {data.tdee} kcal</Text>
-
-          <View style={styles.weekHeader}>
-            {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
-              <Text key={i} style={styles.weekLabel}>{d}</Text>
-            ))}
-          </View>
-
-          <View style={styles.grid}>
-            {Array.from({ length: grid.leadingBlanks }).map((_, i) => (
-              <View key={`blank-${i}`} style={[styles.cell, styles.cellBlank]} />
-            ))}
-            {grid.entries.map((e) => {
-              const active = selected?.date === e.date;
-              const bg = !e.logged
-                ? '#f2f2f4'
-                : STATUS_COLORS[e.status] || '#bbb';
-              return (
-                <Pressable
-                  key={e.date}
-                  onPress={() => setSelected(e)}
-                  style={[
-                    styles.cell,
-                    { backgroundColor: bg },
-                    active && styles.cellActive,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.cellDay,
-                      { color: e.logged ? '#fff' : '#888' },
-                    ]}
-                  >
-                    {Number(e.date.slice(8, 10))}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <View style={styles.legend}>
-            <Legend color={STATUS_COLORS.on_target} label="On target" />
-            <Legend color={STATUS_COLORS.surplus} label="Surplus" />
-            <Legend color={STATUS_COLORS.deficit} label="Deficit" />
-            <Legend color="#f2f2f4" label="No log" border />
-          </View>
-
-          {selected && (
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>{formatDate(selected.date)}</Text>
-              {selected.logged ? (
-                <>
-                  <Row label="Meals" value={`${selected.mealCount}`} />
-                  <Row label="Calories in" value={`${selected.caloriesIn} kcal`} />
-                  <Row label="Target" value={`${selected.target} kcal`} />
-                  <Row label="Net" value={`${selected.net} kcal`} />
-                  <Row
-                    label="Balance"
-                    value={`${selected.surplus > 0 ? '+' : ''}${selected.surplus} kcal (${selected.status.replace('_', ' ')})`}
-                    color={STATUS_COLORS[selected.status]}
-                  />
-                </>
-              ) : (
-                <Text style={styles.muted}>No meals logged this day.</Text>
-              )}
-            </View>
-          )}
-        </>
-      )}
-      <View style={{ height: 24 }} />
-    </ScrollView>
-  );
+  const visible = entries.slice(-days), previous = entries.slice(0, -days);
+  const choice = metrics.find(m => m.key === metric)!;
+  const imperialWeight = metric === 'weightKg' && profile?.units === 'imperial';
+  const chartEntries = imperialWeight ? visible.map(d => ({ ...d, weightKg: d.weightKg === null ? null : d.weightKg / 0.45359237 })) : visible;
+  const average = mean(visible, metric), prior = mean(previous, metric);
+  const unit = imperialWeight ? 'lb' : choice.unit;
+  const number = (value: number | null) => value === null ? 'No records' : `${Math.round((imperialWeight ? value / 0.45359237 : value) * 10) / 10} ${unit}`;
+  const detail = visible.find(d => d.date === selected);
+  return <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 40 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} />}>
+    <Copy size="title" accessibilityRole="header" style={{ fontWeight: '700' }}>Progress</Copy>
+    <Copy tone="muted">Patterns in your records, at your pace. A missing log does not describe what you ate or how active you were.</Copy>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{[7, 30, 90].map(n => <Action key={n} label={`${n} days`} secondary={days !== n} selected={days === n} onPress={() => { setDays(n); setOffset(0); }} />)}</View>
+    <View style={{ gap: 8 }}><Action label={`Older ${days} days`} secondary onPress={() => setOffset(n => n + days)} /><Action label={`Newer ${days} days`} secondary disabled={offset === 0} onPress={() => setOffset(n => Math.max(0, n - days))} /></View>
+    {loading && <Skeleton label="Loading progress" />}
+    {refreshing && <Copy tone="muted">Updating records…</Copy>}
+    {!!error && <Card><Notice title="Saved progress" message={error} error /><Action label="Retry progress" onPress={load} /></Card>}
+    {!!visible.length && <>
+      <Copy>{visible[0].date} – {visible.at(-1)!.date}</Copy>
+      <Copy tone="muted">{cached ? 'Saved snapshot and available device meals; may be incomplete.' : 'Synced records only. Pending device logs may not appear yet.'}</Copy>
+      <Card><Copy size="heading">Logging consistency</Copy>
+        <Copy>{visible.filter(d => d.mealCount > 0).length} of {days} days have meal records</Copy>
+        <Copy>{visible.filter(d => d.workouts !== null && d.workouts > 0).length} days have workout records</Copy>
+        <Copy tone="muted">Logging is not proof that a day is complete. Workout sessions may include unfinished workouts.</Copy>
+      </Card>
+      <Card><Copy size="heading">Explore a trend</Copy>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{metrics.map(m => <Action key={m.key} label={m.label} selected={metric === m.key} secondary={metric !== m.key} onPress={() => setMetric(m.key)} />)}</View>
+        <Copy>{choice.label}: {number(average.value)} average across {average.count} recorded days</Copy>
+        <Copy>Previous {days} days: {number(prior.value)} across {prior.count} recorded days</Copy>
+        {average.value !== null && prior.value !== null && <Copy>Difference in recorded averages: {number(average.value - prior.value)}</Copy>}
+        <Copy tone="muted">Averages use recorded days only; gaps are not zero. Differences can reflect logging coverage. Weight uses the last measurement each day. Bars group daily averages for longer windows.</Copy>
+        {metric === 'steps' && <Copy tone="muted">Step records may cover only part of a day. Duplicate legacy daily totals use the highest count.</Copy>}
+        <BarChart points={chartPoints(chartEntries, metric)} unit={unit} />
+      </Card>
+      <Card><Copy size="heading">Daily history</Copy><Copy tone="muted">Choose a date to review its records and saved meals.</Copy>
+        <HistoryCalendar days={visible} selected={selected} onSelect={date => void selectDay(date)} />
+      </Card>
+      {detail && <Card><Copy size="heading">{detail.date}</Copy>
+        <Copy>{detail.calories === null ? 'No calorie records' : `${Math.round(detail.calories)} kcal logged`}</Copy>
+        <Copy>{detail.weightKg === null ? 'No weight recorded' : formatWeight(detail.weightKg, profile?.units || 'metric')}</Copy>
+        <Copy>{detail.waterMl === null ? 'No water recorded' : `${detail.waterMl} ml water logged`}</Copy>
+        <Copy>{detail.steps === null ? 'No steps recorded' : `${detail.steps} steps recorded`}</Copy>
+        {mealLoading && <Skeleton label="Updating selected diary" />}
+        {!!mealError && <><Notice title="Saved diary" message={mealError} /><Action label="Retry selected day" onPress={() => void selectDay(detail.date)} /></>}
+        {meals.map(m => <Copy key={m.id}>{m.name} · {m.calories} kcal saved</Copy>)}
+        {!mealLoading && !meals.length && <Copy tone="muted">No saved meals available for this day.</Copy>}
+      </Card>}
+    </>}
+    <Card><Copy size="heading">About health scores</Copy><Copy tone="muted">Scores are provisional estimates and can change as you log. There is no confirmed complete-day score in this version. Progress does not rank foods or days, infer a physiological calorie deficit, or suggest exercise to offset eating.</Copy></Card>
+  </ScrollView>;
 }
-
-function StreakCard({ label, value, unit, color }: { label: string; value: number; unit: string; color: string }) {
-  return (
-    <View style={[styles.streakCard, { borderColor: color }]}>
-      <Text style={[styles.streakValue, { color }]}>{value}</Text>
-      <Text style={styles.streakUnit}>{unit}</Text>
-      <Text style={styles.streakLabel}>{label}</Text>
-    </View>
-  );
-}
-
-function Legend({ color, label, border }: { color: string; label: string; border?: boolean }) {
-  return (
-    <View style={styles.legendItem}>
-      <View
-        style={[
-          styles.legendDot,
-          { backgroundColor: color },
-          border && { borderWidth: 1, borderColor: '#ccc' },
-        ]}
-      />
-      <Text style={styles.muted}>{label}</Text>
-    </View>
-  );
-}
-
-function Row({ label, value, color }: { label: string; value: string; color?: string }) {
-  return (
-    <View style={styles.row}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={[styles.rowValue, color ? { color, fontWeight: '700' } : null]}>{value}</Text>
-    </View>
-  );
-}
-
-function formatDate(iso: string): string {
-  const d = new Date(iso + 'T00:00:00');
-  return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-}
-
-const CELL = 40;
-
-const styles = StyleSheet.create({
-  container: { padding: 20, gap: 12 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  title: { fontSize: 24, fontWeight: '700' },
-  muted: { color: '#666' },
-  err: { color: '#c0392b' },
-  streakRow: { flexDirection: 'row', gap: 10 },
-  streakCard: {
-    flex: 1,
-    borderWidth: 2,
-    borderRadius: 12,
-    padding: 12,
-    alignItems: 'flex-start',
-    backgroundColor: '#fff',
-  },
-  streakValue: { fontSize: 28, fontWeight: '800' },
-  streakUnit: { color: '#444', marginTop: -4 },
-  streakLabel: { color: '#666', marginTop: 4, fontSize: 13 },
-  weekHeader: {
-    flexDirection: 'row',
-    marginTop: 4,
-  },
-  weekLabel: {
-    width: CELL,
-    marginRight: 6,
-    textAlign: 'center',
-    color: '#999',
-    fontSize: 12,
-  },
-  grid: { flexDirection: 'row', flexWrap: 'wrap' },
-  cell: {
-    width: CELL,
-    height: CELL,
-    marginRight: 6,
-    marginBottom: 6,
-    borderRadius: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cellBlank: { backgroundColor: 'transparent' },
-  cellActive: {
-    borderWidth: 2,
-    borderColor: '#111',
-  },
-  cellDay: { fontSize: 12, fontWeight: '600' },
-  legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 4 },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  legendDot: { width: 14, height: 14, borderRadius: 4 },
-  card: {
-    backgroundColor: '#f7f7f9',
-    borderRadius: 12,
-    padding: 16,
-    gap: 4,
-    borderWidth: 1,
-    borderColor: '#e5e5ea',
-    marginTop: 8,
-  },
-  cardTitle: { fontSize: 16, fontWeight: '700', marginBottom: 4 },
-  row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 2 },
-  rowLabel: { color: '#444' },
-  rowValue: { color: '#111' },
-});

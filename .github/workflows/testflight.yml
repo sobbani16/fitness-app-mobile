@@ -1,0 +1,79 @@
+name: iOS TestFlight
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-testflight
+  cancel-in-progress: false
+
+jobs:
+  build-and-submit:
+    name: Validate, build and submit to TestFlight
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      CI: '1'
+      EXPO_NO_DOTENV: '1'
+      EAS_BUILD_PROFILE: testflight
+    steps:
+      - name: Check Expo credential is configured
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo '::error::Add the EXPO_TOKEN repository secret before running this workflow.'
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.20.0'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate release configuration
+        run: npm run release:check
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit and component tests
+        run: npm test -- --runInBand --ci
+
+      - name: Set up EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: '20.0.0'
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      # EAS auto-submit is attached to THIS build, never an unrelated --latest build.
+      # App Store Connect upload does not submit the app for public App Store review.
+      - name: Build iOS and queue TestFlight submission
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: eas build --platform ios --profile testflight --non-interactive --wait --auto-submit-with-profile testflight
+
+      - name: Record release follow-up
+        if: always()
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<'SUMMARY'
+          ## TestFlight release
+          Build and submission links are printed in the EAS step above.
+          Check the job result and EAS status before retrying: canceling or timing out this job may leave a cloud build/submission running.
+          A successful build is not confirmation that Apple has finished processing the submission.
+          After processing, assign the build to the internal `test` group in App Store Connect and install it using TestFlight.
+          This workflow does not publish the app publicly or change tester groups.
+          SUMMARY

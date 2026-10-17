@@ -1,4 +1,5 @@
 export interface ExerciseSet {
+  id?: string;
   reps: number;
   weight: number;
   timestamp: string; // ISO
@@ -10,6 +11,8 @@ export interface ExerciseSession {
   exerciseType: string;
   createdAt: string;
   updatedAt: string;
+  finishedAt?: string | null;
+  weightUnit?: 'lb';
   sets: ExerciseSet[];
 }
 

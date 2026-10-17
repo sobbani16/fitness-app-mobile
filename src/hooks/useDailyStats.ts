@@ -6,12 +6,13 @@ import {
   toggleSupplement as toggleSupplementStore,
 } from '../storage/dailyStats';
 import { syncWater } from '../api/dailyStats';
-import { logSupplement, deleteSupplementLog, getSupplementLogs } from '../api/supplements';
-import { Supplement } from '../api/supplements';
+import { Supplement, logSupplement, deleteSupplementLog, getSupplementLogs } from '../api/supplements';
 
 interface UseDailyStats {
   stats: DailyStats | null;
   loading: boolean;
+  waterSyncError: string | null;
+  retryWaterSync: () => Promise<void>;
   addWater: (deltaMl: number) => Promise<void>;
   toggleSupplement: (s: Supplement, quantity: number) => Promise<void>;
   updateSupplementLog: (s: Supplement, quantity: number) => Promise<void>;
@@ -22,8 +23,10 @@ interface UseDailyStats {
 
 
 /** Loads + mutates today's water intake and supplement checklist, syncing to backend. */
-export function useDailyStats(): UseDailyStats {
+export function useDailyStats(includeSupplements = true): UseDailyStats {
   const supplementLogIds = useRef<Record<string,string>>({}).current;
+  const waterBusy = useRef(false);
+  const [waterSyncError, setWaterSyncError] = useState<string | null>(null);
   const [stats, setStats] = useState<DailyStats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -31,6 +34,7 @@ export function useDailyStats(): UseDailyStats {
     const s = await loadDailyStats();
     setStats(s);
     setLoading(false);
+    if (!includeSupplements) return;
     try {
       const logs = await getSupplementLogs();
       for (const log of logs) {
@@ -39,20 +43,38 @@ export function useDailyStats(): UseDailyStats {
     } catch {
       // best-effort
     }
-  }, []);
+  }, [includeSupplements, supplementLogIds]);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
 
-  const addWater = useCallback(async (deltaMl: number) => {
-    const next = await addWaterStore(deltaMl);
-    setStats(next);
+  const retryWaterSync = useCallback(async () => {
+    if (waterBusy.current) return;
+    waterBusy.current = true;
     try {
-      await syncWater(next.waterMl);
+      const current = await loadDailyStats();
+      await syncWater(current.waterMl);
+      setWaterSyncError(null);
     } catch {
-      // best-effort sync
-    }
+      setWaterSyncError('Saved on this device. Water has not synced. Retry when connected.');
+    } finally { waterBusy.current = false; }
+  }, []);
+
+  const addWater = useCallback(async (deltaMl: number) => {
+    // Prevent rapid repeated presses racing the local read/modify/write and server total.
+    if (waterBusy.current) return;
+    waterBusy.current = true;
+    try {
+      const next = await addWaterStore(deltaMl);
+      setStats(next);
+      try {
+        await syncWater(next.waterMl);
+        setWaterSyncError(null);
+      } catch {
+        setWaterSyncError('Saved on this device. Water has not synced. Retry when connected.');
+      }
+    } finally { waterBusy.current = false; }
   }, []);
 
   const toggleSupplement = useCallback(async (s: Supplement, quantity: number) => {
@@ -76,7 +98,7 @@ export function useDailyStats(): UseDailyStats {
     } catch {
       // best-effort sync
     }
-  }, []);
+  }, [supplementLogIds]);
 
   const updateSupplementLog = useCallback(async (s: Supplement, quantity: number) => {
     if (!stats?.supplements[s.name]) return;
@@ -92,7 +114,7 @@ export function useDailyStats(): UseDailyStats {
     } catch {
       // best-effort sync
     }
-  }, [stats]);
+  }, [stats, supplementLogIds]);
 
-  return { stats, loading, addWater, toggleSupplement, updateSupplementLog, refresh };
+  return { stats, loading, waterSyncError, retryWaterSync, addWater, toggleSupplement, updateSupplementLog, refresh };
 }

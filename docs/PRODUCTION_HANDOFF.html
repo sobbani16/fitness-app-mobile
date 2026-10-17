@@ -3,12 +3,12 @@
 <style>
 :root{color-scheme:light;--ink:#172b3b;--muted:#526475;--line:#dce4eb;--brand:#12645a}*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:110px}body{margin:0;background:#f4f7fa;color:var(--ink);font:15px/1.65 system-ui,-apple-system,sans-serif}header{background:#102c39;color:white;padding:32px max(24px,4vw)}.eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.16em;color:#9fdbd0}.hero{font-size:32px;font-weight:750;margin:6px 0}.summary{display:flex;gap:12px;flex-wrap:wrap}.summary span{border:1px solid #45616d;padding:7px 14px;border-radius:8px}.layout{display:grid;grid-template-columns:235px minmax(0,1fr);max-width:1800px;margin:auto}aside{padding:24px 16px;position:sticky;top:0;align-self:start;max-height:100vh;overflow:auto}aside a{display:block;padding:8px 12px;color:var(--muted);font-size:13px;text-decoration:none;border-radius:6px}aside a:hover{background:#e3eeeb;color:var(--brand)}main{min-width:0;padding:24px 32px 64px;background:white}.controls{display:flex;gap:12px;flex-wrap:wrap;padding:14px;background:#eef4f5;border:1px solid var(--line);border-radius:10px}label{font-size:12px;font-weight:650;display:flex;flex-direction:column;gap:4px}input,select,button{font:inherit;color:var(--ink);background:white;border:1px solid #a9b8c3;border-radius:6px;padding:9px 12px}input{min-width:250px}button{cursor:pointer;align-self:end}input:focus,select:focus,button:focus,a:focus{outline:3px solid #53b8a6;outline-offset:2px}.note{font-size:13px;color:var(--muted)}h1{font-size:27px;line-height:1.3}h2{margin-top:42px;padding-top:16px;border-top:2px solid #dbe9e6;font-size:23px;line-height:1.35}h3{font-size:18px}.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;margin:18px 0}table{width:100%;border-collapse:collapse;font-size:13px;line-height:1.55}th{text-align:left;background:#eaf1f3;font-size:12px;padding:12px;color:#324a5a}td{padding:13px 12px;border-top:1px solid var(--line);vertical-align:top}tr:nth-child(even){background:#f8fafc}tr.tracked td:first-child{font-weight:750;white-space:nowrap;color:var(--brand)}tr.tracked td:nth-child(2){min-width:150px;font-weight:600}tr.tracked td:nth-child(4),tr.tracked td:nth-child(5){min-width:230px}tr.tracked td:last-child{min-width:65px}.badge{display:inline-block;border-radius:6px;font-size:11px;font-weight:700;padding:4px 7px;min-width:110px}.pending{background:#e3eeff;color:#244577}.blocked{background:#ffe7e4;color:#8b302c}.partial{background:#fff1cf;color:#775714}a{color:var(--brand)}pre{white-space:pre-wrap;background:#eef3f7;border-left:4px solid var(--brand);padding:20px;border-radius:6px}code{font-size:.9em}li{margin:10px 0}[hidden]{display:none!important}.empty{padding:15px;background:#fff1cf}footer{margin-top:32px;color:var(--muted);font-size:12px}@media(max-width:900px){.layout{display:block}aside{position:static;max-height:none;display:flex;overflow:auto;padding:10px}aside a{min-width:160px}main{padding:18px}header{padding:24px}.hero{font-size:26px}}@media print{header{background:white;color:black;padding:0}.layout{display:block}aside,.controls,.note,.empty{display:none}main{padding:0}body{background:white;font-size:10px}.table-wrap{overflow:visible;border:0}table{font-size:8px}td,th{padding:5px}tr.tracked td{min-width:0!important}.badge{min-width:0}h2{break-after:avoid}tr{break-inside:avoid}thead{display:table-header-group}}
 </style></head><body>
-<header><div class="eyebrow">Fitness app / Release workspace</div><div class="hero">Production status &amp; handoff</div><div class="summary"><span>59 tracked features &amp; gates</span><span>26 P0 items, including conditional priorities</span><span>Source: PRODUCTION_HANDOFF.md</span></div></header>
+<header><div class="eyebrow">Fitness app / Release workspace</div><div class="hero">Production status &amp; handoff</div><div class="summary"><span>62 tracked features &amp; gates</span><span>25 P0 items, including conditional priorities</span><span>Source: PRODUCTION_HANDOFF.md</span></div></header>
 <div class="layout"><aside aria-label="Sections"><a href="#section-0">Status definitions</a><a href="#section-1">1. Accounts, profile and personal data</a><a href="#section-2">2. Food, nutrition and meal planning</a><a href="#section-3">3. Activity, coaching and dashboard</a><a href="#section-4">4. Trainers, nutritionists and administration</a><a href="#section-5">5. Shared deployment gates</a><a href="#section-6">6. Verification already completed</a><a href="#section-7">7. Recommended order to continue</a><a href="#section-8">8. Supporting documents</a></aside><main>
 <div class="controls"><label>Search tracked items<input id="search" type="search" placeholder="Feature, ID, evidence…"></label><label>Priority<select id="priority"><option value="">All priorities</option><option>P0</option><option>P1</option></select></label><label>Status<select id="status"><option value="">All statuses</option></select></label><button id="reset">Reset</button><button id="print">Print / save PDF</button></div>
 <p class="note" id="freshness">Standalone snapshot. To refresh from Markdown, run <code>python3 scripts/handoff.py</code>. For automatic updates, run <code>python3 scripts/handoff.py --serve</code> and open <a href="http://127.0.0.1:8765/docs/PRODUCTION_HANDOFF.html">the live view</a>.</p><p id="results" class="note" aria-live="polite"></p><p id="empty" class="empty" hidden>No tracked items match. Reset the filters to see all items.</p>
 <h1 id="section-0">Production feature status and handoff</h1>
-<p><strong>Status date: October 14, 2026 (A04–A05, N04, N08–N09 updated; A03 evidence October 13; remaining feature evidence October 9)</strong>  <br><strong>Scope:</strong> fitness-app-mobile and fitness-app-backend  <br><strong>Overall decision: NOT READY for public production deployment.</strong> No production deployment has been performed. This document summarizes the implementation and verification from the readiness work; A03 implementation was added October 13; A04–A05, N04 and N08–N09 were updated October 14 with automated verification. Latest regression checks passed: 100 mobile tests, 240 backend tests, 37 authenticated PostgreSQL integration tests, TypeScript and Android/iOS JavaScript exports. N08–N09 live AI acceptance remains blocked by the absent server key. Signed-device acceptance and remaining feature evidence have not been renewed.</p>
+<p><strong>Status date: October 16, 2026 (mobile UX milestones 1–4 and CI configuration; earlier feature/API evidence retains its recorded dates)</strong><br><strong>Scope:</strong> fitness-app-mobile and fitness-app-backend  <br><strong>Overall decision: NOT READY for public production deployment.</strong> Public App Store release has not been performed; the existing Railway backend serves the TestFlight beta. This document summarizes the implementation and verification from the readiness work; A03 implementation was added October 13; A04–A05, N04 and N08–N09 were updated October 14 with automated verification. Latest M4 regression: 173 mobile tests, 262 backend tests, six local PostgreSQL/HTTP progress/profile integrity scenarios, TypeScript and Android/iOS JavaScript exports passed October 16. The earlier 37 authenticated PostgreSQL integration tests were not rerun for this milestone. N08–N09 live AI acceptance remains blocked by the absent server key. Signed-device acceptance and remaining feature evidence have not been renewed.</p>
 <p><strong>TestFlight-only update — October 15, 2026, 02:48 UTC:</strong> Owner confirmed beta distribution only; public App Store release is deferred. Corrected backend <code>https://fitness-app-backend-production-c5d4.up.railway.app/health</code> returned HTTP 200 with <code>status: ok</code>. Preview/production build settings now use this URL; the <code>testflight</code> profile inherits it. Earlier 404 checks were for the superseded domain. Health success does not verify authentication, database persistence or device flows. Privacy-policy URL is now configured; content corrections remain outstanding (see latest update below). No cloud build, signing credentials or submission performed. <a href="TESTFLIGHT_RELEASE.md">Configuration and remaining gates</a>. Earlier feature test counts are historical, not rerun by this configuration update.</p>
 <p><strong>Privacy-policy update — October 15, 2026 UTC:</strong> Public GitHub Pages policy returned HTTP 200 and is configured for TestFlight. Local TestFlight release configuration check passed. Policy still contains pre-publication placeholders and mismatches involving HealthKit, microphone access, account deletion and beta AI availability; content review remains blocked. See <a href="TESTFLIGHT_RELEASE.md">release notes</a>. No cloud build or submission initiated.</p>
 <p><strong>Policy revision recheck — October 15, 2026 UTC:</strong> Published corrections are live: draft placeholders removed; HealthKit/microphone disabled and deletion implementation accurately qualified. Remaining alignment: distinguish available on-device label OCR/posture processing from disabled server AI; match policy age eligibility to adult-only onboarding. <a href="TESTFLIGHT_RELEASE.md">Details</a>. TestFlight only; no build/submission performed.</p>
@@ -26,6 +26,12 @@
 <p><strong>Latest live auth result — October 16, 2026 UTC:</strong> Database backed up; 11 missing migrations and RBAC seed applied successfully. Registration 201 and login 200 verified for owner-requested beta account; verification email/inbox and device acceptance pending. Earlier 404/500 findings are historical. No passwords/tokens recorded here. Railway automatic migration/proxy configuration still needs review. <a href="TESTFLIGHT_RELEASE.md">Evidence</a>.</p>
 <p><strong>Mobile repository checkpoint — October 16, 2026:</strong> Owner requested committing all pending mobile project work. Source, native OCR module, pose model asset, tests, release configuration and handoff documentation are included in the local checkpoint. Credential-pattern and large-file checks found no flagged files; git whitespace check passed. Ignored dependencies/build outputs and credentials are excluded. This source-control checkpoint does not revalidate feature acceptance; N13/N16 and signed-device checks retain their existing status. No remote push requested.</p>
 <p><strong>Backend repository checkpoint — October 16, 2026:</strong> Remaining historical endpoint verification reports committed locally; backend implementation was already committed in 8c6a99a. No push or cloud build requested by this checkpoint. No .github or .eas workflow files found in either repository; dashboard-only triggers were not inspected. Local commits do not trigger iOS builds.</p>
+<p><strong>UX milestone 1 — October 16, 2026:</strong> Audited existing screens and delivered shared light/dark tokens, appearance selection, preserved-route quick add and redesigned Today. Local meal display survives target failures; unknown nutrients stay unknown; motion/weather permissions are contextual; water has tap guarding and explicit sync feedback/retry. No compensatory exercise advice or inferred physiological deficit on Today. 130 mobile tests, TypeScript, release check and both platform JS exports passed; lint has zero errors/33 existing warnings. Native visual/accessibility acceptance remains pending. No production user data changed, TestFlight build or submission triggered. <a href="UX_MILESTONE_1.md">Audit, navigation proposal, changed files and evidence</a>. M2 requires approval.</p>
+<p><strong>GitHub automation configuration — October 16, 2026:</strong> Manual-only TestFlight workflow and setup guide added locally. It checks release config/types/lint/tests before EAS build with exact-build auto-submission. Not pushed/run; repository EXPO_TOKEN secret setup and cloud acceptance remain pending. No automatic push trigger. <a href="GITHUB_TESTFLIGHT_WORKFLOW.md">Setup</a>.</p>
+<p><strong>UX milestone 2 — October 16, 2026:</strong> Food home now separates search/manual/photo/recipe paths, with recent foods, local favorites and review/repeat. Label capture supports camera-denied manual entry, corrected OCR text, explicit portion units and unknown nutrients. Stable scan IDs, transactional writes and a nullable-nutrient migration prevent duplicate/partial label saves and preserve unknown fiber. 148 mobile tests, 256 backend tests, five disposable-database integrity checks, TypeScript and both platform JS exports passed; lint has zero errors/32 existing warnings. All 20 migrations applied locally. <strong>Deploy the compatible backend/migration before distributing this app.</strong> Favorites are device-only; label retry state is not process-durable. No production data, deployment or TestFlight build touched. <a href="UX_MILESTONE_2.md">Implementation, changed files, evidence and acceptance</a>. M3 requires approval.</p>
+<p><strong>UX milestone 3 — October 16, 2026:</strong> Workout search/categories, recent exercises, local favorites/templates, explicit kg/lb conversion, start/log/finish/review and timestamp timers implemented. Account-scoped durable pending operations and stable IDs protect retries; PostgreSQL row locks protect concurrent appends/finish. 159 mobile tests (32 suites), 257 backend tests (28 suites), eight real-database integrity scenarios, TypeScript, release checks and both platform Hermes exports passed. ESLint: zero errors/32 existing warnings. All 21 migrations applied only to disposable localhost data. <strong>Deploy the compatible backend/migrations before distributing the mobile app.</strong> Single-exercise workouts; favorites/templates remain device-local; native visual/camera/accessibility acceptance is pending. No production data, deployment or TestFlight build touched. <a href="UX_MILESTONE_3.md">Implementation, files, scope and evidence</a>. M4 requires owner approval.</p>
+<p><strong>UX milestone 4 — October 16, 2026:</strong> Progress now supports 7/30/90-day nutrition, weight, water, step and workout trends, previous-period comparisons and daily history. Authenticated bulk reads preserve unknowns and timezone boundaries; cached fallback and selected-day meal hydration remain. Account/settings replaces the old daily summary; profile editing removes demo defaults and automatic location prompts, preserves unit conversions and guards concurrent weight history writes. Score details explicitly remain provisional; unreviewed advice is not rendered. <strong>173 mobile tests, 262 backend tests, six real-database/HTTP scenarios, TypeScript, release checks and both platform exports passed</strong>; lint has zero errors/31 pre-existing warnings. M4 adds no migration, but compatible backend deployment and prior M2/M3 migrations are required before mobile distribution. Native accessibility/visual acceptance, clinical scoring review and historical water/step attribution remain open. No production data, deployment or TestFlight build touched. <a href="UX_MILESTONE_4.md">Changes, files, evidence and limits</a>. M5 requires owner approval.</p>
+<p><strong>Approved UX beta release — October 16, 2026:</strong> Owner authorized pushing both repositories, an iOS build and then Milestone 5. Release checkpoint contains completed M1–M4 work and the manual-only GitHub workflow. Secret-pattern scan and whitespace checks passed; latest verification remains 173 mobile/262 backend tests with local integrity checks. Expo authentication confirmed; no active EAS build found. Backend migration/deployment and cloud build results are pending and will be recorded after verification. Public App Store release is not authorized by this action.</p>
 <p>Use this file as the work tracker. Assign an owner to each open item, record evidence when it is completed, and update the status before release.</p>
 <h2 id="section-0">Status definitions</h2>
 <div class="table-wrap" tabindex="0" role="region" aria-label="Meaning table"><table><thead><tr><th scope="col">Status</th><th scope="col">Meaning</th></tr></thead><tbody>
@@ -97,13 +103,13 @@
 <td>Verify two-account/device flows, logout during requests, reinstalls and absence of cross-account data exposure.</td>
 <td>P0</td>
 </tr>
-<tr class="tracked" data-priority="P0" data-status="IMPLEMENTED">
+<tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
 <td>A07</td>
 <td>Onboarding and profile editing</td>
 <td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
-<td>Server profile persistence; age/body measurements/activity/goals; adult-age form validation.</td>
-<td>Verify onboarding/edit errors, units, supported bounds and server/cache consistency on both platforms.</td>
-<td>P0</td>
+<td>M4 themed forms, blank required measurements, explicit region permission, discard warning, canonical unit preservation and serialized owned profile updates. Eight concurrent database saves create one weight entry; unit-only changes create none. <a href="UX_MILESTONE_4.md">Evidence</a>.</td>
+<td>Signed iOS/Android keyboard, large-font, screen-reader and offline-edit acceptance. Target formulas retain their existing review requirements.</td>
+<td>P1</td>
 </tr>
 <tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
 <td>A08</td>
@@ -120,16 +126,16 @@
 <td>N01</td>
 <td>Meal logging, portions, calories and macros</td>
 <td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
-<td>Stable IDs, timestamp/fiber preservation and deduplicated API writes.</td>
-<td>Verify manual logging/editing flows, units, deletion, invalid inputs and daily totals in the UI.</td>
+<td>M2 food entry choices, review/repeat, strict primary-nutrient validation, optional fiber preservation and guarded stable-ID saves; 148 mobile tests passed. <a href="UX_MILESTONE_2.md">M2 evidence</a>.</td>
+<td>Deploy compatible backend/schema; verify signed iOS/Android diary, corrections, units and totals.</td>
 <td>P0</td>
 </tr>
 <tr class="tracked" data-priority="P0" data-status="IMPLEMENTED">
 <td>N02</td>
 <td>Offline meal upload/retry and deletion</td>
 <td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
-<td>Persisted outbox, serialized changes and deletion coalescing; retry tests pass.</td>
-<td>Test real network loss, app termination/restart, failed writes and retry recovery.</td>
+<td>Ordinary meals retain durable outbox and deletion coalescing; label saves now have stable transactional IDs and same-screen retries.</td>
+<td>Test network loss/restart on devices. Label-specific draft/retry state is in memory; check recovered diary after an uncertain interrupted scan save.</td>
 <td>P0</td>
 </tr>
 <tr class="tracked" data-priority="P0" data-status="IMPLEMENTED">
@@ -152,8 +158,8 @@
 <td>N05</td>
 <td>USDA ingredient search and caching</td>
 <td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
-<td>Configured provider returned successful live responses; fabricated fallback removed.</td>
-<td>Verify production credentials, quota/entitlements, empty/error states and nutritional attribution.</td>
+<td>Existing provider integration retained; M2 adds separate search, themed loading/empty/error states and stale-response protection.</td>
+<td>Verify live quotas, attribution and signed-device search; provider acceptance not renewed by mocked UI tests.</td>
 <td>P1</td>
 </tr>
 <tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
@@ -192,16 +198,16 @@
 <td>N10</td>
 <td>Label OCR</td>
 <td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
-<td>Apple Vision on iOS; ML Kit on Android; both native builds pass.</td>
-<td>Test real labels, rotation, lighting, permissions, unreadable labels and correction flow on devices.</td>
+<td>Apple Vision/Android ML Kit retained; M2 contextual camera screen and editable text/manual fallback on denied permission; component tests and both platform JS exports passed.</td>
+<td>Real camera/OCR accuracy and visual acceptance still pending; historical native builds do not validate this new UI.</td>
 <td>P1</td>
 </tr>
 <tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
 <td>N11</td>
 <td>Editable label text, nutrition parsing and portion adjustment</td>
 <td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
-<td>Parsing/portion APIs tested; repeated saves retain fiber and avoid duplicate logs.</td>
-<td>Check serving-size units, decimal values, incomplete labels and final saved totals.</td>
+<td>Explicit g/ml/serving/package review; unknown nutrients retained; decimal rounding tested; atomic label+meal save deduplicates eight concurrent requests in local PostgreSQL. <a href="UX_MILESTONE_2.md">M2 evidence</a>.</td>
+<td>Deploy nullable-nutrient migration/backend before new app. Verify actual labels, volume mass input, multi-column correction, process death and signed iOS/Android UX.</td>
 <td>P1</td>
 </tr>
 <tr class="tracked" data-priority="P1" data-status="BLOCKED">
@@ -252,6 +258,14 @@
 <td>Populate reviewed attributes/rules for actual ingredients; validate coverage and unknown-data handling. Keep condition-specific claims disabled until accepted.</td>
 <td>P1</td>
 </tr>
+<tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
+<td>N18</td>
+<td>Recent foods and favorite meal/recipe nutrition</td>
+<td><span class="badge pending">IMPLEMENTED — device-local</span></td>
+<td>M2 adds cached recent foods, account-scoped persisted favorites, explicit review/repeat and account isolation tests. Favorite photos are omitted.</td>
+<td>Favorites do not sync across devices or survive reinstall; recent foods use cached history. Validate export/deletion and signed-device repeat flows.</td>
+<td>P1</td>
+</tr>
 </tbody></table></div>
 <h2 id="section-3">3. Activity, coaching and dashboard</h2>
 <div class="table-wrap" tabindex="0" role="region" aria-label="Feature table"><table><thead><tr><th scope="col">ID</th><th scope="col">Feature</th><th scope="col">Production status</th><th scope="col">Evidence / current behavior</th><th scope="col">Remaining work and acceptance condition</th><th scope="col">Priority</th></tr></thead><tbody>
@@ -259,8 +273,8 @@
 <td>F01</td>
 <td>Manual workout sessions and sets</td>
 <td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
-<td>Production data moved from memory to PostgreSQL; creation/read checks passed.</td>
-<td>Verify end-to-end logging, app/server restart persistence and history in staging.</td>
+<td>M3: explicit start/log/finish/review, kg/lb conversion, durable pending-set retries, stable IDs and owned transactional finish; real PostgreSQL concurrency/replay checks passed. <a href="UX_MILESTONE_3.md">Evidence</a>.</td>
+<td>Deploy compatible backend and finish migration before mobile distribution. Verify signed iOS/Android offline/restart, two-device history and camera lifecycle. One exercise per workout.</td>
 <td>P0</td>
 </tr>
 <tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
@@ -299,24 +313,24 @@
 <td>F06</td>
 <td>Step tracking</td>
 <td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
-<td>Sensor integration and account-scoped storage exist.</td>
-<td>Test permissions, unsupported devices, lifecycle, day rollover and accuracy.</td>
+<td>Sensor integration, account-scoped storage and explicit Today Connect steps action; loading/unavailable/retry states.</td>
+<td>Test permissions, unsupported devices, lifecycle, day rollover and accuracy on iOS/Android; counts may be partial.</td>
 <td>P1</td>
 </tr>
 <tr class="tracked" data-priority="P1" data-status="PARTIAL">
 <td>F07</td>
 <td>Water, sleep and daily activity stats</td>
 <td><span class="badge partial">PARTIAL</span></td>
-<td>Daily-stat endpoints exercised.</td>
-<td>Complete durable/idempotent offline sync and consistent local-day/UTC reporting.</td>
+<td>Today water tap guard, local-save feedback, sync-pending state and explicit retry; mocked failure/retry tests passed.</td>
+<td>Complete durable offline outbox, cross-device hydration and local-day/UTC reporting; current warnings do not survive restart.</td>
 <td>P1</td>
 </tr>
 <tr class="tracked" data-priority="P0" data-status="IMPLEMENTED">
 <td>F08</td>
 <td>Dashboard, calorie balance and daily summary</td>
 <td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
-<td>Summary/stat APIs exercised.</td>
-<td>Verify displayed totals match saved meals/activity, refresh correctly and handle unavailable sources.</td>
+<td>Redesigned Today: logged calories/server targets, unknown macro handling, cached diary on failure, theme and quick add. <a href="UX_MILESTONE_1.md">M1 evidence</a>: 130 mobile tests and both platform JS exports passed.</td>
+<td>Signed iOS/Android visual, accessibility and live data acceptance; full-app theme adoption continues in later milestones.</td>
 <td>P0</td>
 </tr>
 <tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
@@ -331,8 +345,8 @@
 <td>F10</td>
 <td>Health score, detail/history and progress</td>
 <td><span class="badge partial">PARTIAL</span></td>
-<td>API and ownership checks passed; heuristic wellness scoring.</td>
-<td>Review calculation/data quality and wording; no clinical validation is established.</td>
+<td>M4 removes deficit/best-day classifications from Progress; score detail explains provisional status and unknown completeness, suppresses invalid values and unreviewed advice. Numeric formulas unchanged.</td>
+<td>Clinical rule review and complete-day/finalization contract remain outstanding. Signed-device visual/accessibility acceptance pending. <a href="UX_MILESTONE_4.md">M4 evidence</a>.</td>
 <td>P1</td>
 </tr>
 <tr class="tracked" data-priority="P1" data-status="PARTIAL">
@@ -347,8 +361,8 @@
 <td>F12</td>
 <td>Weather/location suggestions</td>
 <td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
-<td>Live weather endpoint succeeded.</td>
-<td>Test denied location permission, unavailable weather and appropriate fallback behavior.</td>
+<td>Existing weather integration preserved behind contextual Connect local weather action.</td>
+<td>Test denied location permission, unavailable weather and unit consistency on devices.</td>
 <td>P1</td>
 </tr>
 <tr class="tracked" data-priority="P1" data-status="BLOCKED">
@@ -357,6 +371,22 @@
 <td><span class="badge blocked">BLOCKED</span></td>
 <td>Real Responses API and database-backed quota; no configured OpenAI key found.</td>
 <td>Configure upstream service and budget; verify real responses, quota enforcement and failures.</td>
+<td>P1</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
+<td>F14</td>
+<td>Progress trends and daily history</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>M4 7/30/90-day comparisons, owned bulk records, unknown-aware averages and selected-day hydration.</td>
+<td>Compatible backend deployment and signed-device/timezone/two-account acceptance; legacy water/step attribution remains limited. <a href="UX_MILESTONE_4.md">Evidence</a>.</td>
+<td>P1</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
+<td>F15</td>
+<td>Workout favorites, templates and timers</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>M3 account-scoped device-local favorites and single-exercise templates; timestamp elapsed/rest timers.</td>
+<td>Native accessibility/lifecycle acceptance; no cross-device template sync or background timer alerts.</td>
 <td>P1</td>
 </tr>
 </tbody></table></div>
@@ -464,7 +494,7 @@
 <td>D03</td>
 <td>Schema migrations and seed data</td>
 <td><span class="badge partial">LOCAL CHECK PASSED</span></td>
-<td>Fresh local DB accepted 14 migrations. Rehearse release migration and rollback/forward-fix; seed RBAC and reviewed catalog data only.</td>
+<td>All 21 migrations applied to disposable local PostgreSQL through M3; M4 progress/profile integrity checks passed without a new migration. M2/M3 changes remain undeployed remotely. Preserve nullable-read compatibility and rehearse deployment/rollback before distribution.</td>
 <td>P0</td>
 </tr>
 <tr class="tracked" data-priority="P0" data-status="OPEN">
@@ -488,11 +518,11 @@
 <td>Restore drill, readiness monitoring, alerts, previous release artifacts and named rollback owner.</td>
 <td>P0</td>
 </tr>
-<tr class="tracked" data-priority="P0" data-status="MANUAL EVIDENCE AVAILABLE">
+<tr class="tracked" data-priority="P0" data-status="CONFIGURED LOCALLY">
 <td>D07</td>
 <td>Automated release checks</td>
-<td><span class="badge partial">MANUAL EVIDENCE AVAILABLE</span></td>
-<td>Repeatable release checks cover migrations, tests, builds and disposable staging API flows. Local execution is not evidence of enforced CI gates.</td>
+<td><span class="badge partial">CONFIGURED LOCALLY — cloud acceptance pending</span></td>
+<td>Manual GitHub workflow checks release configuration/types/lint/tests then EAS iOS build and exact-build submission. Not pushed/run; EXPO_TOKEN secret setup required. <a href="GITHUB_TESTFLIGHT_WORKFLOW.md">Setup</a>.</td>
 <td>P0</td>
 </tr>
 <tr class="tracked" data-priority="P0" data-status="IOS BUILD PASSED">
@@ -528,13 +558,13 @@
 <div class="table-wrap" tabindex="0" role="region" aria-label="Recorded result table"><table><thead><tr><th scope="col">Check</th><th scope="col">Recorded result</th><th scope="col">Limit</th></tr></thead><tbody>
 <tr>
 <td>Backend unit suite</td>
-<td>26 suites / 219 tests passed</td>
-<td>Includes mocked dependencies and fixtures.</td>
+<td>Latest M4: 30 suites / 262 tests passed</td>
+<td>Includes mocked dependencies; six additional PostgreSQL/HTTP progress/profile scenarios passed.</td>
 </tr>
 <tr>
 <td>Mobile unit suite</td>
-<td>9 suites / 62 tests passed</td>
-<td>Does not establish native sensor accuracy or full UI behavior.</td>
+<td>Latest M4: 37 suites / 173 tests passed</td>
+<td>Does not establish native sensor accuracy, visual/accessibility acceptance or complete UI behavior.</td>
 </tr>
 <tr>
 <td>Live backend HTTP</td>
@@ -543,8 +573,8 @@
 </tr>
 <tr>
 <td>Database migrations</td>
-<td>14 applied to fresh isolated PostgreSQL</td>
-<td>Production migration rehearsal still required.</td>
+<td>Latest M3: 21 applied to isolated localhost PostgreSQL</td>
+<td>M2/M3 remote deployment not performed; production migration rehearsal still required.</td>
 </tr>
 <tr>
 <td>TypeScript</td>
@@ -614,5 +644,5 @@ const rows=[...document.querySelectorAll('.tracked')],search=document.querySelec
 const saved=(()=>{try{return JSON.parse(sessionStorage.getItem('handoffFilters')||'{}')}catch{return {}}})();search.value=saved.search||'';priority.value=saved.priority||'';status.value=saved.status||'';
 function filter(){let count=0;const q=search.value.toLowerCase().trim();rows.forEach(r=>{r.hidden=!(r.textContent.toLowerCase().includes(q)&&(!priority.value||r.dataset.priority===priority.value)&&(!status.value||r.dataset.status===status.value));if(!r.hidden)count++});document.querySelector('#results').textContent=`Showing ${count} of ${rows.length} tracked items. Reference sections remain visible.`;document.querySelector('#empty').hidden=count>0;try{sessionStorage.setItem('handoffFilters',JSON.stringify({search:search.value,priority:priority.value,status:status.value}))}catch{}}
 [search,priority,status].forEach(e=>e.addEventListener('input',filter));document.querySelector('#reset').onclick=()=>{search.value=priority.value=status.value='';filter()};document.querySelector('#print').onclick=()=>window.print();filter();
-if(location.protocol!=='file:'){fetch('/handoff-version',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.text()}).then(hash=>{if(!/^[a-f0-9]{64}$/.test(hash))return;document.querySelector('#freshness').textContent='Live view: checks the Markdown tracker every 5 seconds and reloads when it changes. Keep the local server running.';setInterval(async()=>{try{const r=await fetch('/handoff-version',{cache:'no-store'});if(r.ok&&(await r.text())!=='578017728a8440abf97baa00da2413bead780e83dbbd4dd5d4f397df2d483d51')location.reload()}catch{document.querySelector('#freshness').textContent='Live connection lost. Restart python3 scripts/handoff.py --serve to resume updates.'}},5000)}).catch(()=>{})}
+if(location.protocol!=='file:'){fetch('/handoff-version',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.text()}).then(hash=>{if(!/^[a-f0-9]{64}$/.test(hash))return;document.querySelector('#freshness').textContent='Live view: checks the Markdown tracker every 5 seconds and reloads when it changes. Keep the local server running.';setInterval(async()=>{try{const r=await fetch('/handoff-version',{cache:'no-store'});if(r.ok&&(await r.text())!=='c101ddd00d9671d21afa8b0c4609e700d2066e807cc14e1decf0a97902788b22')location.reload()}catch{document.querySelector('#freshness').textContent='Live connection lost. Restart python3 scripts/handoff.py --serve to resume updates.'}},5000)}).catch(()=>{})}
 </script></body></html>

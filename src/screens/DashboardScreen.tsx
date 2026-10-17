@@ -1,565 +1,182 @@
-import { betaFeatures } from '../config/betaFeatures';
-import React, { useCallback, useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  ActivityIndicator,
-  ScrollView,
-  RefreshControl,
-  Button,
-  Pressable,
-  Alert,
-} from 'react-native';
-import {
-  getRecommendations,
-  RecommendationResponse,
-} from '../api/recommendations';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { useProfile } from '../context/ProfileContext';
 import { useMeals } from '../context/MealsContext';
-import { useWeather } from '../hooks/useWeather';
-import { useStepCounter } from '../hooks/useStepCounter';
 import { useDailyStats } from '../hooks/useDailyStats';
-import { useSupplementCatalog } from '../hooks/useSupplementCatalog';
-import { Supplement } from '../api/supplements';
-import { syncSteps } from '../api/dailyStats';
-import { GLASS_ML } from '../storage/dailyStats';
+import { getMacroGoals, MacroGoals } from '../api/macroScore';
+import { betaFeatures } from '../config/betaFeatures';
+import { Action, Card, Copy, Notice, Progress, Sheet, Skeleton } from '../design/components';
+import { useTheme } from '../design/theme';
+import AppearancePicker from '../design/AppearancePicker';
+import StepsCard from '../components/today/StepsCard';
+import { SupplementsDetail, WeatherDetail } from '../components/today/OptionalDetails';
+import { todaySummary, validTarget } from '../util/todaySummary';
 import { formatWeight } from '../util/units';
-import { useNavigation } from '@react-navigation/native';
-import HealthScoreCard from '../components/HealthScoreCard';
-
-const WATER_GOAL_ML = 2000;
-
-// Rough kcal burned per step, scaled by body weight (≈0.04 kcal/step at 70kg).
-function caloriesFromSteps(steps: number, weightKg: number): number {
-  const perStep = 0.04 * (weightKg / 70);
-  return Math.round(steps * perStep);
-}
 
 export default function DashboardScreen() {
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  const { colors } = useTheme();
   const { profile } = useProfile();
-  const { totalCalories, meals, syncError, refresh: refreshMeals, syncAll: syncMeals } = useMeals();
-  const { weather, refresh: refreshWeather } = useWeather();
-  const { steps, available: stepsAvailable } = useStepCounter();
-  const { stats, addWater, toggleSupplement, updateSupplementLog, refresh: refreshStats } = useDailyStats();
-  const {
-    mySupplements,
-    searchResults,
-    searching: supplementSearching,
-    refresh: refreshSupplements,
-    search: searchSupplementCatalog,
-    select: selectSupplement,
-    deselect: deselectSupplement,
-  } = useSupplementCatalog();
-  const [supplementQuery, setSupplementQuery] = useState('');
-  const [supplementQty, setSupplementQty] = useState<Record<string, number>>({});
-  const [loading, setLoading] = useState(true);
+  const diary = useMeals();
+  const daily = useDailyStats(betaFeatures.supplements);
+  const [goals, setGoals] = useState<MacroGoals | null>(null);
+  const [goalLoading, setGoalLoading] = useState(true);
+  const [goalError, setGoalError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [data, setData] = useState<RecommendationResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [healthScoreRefreshKey, setHealthScoreRefreshKey] = useState(0);
-
-  const stepCalories = profile ? caloriesFromSteps(steps, profile.weightKg) : 0;
-
-  const bumpHealthScore = useCallback(() => {
-    setHealthScoreRefreshKey((k) => k + 1);
+  const [waterOpen, setWaterOpen] = useState(false);
+  const [waterBusy, setWaterBusy] = useState(false);
+  const [waterMessage, setWaterMessage] = useState('');
+  const waterLock = useRef(false);
+  const [details, setDetails] = useState(false);
+  const [weatherEnabled, setWeatherEnabled] = useState(false);
+  const [appearance, setAppearance] = useState(false);
+  const [now, setNow] = useState(new Date());
+  const goalRequest = useRef(0);
+  const summary = todaySummary(diary.meals, now);
+  const target = validTarget(goals?.caloriesTarget);
+  const waterTarget = validTarget(goals?.waterMlTarget);
+  const loadGoals = useCallback(async () => {
+    const request = ++goalRequest.current;
+    setGoalLoading(true);
+    try { const result = await getMacroGoals(); if (request === goalRequest.current) { setGoals(result); setGoalError(false); } }
+    catch { if (request === goalRequest.current) { setGoals(null); setGoalError(true); } }
+    finally { if (request === goalRequest.current) setGoalLoading(false); }
   }, []);
-
-  const load = useCallback(async () => {
-    if (!profile) return;
-    try {
-      setError(null);
-      const res = await getRecommendations({
-        sex: profile.sex,
-        age: profile.age,
-        heightCm: profile.heightCm,
-        weightKg: profile.weightKg,
-        activityLevel: profile.activityLevel,
-        goal: profile.goal,
-        caloriesIn: totalCalories,
-        caloriesBurnedExercise: caloriesFromSteps(steps, profile.weightKg),
-        weather: weather?.condition,
-      });
-      setData(res);
-    } catch (e: any) {
-      setError(e?.message ?? 'Request failed');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [profile, totalCalories, weather, steps]);
-
-  // Sync steps to backend and then refresh the health score so it reflects activity
+  useFocusEffect(useCallback(() => {
+    setNow(new Date());
+    void loadGoals();
+    return () => { goalRequest.current += 1; };
+  }, [loadGoals]));
+  // Refresh the displayed date after backgrounding or midnight; old meals never count toward a new day.
   useEffect(() => {
-    if (steps <= 0) return;
-    const timeout = setTimeout(() => {
-      syncSteps(steps)
-        .catch(() => {})
-        .finally(() => bumpHealthScore());
-    }, 2000);
-    return () => clearTimeout(timeout);
-  }, [steps, bumpHealthScore]);
-
+    const update = () => setNow(new Date());
+    const subscription = AppState.addEventListener('change', state => { if (state === 'active') update(); });
+    const timer = setInterval(update, 60000);
+    return () => { subscription.remove(); clearInterval(timer); };
+  }, []);
+  const refreshMeals = diary.refresh;
+  const refreshDaily = daily.refresh;
+  const day = now.toDateString();
+  const previousDay = useRef(day);
   useEffect(() => {
-    if (profile) load();
-  }, [load, profile]);
+    if (previousDay.current === day) return;
+    previousDay.current = day;
+    void refreshMeals().catch(() => {});
+    void refreshDaily().catch(() => {});
+  }, [day, refreshMeals, refreshDaily]);
+  useEffect(() => { if (route.params?.waterRequest) setWaterOpen(true); }, [route.params?.waterRequest]);
 
-  const onRefresh = async () => {
+  async function refresh() {
+    if (refreshing) return;
     setRefreshing(true);
-    await Promise.all([refreshMeals(), refreshWeather(), refreshStats(), refreshSupplements()]);
-    await syncMeals().catch(() => {});
-    await load();
-    bumpHealthScore();
-  };
-
-  // Supplement macros: sum nutrition from all taken supplements × quantity.
-  const supplementMacros = (betaFeatures.supplements ? mySupplements : []).reduce(
-    (acc, s) => {
-      if (stats?.supplements?.[s.name]) {
-        const qty = supplementQty[s.id] || 1;
-        acc.calories += (s.calories || 0) * qty;
-        acc.proteinG += (s.proteinG || 0) * qty;
-        acc.carbsG += (s.carbsG || 0) * qty;
-        acc.fatG += (s.fatG || 0) * qty;
-        acc.fiberG += (s.fiberG || 0) * qty;
-      }
-      return acc;
-    },
-    { calories: 0, proteinG: 0, carbsG: 0, fatG: 0, fiberG: 0 },
-  );
-
-  const onSupplementSearch = (text: string) => {
-    setSupplementQuery(text);
-    searchSupplementCatalog(text);
-  };
-
-  const adjustSupplementQty = useCallback(async (s: Supplement, delta: number) => {
-    const nextQty = Math.max(0.5, (supplementQty[s.id] || 1) + delta);
-    setSupplementQty((prev) => ({ ...prev, [s.id]: nextQty }));
-    if (stats?.supplements[s.name]) {
-      await updateSupplementLog(s, nextQty);
-      bumpHealthScore();
-    }
-  }, [supplementQty, stats, updateSupplementLog, bumpHealthScore]);
-
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator />
-        <Text style={styles.muted}>Loading dashboard…</Text>
-      </View>
-    );
+    try { await Promise.allSettled([diary.syncAll(), daily.refresh(), loadGoals()]); }
+    finally { setRefreshing(false); }
   }
-
-  if (error || !data) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.err}>Error: {error ?? 'no data'}</Text>
-        <Button title="Retry" onPress={load} />
-      </View>
-    );
+  async function water(delta: number) {
+    if (waterLock.current) return;
+    waterLock.current = true;
+    setWaterBusy(true);
+    setWaterMessage('');
+    try { await daily.addWater(delta); setWaterMessage('Water updated on this device.'); }
+    catch { setWaterMessage('Could not save water. Please try again.'); }
+    finally { waterLock.current = false; setWaterBusy(false); }
   }
-
-  const { balance, recommendation, goal } = data;
-  const statusColor =
-    balance.status === 'surplus' ? '#b85c00' : balance.status === 'deficit' ? '#1e6fb8' : '#2e7d32';
-
-  // Daily goal message — the first thing the user sees
-  const dailyGoalMessage = (() => {
-    if (balance.surplus > 200) {
-      return `🔥 You need to burn ${balance.surplus} kcal to stay on track today.`;
-    }
-    if (balance.net < balance.target * 0.5 && meals.length < 2) {
-      return `🍽️ You've only eaten ${balance.caloriesIn} kcal — eat a balanced meal to fuel your day.`;
-    }
-    if (balance.status === 'deficit') {
-      return `✅ You're ${Math.abs(balance.surplus)} kcal under target. Stay consistent!`;
-    }
-    if (balance.status === 'on_target') {
-      return `🎯 Right on track! Keep up the good work.`;
-    }
-    return `💪 Today's goal: ${balance.target} kcal · ${goal.replace(/_/g, ' ')}`;
-  })();
-
-  return (
-    <ScrollView
-      contentContainerStyle={styles.container}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-    >
-      {/* Daily goal banner */}
-      <View style={styles.goalBanner}>
-        <Text style={styles.goalText}>{dailyGoalMessage}</Text>
-      </View>
-
-      {syncError && <Text accessibilityRole="alert" style={{color: '#b42318'}}>{syncError}</Text>}
-      <Text style={styles.title}>Hi{profile?.name ? `, ${profile.name}` : ''}</Text>
-      <Text style={styles.muted}>
-        Goal: {goal.replace(/_/g, ' ')} · Activity: {data.activityLevel.replace('_', ' ')} · {meals.length} meal{meals.length === 1 ? '' : 's'} today
-      </Text>
-      {weather && (
-        <Text style={styles.muted}>
-          Weather: {weather.condition} · {weather.description}
-          {weather.tempC !== null ? ` · ${Math.round(weather.tempC)}°C` : ''}
-        </Text>
-      )}
-
-      <HealthScoreCard refreshKey={healthScoreRefreshKey} />
-
-      {/* Weekly Meal Plan link */}
-      {betaFeatures.weeklyPlans && <Pressable style={styles.weeklyPlanLink} onPress={() => navigation.navigate('WeeklyPlan')}>
-        <Text style={styles.weeklyPlanIcon}>🍽️</Text>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.weeklyPlanTitle}>Weekly Meal Plan</Text>
-          <Text style={styles.weeklyPlanSub}>View your 7-day plan, shopping list & meal prep</Text>
+  async function retryWater() {
+    if (waterLock.current) return;
+    waterLock.current = true;
+    setWaterBusy(true);
+    setWaterMessage('');
+    try { await daily.retryWaterSync(); }
+    finally { waterLock.current = false; setWaterBusy(false); }
+  }
+  const waterControls = <>
+    <Copy size="heading" style={{ fontWeight: '700' }}>{daily.stats ? `${daily.stats.waterMl.toLocaleString()} ml` : '—'}</Copy>
+    <Copy tone="muted">{waterTarget ? `Daily target ${waterTarget.toLocaleString()} ml` : 'Daily target unavailable'}</Copy>
+    <Progress label="Logged water in milliliters" value={daily.stats?.waterMl ?? null} target={waterTarget} />
+    <Action label={waterBusy ? 'Saving water…' : 'Add 250 ml water'} disabled={waterBusy || daily.loading} onPress={() => { void water(250); }} />
+    <Action secondary label="Remove 250 ml water" disabled={waterBusy || !daily.stats?.waterMl} onPress={() => { void water(-250); }} />
+    {waterMessage !== '' && <Copy accessibilityLiveRegion="polite" size="caption">{waterMessage}</Copy>}
+    {daily.waterSyncError && <><Notice error title="Water sync pending" message={daily.waterSyncError} />
+      <Action secondary label="Retry water sync" disabled={waterBusy} onPress={() => { void retryWater(); }} /></>}
+  </>;
+  return <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <ScrollView contentContainerStyle={styles.page} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.primary} />}>
+      <View style={{ gap: 4 }}><Copy tone="muted" size="caption">{now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</Copy>
+        <Copy accessibilityRole="header" size="heading" style={{ fontWeight: '700' }}>Hello{profile?.name.trim() ? `, ${profile.name.trim().split(/\s+/)[0]}` : ''}</Copy>
+        <Copy tone="muted">A little time for you, today.</Copy></View>
+      {diary.syncError && <Card><Notice title="Showing your saved diary" message="Meal sync is pending. Your saved meals are still available." />
+        <Action secondary label="Retry meal sync" onPress={() => { void refresh(); }} /></Card>}
+      <Card>
+        <Copy accessibilityRole="header" size="title" style={{ fontWeight: '600' }}>Today’s food</Copy>
+        {diary.loading && summary.meals.length === 0 ? <Skeleton label="Loading your saved meals" /> : <>
+          <Copy size="display" style={{ fontWeight: '700' }}>{summary.calories === null ? '—' : Math.round(summary.calories).toLocaleString()} <Copy tone="muted">kcal logged</Copy></Copy>
+          <Copy tone="muted">{target ? `Daily target · ${Math.round(target).toLocaleString()} kcal` : 'Daily target unavailable'}</Copy>
+          <Progress label="Logged food calories toward daily target" value={summary.calories} target={target} />
+        </>}
+        {goalLoading && <Skeleton label="Loading your targets" />}
+        {goalError && <><Notice title="Targets couldn’t load" message="You can still log food and see meals saved on this device." />
+          <Action secondary label="Retry targets" onPress={() => { void loadGoals(); }} /></>}
+        <Copy size="caption" tone="muted">Logged food is not necessarily everything you ate. Targets are estimates; activity is not added again here.</Copy>
+        <Action label="Log a meal" onPress={() => navigation.navigate('LogMeal')} />
+        <View style={styles.grid}>
+          {([
+            ['Protein', summary.protein, goals?.proteinTarget], ['Carbs', summary.carbs, goals?.carbsTarget],
+            ['Fat', summary.fat, goals?.fatTarget], ['Fiber', summary.fiber, goals?.fiberTarget],
+          ] as const).map(([label, value, goal]) => <View key={label} style={[styles.macro, { backgroundColor: colors.accent }]}>
+            <Copy style={{ fontWeight: '600' }}>{label}</Copy>
+            <Copy>{value === null ? 'Incomplete data' : `${Math.round(value)} g logged`}</Copy>
+            <Copy tone="muted" size="caption">{validTarget(goal) ? `Target ${Math.round(goal!)} g` : 'Target unavailable'}</Copy>
+            <Progress label={`${label} in grams`} value={value} target={validTarget(goal)} />
+          </View>)}
         </View>
-        <Text style={styles.weeklyPlanArrow}>›</Text>
-      </Pressable>}
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Steps</Text>
-        <View style={styles.bigStatRow}>
-          <Text style={styles.bigStat}>{steps.toLocaleString()}</Text>
-          <Text style={styles.bigStatUnit}>steps today</Text>
-        </View>
-        <Row label="Calories burned (steps)" value={`${stepCalories} kcal`} />
-        {!stepsAvailable && (
-          <Text style={styles.muted}>
-            Step sensor unavailable in this build. Counts appear on a device with motion access.
-          </Text>
-        )}
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Today&apos;s calories</Text>
-        <Row label="Food" value={`${balance.caloriesIn} kcal`} />
-        {supplementMacros.calories > 0 && (
-          <Row label="Supplements" value={`${supplementMacros.calories} kcal`} />
-        )}
-        <Row label="Total consumed" value={`${balance.caloriesIn + supplementMacros.calories} kcal`} valueStyle={{ fontWeight: '700' }} />
-        <Row label="Spent (steps + activity)" value={`${balance.caloriesBurnedExercise} kcal`} />
-        <Row label="Target" value={`${balance.target} kcal`} />
-        <View style={styles.divider} />
-        <Row
-          label="Balance"
-          value={`${balance.surplus > 0 ? '+' : ''}${balance.surplus + supplementMacros.calories} kcal (${balance.status.replace('_', ' ')})`}
-          valueStyle={{ color: statusColor, fontWeight: '700' }}
-        />
-      </View>
-
-      <View style={styles.card}>
-        <View style={styles.cardHeaderRow}>
-          <Text style={styles.cardTitle}>Water intake</Text>
-          <Text style={styles.muted}>
-            {(stats?.waterMl ?? 0)} / {WATER_GOAL_ML} ml
-          </Text>
-        </View>
-        <View style={styles.progressTrack}>
-          <View
-            style={[
-              styles.progressFill,
-              { width: `${Math.min(100, ((stats?.waterMl ?? 0) / WATER_GOAL_ML) * 100)}%` },
-            ]}
-          />
-        </View>
-        <View style={styles.waterRow}>
-          <Pressable
-            style={styles.waterBtn}
-            onPress={async () => { await addWater(-GLASS_ML); bumpHealthScore(); }}
-          >
-            <Text style={styles.waterBtnText}>− glass</Text>
-          </Pressable>
-          <Text style={styles.waterGlasses}>
-            {Math.round((stats?.waterMl ?? 0) / GLASS_ML)} glasses
-          </Text>
-          <Pressable
-            style={[styles.waterBtn, styles.waterBtnPrimary]}
-            onPress={async () => { await addWater(GLASS_ML); bumpHealthScore(); }}
-          >
-            <Text style={[styles.waterBtnText, styles.waterBtnPrimaryText]}>+ glass</Text>
-          </Pressable>
-        </View>
-      </View>
-
-      {betaFeatures.supplements && <View style={styles.card}>
-        <Text style={styles.cardTitle}>Supplements</Text>
-
-        {/* User's selected supplements */}
-        {mySupplements.length === 0 && !supplementQuery && (
-          <Text style={styles.muted}>No supplements selected. Search below to add some.</Text>
-        )}
-        {mySupplements.map((s) => {
-          const taken = Boolean(stats?.supplements?.[s.name]);
-          const qty = supplementQty[s.id] || 1;
-          return (
-            <View key={s.id}>
-              <Pressable
-                style={styles.supplementRow}
-                onPress={async () => { await toggleSupplement(s, qty); bumpHealthScore(); }}
-                onLongPress={() =>
-                  Alert.alert('Remove supplement?', `Remove "${s.name}" from your list?`, [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Remove', style: 'destructive', onPress: () => deselectSupplement(s.id) },
-                  ])
-                }
-              >
-                <View style={[styles.checkbox, taken && styles.checkboxOn]}>
-                  {taken && <Text style={styles.checkmark}>✓</Text>}
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.supplementName, taken && styles.supplementNameOn]}>
-                    {s.name}
-                  </Text>
-                  <Text style={styles.supplementDose}>
-                    {[s.brand, s.defaultDose].filter(Boolean).join(' · ') || ''}
-                  </Text>
-                </View>
-                {taken && (s.calories > 0 || s.proteinG > 0) && (
-                  <Text style={styles.supplementMacro}>
-                    {Math.round((s.calories || 0) * qty)} kcal
-                  </Text>
-                )}
-              </Pressable>
-              {/* Quantity adjuster — shown when supplement is taken */}
-              {taken && (
-                <View style={styles.qtyRow}>
-                  <Pressable
-                    style={styles.qtyBtn}
-                    onPress={() => adjustSupplementQty(s, -0.5)}
-                  >
-                    <Text style={styles.qtyBtnText}>−</Text>
-                  </Pressable>
-                  <Text style={styles.qtyValue}>
-                    {qty} {qty === 1 ? 'serving' : 'servings'}
-                  </Text>
-                  <Pressable
-                    style={styles.qtyBtn}
-                    onPress={() => adjustSupplementQty(s, 0.5)}
-                  >
-                    <Text style={styles.qtyBtnText}>+</Text>
-                  </Pressable>
-                </View>
-              )}
-            </View>
-          );
-        })}
-
-        {/* Supplement macros summary (if any taken have macros) */}
-        {supplementMacros.calories > 0 && (
-          <View style={styles.supplementMacroSummary}>
-            <Text style={styles.muted}>
-              Supps today: {supplementMacros.calories} kcal · {supplementMacros.proteinG}g P · {supplementMacros.carbsG}g C · {supplementMacros.fatG}g F
-            </Text>
-          </View>
-        )}
-
-        {/* Search bar for adding supplements */}
-        <View style={styles.addRow}>
-          <TextInput
-            style={styles.addInput}
-            value={supplementQuery}
-            onChangeText={onSupplementSearch}
-            placeholder="Search supplements to add…"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          {supplementSearching && <ActivityIndicator style={{ marginLeft: 8 }} />}
-        </View>
-
-        {/* Search results */}
-        {searchResults.length > 0 && (
-          <View style={styles.searchResults}>
-            {searchResults
-              .filter((s) => !mySupplements.some((m) => m.id === s.id))
-              .map((s) => (
-                <Pressable
-                  key={s.id}
-                  style={styles.supplementRow}
-                  onPress={() => {
-                    selectSupplement(s);
-                    setSupplementQuery('');
-                  }}
-                >
-                  <View style={styles.checkbox}>
-                    <Text style={{ color: '#b0b3bb', fontSize: 16 }}>+</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.supplementName}>{s.name}</Text>
-                    <Text style={styles.supplementDose}>
-                      {[s.brand, s.category, s.defaultDose].filter(Boolean).join(' · ')}
-                    </Text>
-                  </View>
-                </Pressable>
-              ))}
-          </View>
-        )}
-      </View>}
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Weight goal</Text>
-        <Row label="Current" value={profile ? formatWeight(profile.weightKg, profile.units) : '—'} />
-        <Row
-          label="Goal"
-          value={
-            profile?.goalWeightKg != null
-              ? formatWeight(profile.goalWeightKg, profile.units)
-              : 'Set in Edit profile'
-          }
-        />
-        {profile?.goalWeightKg != null && (
-          <Row
-            label="To go"
-            value={`${formatWeight(
-              Math.abs(Math.round((profile.weightKg - profile.goalWeightKg) * 10) / 10),
-              profile.units,
-            )} ${
-              profile.weightKg > profile.goalWeightKg ? 'to lose' : profile.weightKg < profile.goalWeightKg ? 'to gain' : '— at goal'
-            }`}
-            valueStyle={{ fontWeight: '700', color: '#1e6fb8' }}
-          />
-        )}
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Next action</Text>
-        <Text style={styles.recoTitle}>{recommendation.title}</Text>
-        <Text style={styles.muted}>
-          {recommendation.type} · {recommendation.intensity} · {recommendation.durationMin} min · {recommendation.location}
-        </Text>
-        <Text style={styles.reason}>{recommendation.reason}</Text>
-      </View>
-
-      <Button title="Refresh" onPress={load} />
+        <Copy tone="muted" size="caption">Meal values only. Missing nutrients stay unknown; supplement entries are shown separately.</Copy>
+      </Card>
+      <Card><Copy accessibilityRole="header" size="title" style={{ fontWeight: '600' }}>A note for today</Copy>
+        <Copy>{summary.meals.length === 0 ? 'Your diary is ready whenever you are. Start with a meal you remember.' : summary.fiber === null
+          ? 'Some meals have no fiber value. You can review their nutrition in your food diary.'
+          : `${summary.meals.length} meal${summary.meals.length === 1 ? '' : 's'} logged today. A useful record starts with what you know.`}</Copy>
+        <Copy size="caption" tone="muted">Based on your logged meals, not an AI or medical assessment.</Copy>
+        {betaFeatures.ai && <Action secondary label="Ask Leo" onPress={() => navigation.navigate('Chat')} />}
+      </Card>
+      <View style={styles.grid}><View style={styles.column}><Card><Copy accessibilityRole="header" size="title" style={{ fontWeight: '600' }}>Water</Copy>
+        <Copy size="heading" style={{ fontWeight: '700' }}>{daily.stats ? `${daily.stats.waterMl.toLocaleString()} ml` : '—'}</Copy>
+        <Copy tone="muted" size="caption">Logged on this device</Copy>
+        {daily.waterSyncError && <Copy tone="danger" size="caption">Sync pending</Copy>}
+        <Action secondary label="Log water" onPress={() => setWaterOpen(true)} /></Card></View>
+        <View style={styles.column}><StepsCard key={day} /></View></View>
+      <Card><Copy accessibilityRole="header" size="title" style={{ fontWeight: '600' }}>Your meals</Copy>
+        {summary.meals.length === 0 ? <Notice title="No meals logged yet" message="Missing logs don’t mean you haven’t eaten. Add a meal when it suits you." /> :
+          summary.meals.slice(0, 3).map(meal => <View key={meal.id} style={{ gap: 4, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border, paddingBottom: 12 }}>
+            <Copy style={{ fontWeight: '600' }}>{meal.name}</Copy>
+            <Copy size="caption" tone="muted">{new Date(meal.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} · {Number.isFinite(meal.calories) && meal.calories >= 0 ? `${Math.round(meal.calories)} kcal` : 'Calories unavailable'}</Copy>
+          </View>)}
+        <Action secondary label="Open food diary" onPress={() => navigation.navigate('LogMeal')} />
+        <Action secondary label="View previous days" onPress={() => navigation.navigate('History')} />
+      </Card>
+      <Action secondary label={details ? 'Hide daily details' : 'More about your day'} onPress={() => setDetails(value => !value)} />
+      {details && <>
+        <Card><Notice title="Health score is provisional" message="The score reflects recorded data, not your health or the quality of your day. Missing logs can change it. Finalized days and data-completeness measures aren’t available yet." />
+          <Copy tone="muted" size="caption">Existing score details use a heuristic and may flag incomplete logs. They are not medical advice.</Copy>
+          <Action secondary label="View score details" onPress={() => navigation.navigate('HealthScoreDetail')} /></Card>
+        <Card><Copy size="title">Your weight goal</Copy><Copy>Last profile weight · {profile ? formatWeight(profile.weightKg, profile.units) : 'Not set'}</Copy>
+          <Copy>Goal · {profile?.goalWeightKg != null ? formatWeight(profile.goalWeightKg, profile.units) : 'Not set'}</Copy>
+          <Action secondary label="Update weight and profile" onPress={() => navigation.navigate('EditProfile')} /></Card>
+        {betaFeatures.weeklyPlans && <Action secondary label="Open weekly meal plan" onPress={() => navigation.navigate('WeeklyPlan')} />}
+        {betaFeatures.supplements && <SupplementsDetail daily={daily} />}
+        {weatherEnabled ? <WeatherDetail /> : <Card><Copy size="title">Outdoor plans?</Copy><Copy tone="muted">Weather uses your location to request a local forecast. Connect only if you want it.</Copy>
+          <Action secondary label="Connect local weather" onPress={() => setWeatherEnabled(true)} /></Card>}
+      </>}
+      <Action secondary label="Appearance" onPress={() => setAppearance(true)} />
     </ScrollView>
-  );
+    <Sheet visible={waterOpen} title="Log water" onClose={() => setWaterOpen(false)}>{waterControls}</Sheet>
+    <Sheet visible={appearance} title="Make it yours" onClose={() => setAppearance(false)}><AppearancePicker /></Sheet>
+  </View>;
 }
-
-function Row({
-  label,
-  value,
-  valueStyle,
-}: {
-  label: string;
-  value: string;
-  valueStyle?: any;
-}) {
-  return (
-    <View style={styles.row}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={[styles.rowValue, valueStyle]}>{value}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  container: { padding: 20, gap: 14 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 10 },
-  goalBanner: {
-    backgroundColor: '#eef4fb',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderWidth: 1,
-    borderColor: '#c5ddf5',
-  },
-  goalText: { fontSize: 15, fontWeight: '600', color: '#1a4a7a', lineHeight: 22 },
-  weeklyPlanLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#e5e5ea',
-  },
-  weeklyPlanIcon: { fontSize: 24 },
-  weeklyPlanTitle: { fontSize: 15, fontWeight: '700', color: '#222' },
-  weeklyPlanSub: { fontSize: 12, color: '#888' },
-  weeklyPlanArrow: { fontSize: 24, color: '#ccc' },
-  title: { fontSize: 24, fontWeight: '700' },
-  muted: { color: '#666' },
-  err: { color: '#c0392b', fontWeight: '600' },
-  card: {
-    backgroundColor: '#f7f7f9',
-    borderRadius: 12,
-    padding: 16,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: '#e5e5ea',
-  },
-  cardTitle: { fontSize: 16, fontWeight: '700', marginBottom: 4 },
-  cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 2 },
-  rowLabel: { color: '#444' },
-  rowValue: { color: '#111' },
-  divider: { height: 1, backgroundColor: '#e5e5ea', marginVertical: 6 },
-  recoTitle: { fontSize: 18, fontWeight: '600', marginTop: 4 },
-  reason: { marginTop: 6, color: '#333', lineHeight: 20 },
-  bigStatRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginVertical: 4 },
-  bigStat: { fontSize: 36, fontWeight: '800', color: '#111' },
-  bigStatUnit: { fontSize: 14, color: '#666' },
-  progressTrack: {
-    height: 10,
-    borderRadius: 6,
-    backgroundColor: '#e5e5ea',
-    overflow: 'hidden',
-    marginVertical: 8,
-  },
-  progressFill: { height: '100%', backgroundColor: '#1e6fb8', borderRadius: 6 },
-  waterRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  waterBtn: {
-    borderWidth: 1,
-    borderColor: '#1e6fb8',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    backgroundColor: '#fff',
-  },
-  waterBtnPrimary: { backgroundColor: '#1e6fb8' },
-  waterBtnText: { color: '#1e6fb8', fontWeight: '700' },
-  waterBtnPrimaryText: { color: '#fff' },
-  waterGlasses: { color: '#333', fontWeight: '600' },
-  supplementRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: '#b0b3bb',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkboxOn: { backgroundColor: '#2e7d32', borderColor: '#2e7d32' },
-  checkmark: { color: '#fff', fontWeight: '900', fontSize: 14 },
-  supplementName: { fontSize: 15, color: '#222' },
-  supplementNameOn: { color: '#2e7d32', fontWeight: '600' },
-  supplementDose: { fontSize: 12, color: '#888' },
-  supplementMacro: { fontSize: 12, color: '#1e6fb8', fontWeight: '600' },
-  qtyRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 34, paddingVertical: 4 },
-  qtyBtn: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#e5e5ea', alignItems: 'center', justifyContent: 'center' },
-  qtyBtnText: { fontSize: 16, fontWeight: '700', color: '#444' },
-  qtyValue: { fontSize: 13, fontWeight: '600', color: '#333', minWidth: 80, textAlign: 'center' },
-  supplementMacroSummary: { marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: '#e5e5ea' },
-  searchResults: { marginTop: 4, borderTopWidth: 1, borderTopColor: '#e5e5ea', paddingTop: 4 },
-  addRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
-  addInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#d0d0d5',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 15,
-    backgroundColor: '#fff',
-  },
-  addBtn: {
-    backgroundColor: '#1e6fb8',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  addBtnDisabled: { backgroundColor: '#a9c4dd' },
-  addBtnText: { color: '#fff', fontWeight: '700' },
+  page: { padding: 20, paddingBottom: 32, gap: 20, width: '100%', maxWidth: 760, alignSelf: 'center' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  macro: { flexGrow: 1, flexBasis: '45%', padding: 12, borderRadius: 12, gap: 8 },
+  column: { flexGrow: 1, flexBasis: 250 },
 });

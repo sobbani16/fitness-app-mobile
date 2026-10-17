@@ -28,12 +28,14 @@ export async function getPrefill(exerciseType: string): Promise<ExercisePrefill>
 
 export async function createSession(
   exerciseType: string,
-  sets: Pick<ExerciseSet, 'reps' | 'weight'>[],
+  sets: Pick<ExerciseSet, 'reps' | 'weight' | 'id'>[],
+  id?: string,
+  startedAt?: string,
 ): Promise<ExerciseSession> {
   const headers = await authHeaders();
   const res = await api.post<ExerciseSession>(
     '/exercises',
-    { exerciseType, sets },
+    { exerciseType, sets, id, startedAt },
     { headers },
   );
   return res.data;
@@ -41,7 +43,7 @@ export async function createSession(
 
 export async function appendSet(
   sessionId: string,
-  set: Pick<ExerciseSet, 'reps' | 'weight'>,
+  set: Pick<ExerciseSet, 'reps' | 'weight' | 'id'>,
 ): Promise<ExerciseSession> {
   const headers = await authHeaders();
   const res = await api.post<ExerciseSession>(
@@ -50,4 +52,9 @@ export async function appendSet(
     { headers },
   );
   return res.data;
+}
+
+export async function finishSession(id: string): Promise<ExerciseSession> {
+  const headers = await authHeaders();
+  return (await api.post<ExerciseSession>(`/exercises/${encodeURIComponent(id)}/finish`, {}, { headers })).data;
 }

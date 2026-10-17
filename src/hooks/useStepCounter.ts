@@ -6,6 +6,7 @@ import { accountStorage as AsyncStorage } from '../storage/accountStorage';
 interface UseStepCounter {
   steps: number;
   available: boolean;
+  loading: boolean;
   error: string | null;
 }
 
@@ -64,6 +65,7 @@ async function persistSteps(total: number, account: string | undefined): Promise
  * - Anywhere the sensor/module is missing: `available=false`, steps stay 0.
  */
 export function useStepCounter(): UseStepCounter {
+  const [loading, setLoading] = useState(true);
   const [steps, setSteps] = useState(0);
   const [available, setAvailable] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -143,7 +145,7 @@ export function useStepCounter(): UseStepCounter {
           setError(e?.message ?? 'Pedometer error');
         }
       }
-    })();
+    })().finally(() => { if (!cancelled) setLoading(false); });
 
     return () => {
       cancelled = true;
@@ -151,5 +153,5 @@ export function useStepCounter(): UseStepCounter {
     };
   }, []);
 
-  return { steps, available, error };
+  return { steps, available, error, loading };
 }

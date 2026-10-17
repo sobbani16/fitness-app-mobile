@@ -1,0 +1,34 @@
+jest.mock('@react-native-async-storage/async-storage', () => require('@react-native-async-storage/async-storage/jest/async-storage-mock'));
+const mockNavigate = jest.fn();
+jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: mockNavigate }) }));
+const mockUpdate = jest.fn(async () => {});
+jest.mock('../../context/ProfileContext', () => ({ useProfile: () => ({ profile: { name: 'Alex', units: 'metric', heightCm: 175, weightKg: 75, activityLevel: 'moderate', goal: 'maintain' }, loading: false, update: mockUpdate }) }));
+jest.mock('../../components/AccountPrivacy', () => () => null);
+jest.mock('../../components/ProfileForm', () => ({ ACTIVITY_LABELS: { moderate: 'Moderate activity' }, GOAL_LABELS: { maintain: 'Maintain weight' } }));
+jest.mock('../../api/client', () => ({ api: { post: jest.fn(async () => {}) } }));
+jest.mock('../../storage/session', () => ({ getSession: () => ({ token: 'token' }), saveSession: jest.fn() }));
+const React = require('react');
+const { create, act } = require('react-test-renderer');
+const { Alert, Text } = require('react-native');
+const { Action } = require('../../design/components');
+const { api } = require('../../api/client');
+const { saveSession } = require('../../storage/session');
+const Screen = require('../SummaryScreen').default;
+let tree;
+const button = label => tree.root.findAllByType(Action).find(n => n.props.label === label);
+beforeEach(async () => { jest.clearAllMocks(); await act(async () => { tree = create(<Screen />); }); });
+afterEach(async () => { await act(async () => tree.unmount()); });
+it('keeps edit and coaching routes and reports failed preference updates', async () => {
+  await act(async () => button('Edit profile').props.onPress()); expect(mockNavigate).toHaveBeenCalledWith('EditProfile');
+  await act(async () => button('Find a trainer').props.onPress()); expect(mockNavigate).toHaveBeenCalledWith('TrainerList');
+  mockUpdate.mockRejectedValueOnce(new Error('offline'));
+  await act(async () => button('Pounds and feet').props.onPress());
+  expect(tree.root.findAllByType(Text).map(n => n.props.children).flat(Infinity).join(' ')).toContain('Check your connection');
+});
+it('signs out only after explicit confirmation and successful revocation', async () => {
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  await act(async () => button('Sign out').props.onPress()); expect(api.post).not.toHaveBeenCalled();
+  await act(async () => alert.mock.calls[0][2][1].onPress());
+  expect(api.post).toHaveBeenCalledWith('/auth/logout'); expect(saveSession).toHaveBeenCalledWith(null);
+  alert.mockRestore();
+});

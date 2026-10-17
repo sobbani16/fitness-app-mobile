@@ -29,10 +29,13 @@ export function useExerciseDetection(): UseExerciseDetection {
   const [posture, setPosture] = useState<PostureAssessment | null>(null);
   const [lastEvent, setLastEvent] = useState<DetectionEvent | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const generation = useRef(0);
+  const starting = useRef(false);
   const unsubRef = useRef<null | (() => void)>(null);
 
   useEffect(() => {
     return () => {
+      generation.current += 1;
       if (unsubRef.current) unsubRef.current();
       det.stopDetection().catch(() => {});
     };
@@ -47,6 +50,9 @@ export function useExerciseDetection(): UseExerciseDetection {
 
   const start = useCallback(
     async (exerciseType: string) => {
+      if (starting.current) return;
+      starting.current = true;
+      const token = ++generation.current;
       setError(null);
       setReps(0);
       setSuggestedWeightKg(null);
@@ -54,19 +60,23 @@ export function useExerciseDetection(): UseExerciseDetection {
       try {
         setStatus('loading');
         await det.initDetection();
+        if (token !== generation.current) return;
         await det.startDetection(exerciseType);
+        if (token !== generation.current) { await det.stopDetection(); return; }
         if (unsubRef.current) unsubRef.current();
         unsubRef.current = det.subscribeDetection(handleEvent);
         setStatus('running');
       } catch (e: any) {
+        if (token !== generation.current) return;
         setError(e?.message || 'Could not start detection');
         setStatus('error');
-      }
+      } finally { starting.current = false; }
     },
     [handleEvent],
   );
 
   const stop = useCallback(async () => {
+    generation.current += 1;
     if (unsubRef.current) {
       unsubRef.current();
       unsubRef.current = null;

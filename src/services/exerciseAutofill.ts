@@ -50,7 +50,14 @@ function roundTo(n: number, decimals: number): number {
  * Returns an error string, or null if the set is valid.
  */
 export function validateSet(reps: number, weight: number): string | null {
-  if (!Number.isFinite(reps) || reps <= 0) return 'Reps must be greater than 0';
-  if (!Number.isFinite(weight) || weight < 0) return 'Weight must be 0 or greater';
+  if (!Number.isInteger(reps) || reps <= 0 || reps > 1000) return 'Reps must be a whole number from 1 to 1000';
+  if (!Number.isFinite(weight) || weight < 0 || weight > 2000) return 'Weight must be between 0 and 2000 lb';
   return null;
 }
+
+export type WeightUnit = 'kg' | 'lb';
+export const toPounds = (value: number, unit: WeightUnit) => unit === 'kg' ? value / 0.45359237 : value;
+export const displayWeight = (pounds: number, unit: WeightUnit) => Math.round((unit === 'kg' ? pounds * 0.45359237 : pounds) * 100) / 100;
+export const exerciseName = (name: string) => name.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+export const elapsed = (start: string, end = Date.now()) => Math.max(0, Math.floor((end - Date.parse(start)) / 1000));
+export const clockText = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;

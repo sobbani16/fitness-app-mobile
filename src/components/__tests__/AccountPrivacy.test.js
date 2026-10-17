@@ -1,12 +1,14 @@
+jest.mock('@react-native-async-storage/async-storage', () => require('@react-native-async-storage/async-storage/jest/async-storage-mock'));
 jest.mock('../LegacyMigrationGate', () => ({ __esModule: true, default: () => null }));
 jest.mock('../../services/accountLifecycle', () => ({ removeAccount: jest.fn(), shareAccountExport: jest.fn() }));
 const React = require('react');
 const { create, act } = require('react-test-renderer');
-const { Button, TextInput, Alert } = require('react-native');
+const { TextInput, Alert } = require('react-native');
+const { Action } = require('../../design/components');
 const AccountPrivacy = require('../AccountPrivacy').default;
 const { removeAccount, shareAccountExport } = require('../../services/accountLifecycle');
 let tree;
-const button = title => tree.root.findAllByType(Button).find(b => b.props.title === title);
+const button = title => tree.root.findAllByType(Action).find(b => b.props.label === title);
 async function press(title) { await act(async () => { await button(title).props.onPress(); }); }
 beforeEach(async () => { jest.clearAllMocks(); await act(async () => { tree = create(<AccountPrivacy />); }); await press('Account privacy: export or delete'); });
 afterEach(async () => { await act(async () => tree.unmount()); });

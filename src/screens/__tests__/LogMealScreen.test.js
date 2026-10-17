@@ -1,4 +1,7 @@
-jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: jest.fn() }) }));
+// These tests exercise the explicitly enabled AI entry flow, independent of the export environment.
+jest.mock('../../config/betaFeatures', () => ({ betaFeatures: { ai: true, weeklyPlans: true, supplements: true } }));
+jest.mock('@react-native-async-storage/async-storage', () => require('@react-native-async-storage/async-storage/jest/async-storage-mock'));
+jest.mock('@react-navigation/native', () => ({ usePreventRemove: jest.fn(), useRoute: () => ({ params: {} }), useNavigation: () => ({ navigate: jest.fn() }) }));
 jest.mock('../../storage/session', () => ({ getSession: () => ({ user: { id: 'alice' } }) }));
 const mockAdd = jest.fn();
 jest.mock('../../context/MealsContext', () => ({ useMeals: () => ({ meals: [], totalCalories: 0, add: mockAdd, remove: jest.fn() }) }));
@@ -15,7 +18,7 @@ const { act, create } = require('react-test-renderer');
 const { Button, Text, Alert } = require('react-native');
 const picker = require('expo-image-picker');
 const { detectFood, analyzeMeal } = require('../../api/meals');
-const Screen = require('../LogMealScreen').default;
+const Screen = require('../FoodEntryScreen').default;
 let tree;
 const button = title => tree.root.findAllByType(Button).find(node => node.props.title === title);
 const pressText = label => {
@@ -90,4 +93,24 @@ it('allows manual logging without contacting the AI provider', async () => {
   await act(async () => button('Enter nutrition manually').props.onPress());
   expect(button('Save meal').props.disabled).toBe(false);
   expect(detectFood).not.toHaveBeenCalled(); expect(analyzeMeal).not.toHaveBeenCalled();
+});
+it('does not silently save blank manual values as zero', async () => {
+  await act(async () => { tree = create(<Screen />); });
+  await act(async () => button('Enter nutrition manually').props.onPress());
+  await act(async () => button('Save meal').props.onPress());
+  expect(mockAdd).not.toHaveBeenCalled();
+  expect(Alert.alert).toHaveBeenCalledWith('Check nutrition', expect.any(String));
+});
+it('keeps a stable meal identity through a failed local save and concurrent taps', async () => {
+  let reject;
+  mockAdd.mockImplementationOnce(() => new Promise((_resolve, fail) => { reject = fail; }));
+  await act(async () => { tree = create(<Screen />); });
+  await act(async () => button('Analyze description').props.onPress());
+  await act(async () => button('I reviewed the food, portion and nutrition').props.onPress());
+  const save = button('Save meal').props.onPress;
+  await act(async () => { save(); save(); });
+  expect(mockAdd).toHaveBeenCalledTimes(1);
+  await act(async () => reject(new Error('disk')));
+  await act(async () => button('Retry save').props.onPress());
+  expect(mockAdd.mock.calls[0][0].id).toBe(mockAdd.mock.calls[1][0].id);
 });

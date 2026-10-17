@@ -1,0 +1,34 @@
+jest.mock('@react-native-async-storage/async-storage', () => require('@react-native-async-storage/async-storage/jest/async-storage-mock'));
+const mockNavigate = jest.fn();
+jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: mockNavigate }), useFocusEffect: callback => require('react').useEffect(callback, [callback]) }));
+jest.mock('../../components/KeyboardAwareScrollView', () => ({ children }) => children);
+const mockMeal = { id: 'one', name: 'Oats', calories: 200, quantityG: 100, createdAt: new Date().toISOString(), macros: { protein_g: 10, carbs_g: 30, fat_g: 4 } };
+const mockMeals = [mockMeal];
+jest.mock('../../context/MealsContext', () => ({ useMeals: () => ({ meals: mockMeals, remove: jest.fn() }) }));
+jest.mock('../../storage/favoriteFoods', () => ({ loadRecentFoods: jest.fn(), loadFavorites: jest.fn(), setFavorite: jest.fn() }));
+jest.mock('../../config/betaFeatures', () => ({ betaFeatures: { ai: false } }));
+const storage = require('../../storage/favoriteFoods');
+const React = require('react');
+const { create, act } = require('react-test-renderer');
+const Screen = require('../LogMealScreen').default;
+let tree;
+const press = label => tree.root.findAllByProps({ accessibilityLabel: label })[0].props.onPress();
+beforeEach(() => { jest.clearAllMocks(); storage.loadRecentFoods.mockResolvedValue([mockMeal]); storage.loadFavorites.mockResolvedValue([]); storage.setFavorite.mockResolvedValue([mockMeal]); });
+afterEach(async () => { if (tree) await act(async () => tree.unmount()); });
+it('opens distinct search/manual paths and keeps photo estimates gated', async () => {
+  await act(async () => { tree = create(<Screen />); });
+  await act(async () => press('Search food'));
+  expect(mockNavigate).toHaveBeenLastCalledWith('FoodEntry', { mode: 'search' });
+  await act(async () => press('Manual entry'));
+  expect(mockNavigate).toHaveBeenLastCalledWith('FoodEntry', { mode: 'manual' });
+  expect(tree.root.findAllByProps({ accessibilityLabel: 'Photo or description estimate' })).toHaveLength(0);
+});
+it('reviews a recent food before logging and saves it as a favorite', async () => {
+  await act(async () => { tree = create(<Screen />); });
+  await act(async () => press('Review and repeat Oats'));
+  expect(mockNavigate).toHaveBeenLastCalledWith('FoodEntry', { mode: 'repeat', meal: mockMeal });
+  await act(async () => press('Save favorite: Oats'));
+  expect(storage.setFavorite).toHaveBeenCalledWith(mockMeal, true);
+  await act(async () => press('Favorite foods'));
+  expect(tree.root.findAllByProps({ accessibilityLabel: 'Remove favorite: Oats' }).length).toBeGreaterThan(0);
+});

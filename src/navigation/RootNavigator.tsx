@@ -15,12 +15,15 @@ import ClientDropSurveyScreen from '../screens/ClientDropSurveyScreen';
 import ClientMealPlanScreen from '../screens/ClientMealPlanScreen';
 import LabelScannerScreen from '../screens/LabelScannerScreen';
 import PortionAdjustScreen from '../screens/PortionAdjustScreen';
+import FoodEntryScreen from '../screens/FoodEntryScreen';
+import { LoggedMeal } from '../storage/meals';
 import MainTabs from './MainTabs';
 import { useProfile } from '../context/ProfileContext';
 
 export type RootStackParamList = {
   Onboarding: undefined;
   Main: undefined;
+  FoodEntry: { mode: 'search' | 'manual' | 'photo' | 'recipes' | 'repeat'; meal?: LoggedMeal };
   EditProfile: undefined;
   HealthScoreDetail: undefined;
   WeeklyPlan: undefined;
@@ -53,6 +56,7 @@ export default function RootNavigator() {
       {profile ? (
         <>
           <Stack.Screen name="Main" component={MainTabs} />
+          <Stack.Screen name="FoodEntry" component={FoodEntryScreen} options={{ headerShown: true, title: 'Log food' }} />
           <Stack.Screen
             name="EditProfile"
             component={EditProfileScreen}

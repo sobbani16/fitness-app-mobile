@@ -85,3 +85,16 @@ describe('validateSet', () => {
     expect(validateSet(8, 42.5)).toBeNull();
   });
 });
+
+import { toPounds, displayWeight, elapsed, clockText } from '../exerciseAutofill';
+it('converts explicit kg/lb without changing stored pound semantics', () => {
+  expect(displayWeight(toPounds(20, 'kg'), 'kg')).toBe(20);
+  expect(displayWeight(100, 'kg')).toBe(45.36);
+  expect(toPounds(0, 'kg')).toBe(0);
+});
+it('rejects fractional and excessive sets and computes elapsed time from timestamps', () => {
+  expect(validateSet(2.5, 50)).not.toBeNull();
+  expect(validateSet(1001, 50)).not.toBeNull();
+  expect(validateSet(5, 2001)).not.toBeNull();
+  expect(clockText(elapsed('2026-10-16T10:00:00Z', Date.parse('2026-10-16T10:02:03Z')))).toBe('2:03');
+});

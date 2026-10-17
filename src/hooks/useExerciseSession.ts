@@ -1,119 +1,85 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as api from '../api/exercises';
-import { nextSetWeight, validateSet } from '../services/exerciseAutofill';
-import type {
-  ExercisePrefill,
-  ExerciseSession,
-  ExerciseSet,
-} from '../types/exercise';
+import { validateSet } from '../services/exerciseAutofill';
+import { accountStorage } from '../storage/accountStorage';
+import { accountKey, getSession } from '../storage/session';
+import type { ExerciseSession, ExerciseSet } from '../types/exercise';
 
-export interface UseExerciseSession {
-  // state
-  exerciseType: string;
-  session: ExerciseSession | null;
-  prefill: ExercisePrefill | null;
-  sets: ExerciseSet[];
-  suggestedWeight: number | null;
-  loading: boolean;
-  saving: boolean;
-  error: string | null;
-
-  // actions
-  setExerciseType: (t: string) => void;
-  addSet: (reps: number, weight: number) => Promise<void>;
-  reset: () => void;
+type Pending = { id: string; reps: number; weight: number };
+export interface WorkoutDraft {
+  id: string; exerciseType: string; startedAt: string; session: ExerciseSession | null;
+  pending?: Pending; finishing?: boolean;
 }
-
-/**
- * Encapsulates the lifecycle of a single exercise-logging flow:
- *  - fetches prefill (last-used weight) for the selected exerciseType
- *  - lazily creates a session on the first saved set
- *  - appends further sets, auto-filling weight per business rules
- */
-export function useExerciseSession(initialExerciseType: string): UseExerciseSession {
-  const [exerciseType, setExerciseTypeState] = useState(initialExerciseType);
-  const [session, setSession] = useState<ExerciseSession | null>(null);
-  const [prefill, setPrefill] = useState<ExercisePrefill | null>(null);
-  const [loading, setLoading] = useState(false);
+const newId = () => `workout-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+/** Persist each operation before sending it; replay the same IDs after an uncertain response. */
+export function useExerciseSession() {
+  const account = useRef(getSession()?.user.id).current;
+  const key = useRef(accountKey('fitness.workoutDraft.v1')).current;
+  const [draft, setDraft] = useState<WorkoutDraft | null>(null);
+  const current = useRef<WorkoutDraft | null>(null);
+  const [ready, setReady] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Guard against race conditions when the user switches exercise quickly.
-  const loadToken = useRef(0);
-
-  const loadPrefill = useCallback(async (type: string) => {
-    const token = ++loadToken.current;
-    setLoading(true);
-    setError(null);
-    try {
-      const pf = await api.getPrefill(type);
-      if (token === loadToken.current) setPrefill(pf);
-    } catch (e: any) {
-      if (token === loadToken.current) {
-        setPrefill(null);
-        setError(e?.message || 'Could not load history');
-      }
-    } finally {
-      if (token === loadToken.current) setLoading(false);
-    }
-  }, []);
-
-  // Reload prefill + reset session whenever exercise changes.
+  const busy = useRef(false);
+  const mounted = useRef(true);
+  const check = useCallback(() => {
+    if (!mounted.current || !account || getSession()?.user.id !== account) throw new Error('Account changed');
+  }, [account]);
+  const persist = useCallback(async (value: WorkoutDraft | null) => {
+    check();
+    await accountStorage.setItem(key, JSON.stringify(value));
+    check(); current.current = value; setDraft(value);
+  }, [check, key]);
   useEffect(() => {
-    setSession(null);
-    loadPrefill(exerciseType);
-  }, [exerciseType, loadPrefill]);
-
-  const setExerciseType = useCallback((t: string) => {
-    setExerciseTypeState(t);
-  }, []);
-
-  const addSet = useCallback(
-    async (reps: number, weight: number) => {
-      const err = validateSet(reps, weight);
-      if (err) {
-        setError(err);
-        return;
-      }
-      setSaving(true);
-      setError(null);
-      try {
-        if (!session) {
-          const created = await api.createSession(exerciseType, [{ reps, weight }]);
-          setSession(created);
-        } else {
-          const updated = await api.appendSet(session.id, { reps, weight });
-          setSession(updated);
-        }
-      } catch (e: any) {
-        setError(e?.message || 'Could not save set');
-      } finally {
-        setSaving(false);
-      }
-    },
-    [exerciseType, session],
-  );
-
-  const reset = useCallback(() => {
-    setSession(null);
-    setError(null);
-    loadPrefill(exerciseType);
-  }, [exerciseType, loadPrefill]);
-
-  const sets = session?.sets ?? [];
-  const suggestedWeight = nextSetWeight(sets, prefill);
-
-  return {
-    exerciseType,
-    session,
-    prefill,
-    sets,
-    suggestedWeight,
-    loading,
-    saving,
-    error,
-    setExerciseType,
-    addSet,
-    reset,
+    mounted.current = true;
+    accountStorage.getItem(key).then(raw => {
+      check(); const value = raw ? JSON.parse(raw) : null;
+      current.current = value; setDraft(value); setReady(true);
+    }).catch(() => { if (mounted.current) setError('Could not restore your workout. Reopen Workout before starting another.'); })
+      .finally(() => { if (mounted.current) setLoading(false); });
+    return () => { mounted.current = false; };
+  }, [check, key]);
+  const run = useCallback(async (action: () => Promise<void>) => {
+    if (busy.current) return false;
+    busy.current = true; setSaving(true); setError(null);
+    try { check(); await action(); return true; }
+    catch (e: any) { if (mounted.current) setError(e?.response?.data?.error || e?.message || 'Could not save. Retry when connected.'); return false; }
+    finally { busy.current = false; if (mounted.current) setSaving(false); }
+  }, [check]);
+  const start = (exerciseType: string) => run(async () => {
+    if (current.current) throw new Error('Finish the current workout first');
+    await persist({ id: newId(), exerciseType, startedAt: new Date().toISOString(), session: null });
+  });
+  const sendPending = async (d: WorkoutDraft) => {
+    if (!d.pending) return;
+    check();
+    const session = d.session
+      ? await api.appendSet(d.session.id, d.pending)
+      : await api.createSession(d.exerciseType, [d.pending], d.id, d.startedAt);
+    check(); await persist({ ...d, session, pending: undefined });
   };
+  const addSet = (reps: number, weight: number) => run(async () => {
+    const d = current.current;
+    if (!d || d.session?.finishedAt || d.finishing) throw new Error('Start a workout before logging');
+    if (d.pending) { await sendPending(d); return; }
+    const invalid = validateSet(reps, weight); if (invalid) throw new Error(invalid);
+    const next = { ...d, pending: { id: newId(), reps, weight } };
+    await persist(next); await sendPending(next);
+  });
+  const finish = () => run(async () => {
+    const d = current.current;
+    if (!d?.session || d.pending) throw new Error('Save pending sets before finishing');
+    const next = { ...d, finishing: true };
+    await persist(next); check();
+    const session = await api.finishSession(d.session.id);
+    check(); await persist({ ...d, session, finishing: false });
+  });
+  const clear = () => run(async () => {
+    const d = current.current;
+    if (d?.pending || d?.finishing || (d?.session && !d.session.finishedAt)) throw new Error('Finish your workout first');
+    await persist(null);
+  });
+  const sets: ExerciseSet[] = draft?.session?.sets || [];
+  return { draft, sets, ready, loading, saving, error, start, addSet, finish, clear };
 }

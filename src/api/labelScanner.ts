@@ -6,15 +6,15 @@ import { getDeviceId } from '../storage/device';
 export interface ExtractedNutrition {
   productName: string | null;
   ingredients: string | null;
-  servingSizeG: number;
+  servingSizeG: number | null;
   servingsPerContainer: number | null;
-  calories: number;
-  proteinG: number;
-  carbsG: number;
-  fatG: number;
-  fiberG: number;
-  sugarG: number;
-  sodiumMg: number;
+  calories: number | null;
+  proteinG: number | null;
+  carbsG: number | null;
+  fatG: number | null;
+  fiberG: number | null;
+  sugarG: number | null;
+  sodiumMg: number | null;
   confidence: number;
 }
 
@@ -23,8 +23,8 @@ export interface AdjustedNutrition {
   adjProteinG: number;
   adjCarbsG: number;
   adjFatG: number;
-  adjFiberG: number;
-  adjSugarG: number;
+  adjFiberG: number | null;
+  adjSugarG: number | null;
 }
 
 export interface ScannedLabelRecord {
@@ -38,16 +38,16 @@ export interface ScannedLabelRecord {
   labelProteinG: number;
   labelCarbsG: number;
   labelFatG: number;
-  labelFiberG: number;
-  labelSugarG: number;
-  labelSodiumMg: number;
+  labelFiberG: number | null;
+  labelSugarG: number | null;
+  labelSodiumMg: number | null;
   actualPortionG: number;
   adjCalories: number;
   adjProteinG: number;
   adjCarbsG: number;
   adjFatG: number;
-  adjFiberG: number;
-  adjSugarG: number;
+  adjFiberG: number | null;
+  adjSugarG: number | null;
   foodLogId: string | null;
   photoUri: string | null;
   ocrRawText: string | null;
@@ -57,6 +57,7 @@ export interface ScannedLabelRecord {
 }
 
 export interface SaveLabelInput {
+  id?: string;
   productName?: string;
   ingredients?: string;
   servingSizeG: number;
@@ -65,9 +66,9 @@ export interface SaveLabelInput {
   labelProteinG: number;
   labelCarbsG: number;
   labelFatG: number;
-  labelFiberG?: number;
-  labelSugarG?: number;
-  labelSodiumMg?: number;
+  labelFiberG?: number | null;
+  labelSugarG?: number | null;
+  labelSodiumMg?: number | null;
   actualPortionG: number;
   mealType?: string;
   photoUri?: string;
@@ -78,6 +79,7 @@ export interface SaveLabelInput {
 export interface SaveLabelResponse {
   scannedLabel: ScannedLabelRecord;
   foodLog: {
+    loggedAt?: string;
     id: string;
     userId: string;
     foodName: string;
@@ -86,7 +88,7 @@ export interface SaveLabelResponse {
     proteinG: number;
     carbsG: number;
     fatG: number;
-    fiberG: number;
+    fiberG: number | null;
     mealType: string;
   };
   adjusted: AdjustedNutrition;

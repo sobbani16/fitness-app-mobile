@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Alert } from 'react-native';
 import ProfileForm, { ProfileFormData } from '../components/ProfileForm';
+import AccountPrivacy from '../components/AccountPrivacy';
 import { useProfile } from '../context/ProfileContext';
 
 export default function OnboardingScreen() {
@@ -24,6 +25,7 @@ export default function OnboardingScreen() {
       subtitle="Tell us a bit about you. We'll use this to set your daily calorie target."
       submitLabel="Continue"
       saving={saving}
+      footer={<AccountPrivacy />}
       onSubmit={onSubmit}
     />
   );

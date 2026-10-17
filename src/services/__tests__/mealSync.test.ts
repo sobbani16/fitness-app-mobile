@@ -122,3 +122,11 @@ it('handles local midnight boundaries on daylight-saving transitions', async () 
     expect((await reconcileMealDays([date]))[0].map(row => row.id)).toEqual(['start', 'last']);
   }
 });
+it('preserves unknown fiber through upload and a new-device hydration', async () => {
+  const known = { protein_g: meal.macros.protein_g, carbs_g: meal.macros.carbs_g, fat_g: meal.macros.fat_g };
+  await queueMeal({ ...meal, macros: known }); await flushMeals();
+  expect(api.post).toHaveBeenLastCalledWith('/food-logs', expect.objectContaining({ fiberG: null }));
+  (api.get as jest.Mock).mockResolvedValue({ data: { logs: [{ id: meal.id, loggedAt: meal.createdAt, foodName: meal.name, calories: 52, quantityG: 100, proteinG: 0, carbsG: 14, fatG: 0, fiberG: null, mealType: 'lunch' }] } });
+  const rows = await reconcileMealsFor(new Date(meal.createdAt));
+  expect(rows[0].macros.fiber_g).toBeUndefined();
+});

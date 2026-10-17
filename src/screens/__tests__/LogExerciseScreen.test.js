@@ -1,0 +1,51 @@
+jest.mock('@react-native-async-storage/async-storage', () => require('@react-native-async-storage/async-storage/jest/async-storage-mock'));
+jest.mock('../../components/KeyboardAwareScrollView', () => ({ children }) => children);
+jest.mock('@react-navigation/native', () => ({ useIsFocused: () => true }));
+jest.mock('../../hooks/useExerciseSession', () => ({ useExerciseSession: jest.fn() }));
+jest.mock('../../hooks/useExerciseDetection', () => ({ useExerciseDetection: () => ({ status: 'idle', reps: 0, stop: mockStop, start: jest.fn() }) }));
+jest.mock('../PoseCameraScreen', () => () => null);
+jest.mock('../../api/exercises', () => ({ listSessions: jest.fn(async () => []) }));
+jest.mock('../../storage/accountStorage', () => ({ accountStorage: { getItem: jest.fn(async () => null), setItem: jest.fn(async () => {}) } }));
+jest.mock('../../storage/session', () => ({ getSession: () => ({ user: { id: 'alice' } }), accountKey: key => `alice:${key}` }));
+const React = require('react');
+const { create, act } = require('react-test-renderer');
+const { TextInput } = require('react-native');
+const { Action } = require('../../design/components');
+const { useExerciseSession } = require('../../hooks/useExerciseSession');
+const Screen = require('../LogExerciseScreen').default;
+const mockStop = jest.fn(async () => {});
+let tree, model;
+const button = label => tree.root.findAllByType(Action).find(node => node.props.label === label);
+beforeEach(() => {
+  model = { draft: null, sets: [], loading: false, ready: true, saving: false, start: jest.fn(), addSet: jest.fn(async () => true), finish: jest.fn(), clear: jest.fn() };
+  useExerciseSession.mockImplementation(() => model);
+});
+afterEach(async () => { if (tree) await act(async () => tree.unmount()); });
+it('searches exercises and starts the selected exercise without automatic logging', async () => {
+  await act(async () => { tree = create(<Screen />); });
+  await act(async () => tree.root.findByType(TextInput).props.onChangeText('squat'));
+  expect(button('Bench Press')).toBeUndefined();
+  await act(async () => button('Squat').props.onPress());
+  await act(async () => button('Start workout').props.onPress());
+  expect(model.start).toHaveBeenCalledWith('squat');
+  expect(model.addSet).not.toHaveBeenCalled();
+});
+it('uses explicit pound units and blocks fractional reps; retains zero for bodyweight', async () => {
+  model.draft = { id: 'id', exerciseType: 'squat', startedAt: new Date().toISOString(), session: null };
+  await act(async () => { tree = create(<Screen />); });
+  const field = label => tree.root.findAllByType(TextInput).find(n => n.props.accessibilityLabel === label);
+  await act(async () => { field('Reps').props.onChangeText('2.5'); field('Weight (lb)').props.onChangeText('0'); });
+  expect(button('Log set 1').props.disabled).toBe(true);
+  await act(async () => field('Reps').props.onChangeText('5'));
+  expect(button('Log set 1').props.disabled).toBe(false);
+  await act(async () => button('Log set 1').props.onPress());
+  expect(model.addSet).toHaveBeenCalledWith(5, 0);
+});
+it('offers retry for uncertain sets and prevents finishing while one is pending', async () => {
+  model.draft = { id: 'id', exerciseType: 'squat', startedAt: new Date().toISOString(), pending: { id: 'set', reps: 5, weight: 100 } };
+  model.sets = [{ reps: 5, weight: 100 }];
+  await act(async () => { tree = create(<Screen />); });
+  expect(button('Retry saved set')).toBeDefined();
+  expect(button('Finish workout').props.disabled).toBe(true);
+  expect(button('Log set 2')).toBeUndefined();
+});

@@ -25,5 +25,6 @@ export function macrosForPortion(
     protein_g: scale(macrosPer100g.protein_g),
     carbs_g: scale(macrosPer100g.carbs_g),
     fat_g: scale(macrosPer100g.fat_g),
+    ...(macrosPer100g.fiber_g == null ? {} : { fiber_g: scale(macrosPer100g.fiber_g) }),
   };
 }

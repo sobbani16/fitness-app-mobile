@@ -26,7 +26,7 @@ async function flushAt(key: string, userId: string | undefined) {
     if (m) await api.post('/food-logs', {
       id: m.id, foodName: m.name, quantityG: m.quantityG || 0, calories: m.calories,
       proteinG: m.macros.protein_g, carbsG: m.macros.carbs_g, fatG: m.macros.fat_g,
-      fiberG: m.macros.fiber_g || 0, mealType: m.mealType || 'meal', loggedAt: m.createdAt,
+      fiberG: m.macros.fiber_g ?? null, mealType: m.mealType || 'meal', loggedAt: m.createdAt,
     });
     else await api.delete(`/food-logs/${encodeURIComponent(op.id)}`);
     ops = ops.slice(1);
@@ -62,7 +62,7 @@ export function saveMealChange(meal: LoggedMeal | string): Promise<LoggedMeal[]>
 
 interface ServerMeal {
   id: string; loggedAt: string; foodName: string; calories: number;
-  quantityG: number; proteinG: number; carbsG: number; fatG: number; fiberG: number;
+  quantityG: number; proteinG: number; carbsG: number; fatG: number; fiberG: number | null;
   mealType: string;
 }
 export function reconcileMealDays(dates: Date[]): Promise<LoggedMeal[][]> {
@@ -109,7 +109,7 @@ export function reconcileMealDays(dates: Date[]): Promise<LoggedMeal[][]> {
         records.set(row.id, {
           ...previous.get(row.id), id: row.id, createdAt: row.loggedAt,
           name: row.foodName, calories: row.calories, quantityG: row.quantityG,
-          macros: { protein_g: row.proteinG, carbs_g: row.carbsG, fat_g: row.fatG, fiber_g: row.fiberG },
+          macros: { protein_g: row.proteinG, carbs_g: row.carbsG, fat_g: row.fatG, ...(row.fiberG == null ? {} : { fiber_g: row.fiberG }) },
           mealType: ['breakfast', 'lunch', 'dinner', 'snack'].includes(row.mealType) ? row.mealType as LoggedMeal['mealType'] : undefined,
           feedback: previous.get(row.id)?.feedback || '', source: previous.get(row.id)?.source === 'legacy-local' ? 'synced' : previous.get(row.id)?.source || 'synced',
         });

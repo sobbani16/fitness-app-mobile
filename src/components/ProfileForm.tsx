@@ -1,358 +1,94 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Pressable, Alert } from 'react-native';
-import AccountPrivacy from './AccountPrivacy';
+import React, { useEffect, useRef, useState } from 'react';
+import { View } from 'react-native';
 import * as Location from 'expo-location';
 import KeyboardAwareScrollView from './KeyboardAwareScrollView';
-import {
-  ActivityLevel,
-  Goal,
-  Profile,
-  Sex,
-  UnitSystem,
-} from '../storage/profile';
-import { cmToFtIn, ftInToCm, kgToLb, lbToKg, countryToUnitSystem } from '../util/units';
-
-const SEXES: Sex[] = ['male', 'female', 'other'];
-const ACTIVITY: ActivityLevel[] = ['sedentary', 'light', 'moderate', 'active', 'very_active'];
-const GOALS: Goal[] = ['weight_loss', 'muscle_gain', 'body_recomposition', 'maintain'];
-const UNITS: UnitSystem[] = ['metric', 'imperial'];
-
-// Human-readable labels for option chips.
-const GOAL_LABELS: Record<Goal, string> = {
-  weight_loss: 'Weight loss',
-  muscle_gain: 'Muscle gain',
-  body_recomposition: 'Body recomposition',
-  maintain: 'Maintain',
-};
-
+import { Action, Card, Copy, Field, Notice } from '../design/components';
+import { useTheme } from '../design/theme';
+import { ActivityLevel, Goal, Profile, Sex, UnitSystem } from '../storage/profile';
+import { countryToUnitSystem } from '../util/units';
 export type ProfileFormData = Omit<Profile, 'createdAt'>;
-
+export const GOAL_LABELS: Record<Goal, string> = { weight_loss: 'Weight loss', muscle_gain: 'Muscle gain', body_recomposition: 'Body recomposition', maintain: 'Maintain weight' };
+export const ACTIVITY_LABELS: Record<ActivityLevel, string> = { sedentary: 'Mostly seated', light: 'Light activity', moderate: 'Moderate activity', active: 'Active', very_active: 'Very active' };
 interface Props {
-  initial?: Partial<Profile> | null;
-  title?: string;
-  subtitle?: string;
-  submitLabel?: string;
-  saving?: boolean;
+  initial?: Partial<Profile> | null; title?: string; subtitle?: string; submitLabel?: string; saving?: boolean;
   onSubmit: (data: ProfileFormData) => void | Promise<void>;
+  onDirtyChange?: (dirty: boolean) => void;
+  footer?: React.ReactNode;
 }
-
-/**
- * Shared profile editor used by both Onboarding and Edit Profile.
- * Stores canonical metric values; converts only for display/input.
- */
-export default function ProfileForm({
-  initial,
-  title = 'Welcome',
-  subtitle = "Tell us a bit about you. We'll use this to set your daily calorie target.",
-  submitLabel = 'Continue',
-  saving = false,
-  onSubmit,
-}: Props) {
-  const initUnits = initial?.units ?? 'metric';
-
-  const [name, setName] = useState(initial?.name ?? '');
-  const [sex, setSex] = useState<Sex>(initial?.sex ?? 'male');
-  const [age, setAge] = useState(String(initial?.age ?? '30'));
-  const [units, setUnits] = useState<UnitSystem>(initUnits);
-
-  const initHeightCm = initial?.heightCm ?? 175;
-  const initWeightKg = initial?.weightKg ?? 75;
-  const initGoalKg = initial?.goalWeightKg ?? initWeightKg;
-
-  const [heightCm, setHeightCm] = useState(String(initHeightCm));
-  const [weightKg, setWeightKg] = useState(String(initWeightKg));
-  const [goalWeightKg, setGoalWeightKg] = useState(String(initGoalKg));
-
-  const initFtIn = cmToFtIn(initHeightCm);
-  const [heightFt, setHeightFt] = useState(String(initFtIn.ft));
-  const [heightIn, setHeightIn] = useState(String(initFtIn.inches));
-  const [weightLb, setWeightLb] = useState(String(Math.round(kgToLb(initWeightKg))));
-  const [goalWeightLb, setGoalWeightLb] = useState(String(Math.round(kgToLb(initGoalKg))));
-
-  const [activityLevel, setActivityLevel] = useState<ActivityLevel>(
-    initial?.activityLevel ?? 'sedentary',
-  );
-  const [goal, setGoal] = useState<Goal>(initial?.goal ?? 'maintain');
-
-  // Whether the unit system was auto-selected from the user's country.
-  const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
-  const [detecting, setDetecting] = useState(false);
-  const [detectError, setDetectError] = useState<string | null>(null);
-
-  const switchUnits = (next: UnitSystem) => {
-    if (next === units) return;
-    if (next === 'imperial') {
-      const cm = Number(heightCm);
-      const kg = Number(weightKg);
-      const gkg = Number(goalWeightKg);
-      if (isFinite(cm)) {
-        const { ft, inches } = cmToFtIn(cm);
-        setHeightFt(String(ft));
-        setHeightIn(String(inches));
-      }
-      if (isFinite(kg)) setWeightLb(String(Math.round(kgToLb(kg))));
-      if (isFinite(gkg)) setGoalWeightLb(String(Math.round(kgToLb(gkg))));
-    } else {
-      const ft = Number(heightFt);
-      const inches = Number(heightIn);
-      const lb = Number(weightLb);
-      const glb = Number(goalWeightLb);
-      if (isFinite(ft) && isFinite(inches)) setHeightCm(String(Math.round(ftInToCm(ft, inches))));
-      if (isFinite(lb)) setWeightKg(String(Math.round(lbToKg(lb) * 10) / 10));
-      if (isFinite(glb)) setGoalWeightKg(String(Math.round(lbToKg(glb) * 10) / 10));
-    }
-    setUnits(next);
+/** Canonical values stay unchanged when toggling display units; only editing changes the measurement. */
+function Measurement({ label, value, factor, onChange, disabled }: { label: string; value: number | null; factor: number; onChange: (n: number | null) => void; disabled: boolean }) {
+  const canonical = useRef(value); canonical.current = value;
+  const [text, setText] = useState(value === null ? '' : String(Math.round(value * factor * 10000) / 10000));
+  useEffect(() => { setText(canonical.current === null ? '' : String(Math.round(canonical.current * factor * 10000) / 10000)); }, [factor]);
+  return <Field label={label} value={text} editable={!disabled} keyboardType="decimal-pad" onChangeText={raw => {
+    const normalized = raw.replace(',', '.'); setText(normalized);
+    onChange(normalized.trim() && /^(\d+\.?\d*|\.\d+)$/.test(normalized) ? Number(normalized) / factor : normalized.trim() ? NaN : null);
+  }} />;
+}
+export default function ProfileForm({ initial, title = 'Your profile', subtitle = 'These details help estimate your targets. They are not medical advice.', submitLabel = 'Save changes', saving = false, onSubmit, onDirtyChange, footer }: Props) {
+  const { colors } = useTheme();
+  const [name, setName] = useState(initial?.name || '');
+  const [age, setAge] = useState(initial?.age === undefined ? '' : String(initial.age));
+  const [sex, setSex] = useState<Sex | null>(initial?.sex || null);
+  const [activity, setActivity] = useState<ActivityLevel | null>(initial?.activityLevel || null);
+  const [goal, setGoal] = useState<Goal | null>(initial?.goal || null);
+  const [units, setUnits] = useState<UnitSystem>(initial?.units || 'metric');
+  const [height, setHeight] = useState<number | null>(initial?.heightCm ?? null);
+  const [weight, setWeight] = useState<number | null>(initial?.weightKg ?? null);
+  const [goalWeight, setGoalWeight] = useState<number | null>(initial?.goalWeightKg ?? null);
+  const [error, setError] = useState(''), [busy, setBusy] = useState(false), [detecting, setDetecting] = useState(false);
+  const lock = useRef(false), locationGeneration = useRef(0);
+  useEffect(() => () => { locationGeneration.current++; }, []);
+  const dirty = () => onDirtyChange?.(true);
+  const disabled = busy || saving;
+  const selectUnits = (unit: UnitSystem) => { locationGeneration.current++; setDetecting(false); setUnits(unit); dirty(); };
+  const detectUnits = async () => {
+    const token = ++locationGeneration.current; setDetecting(true); setError('');
+    try {
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (token !== locationGeneration.current) return;
+      if (!permission.granted) throw new Error('Location was not allowed. Choose your units above.');
+      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low });
+      const places = await Location.reverseGeocodeAsync(position.coords);
+      if (token !== locationGeneration.current) return;
+      if (!places[0]?.isoCountryCode) throw new Error('Could not identify your region. Choose your units above.');
+      setUnits(countryToUnitSystem(places[0].isoCountryCode)); dirty();
+    } catch (e: any) { if (token === locationGeneration.current) setError(e.message || 'Choose units manually.'); }
+    finally { if (token === locationGeneration.current) setDetecting(false); }
   };
-
-  // Reverse-geocode the device location and set the unit system from the
-  // resulting country (imperial for US/LR/MM, metric elsewhere). Used both for
-  // first-time auto-detection and the manual "Use my location" button on the
-  // Edit profile screen.
-  // @param silent when true (auto-detect), permission denials/errors are
-  //   swallowed so onboarding isn't interrupted.
-  const detectUnitsFromLocation = useCallback(
-    async (silent: boolean) => {
-      try {
-        setDetecting(true);
-        setDetectError(null);
-        const perm = await Location.requestForegroundPermissionsAsync();
-        if (!perm.granted) {
-          if (!silent) setDetectError('Location permission denied.');
-          return;
-        }
-        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low });
-        const geo = await Location.reverseGeocodeAsync({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-        });
-        const iso = geo?.[0]?.isoCountryCode ?? null;
-        if (!iso) {
-          if (!silent) setDetectError('Could not determine your country.');
-          return;
-        }
-        setDetectedCountry(iso);
-        switchUnits(countryToUnitSystem(iso));
-      } catch {
-        if (!silent) setDetectError('Location unavailable.');
-        // In silent mode, keep the metric default without surfacing an error.
-      } finally {
-        setDetecting(false);
-      }
-    },
-    // switchUnits is recreated each render but only reads current state; safe to omit.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
-  );
-
-  // On first-time setup (no saved unit preference yet) auto-detect silently.
-  useEffect(() => {
-    if (initial?.units) return; // respect an existing saved preference
-    detectUnitsFromLocation(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const handleSubmit = async () => {
-    const ageN = Number(age);
-    let hCm: number;
-    let wKg: number;
-    let gKg: number;
-
-    if (units === 'imperial') {
-      const ft = Number(heightFt);
-      const inches = Number(heightIn);
-      const lb = Number(weightLb);
-      const glb = Number(goalWeightLb);
-      if (!isFinite(ft) || ft < 2 || ft > 8) return Alert.alert('Invalid height (ft)');
-      if (!isFinite(inches) || inches < 0 || inches >= 12) return Alert.alert('Invalid height (in)');
-      if (!isFinite(lb) || lb < 50 || lb > 900) return Alert.alert('Invalid weight (lb)');
-      if (!isFinite(glb) || glb < 50 || glb > 900) return Alert.alert('Invalid goal weight (lb)');
-      hCm = ftInToCm(ft, inches);
-      wKg = lbToKg(lb);
-      gKg = lbToKg(glb);
-    } else {
-      const hN = Number(heightCm);
-      const wN = Number(weightKg);
-      const gN = Number(goalWeightKg);
-      if (!isFinite(hN) || hN <= 50 || hN > 260) return Alert.alert('Invalid height (cm)');
-      if (!isFinite(wN) || wN <= 20 || wN > 400) return Alert.alert('Invalid weight (kg)');
-      if (!isFinite(gN) || gN <= 20 || gN > 400) return Alert.alert('Invalid goal weight (kg)');
-      hCm = hN;
-      wKg = wN;
-      gKg = gN;
-    }
-
-    if (!name.trim()) return Alert.alert('Missing name', 'Please enter your name.');
-    if (!Number.isInteger(ageN) || ageN < 18 || ageN > 120) return Alert.alert('Age must be a whole number between 18 and 120.');
-
-    await onSubmit({
-      name: name.trim(),
-      sex,
-      age: ageN,
-      heightCm: Math.round(hCm * 10) / 10,
-      weightKg: Math.round(wKg * 10) / 10,
-      goalWeightKg: Math.round(gKg * 10) / 10,
-      activityLevel,
-      goal,
-      units,
-    });
+  const submit = async () => {
+    if (lock.current || saving) return;
+    setError('');
+    if (!name.trim() || name.trim().length > 100) return setError('Enter a name between 1 and 100 characters.');
+    if (!/^\d+$/.test(age) || Number(age) < 18 || Number(age) > 120) return setError('Enter a whole-number age from 18 to 120.');
+    if (!sex || !activity || !goal) return setError('Choose sex, activity level and a goal.');
+    if (height === null || !Number.isFinite(height) || height < 50 || height > 260) return setError('Enter a height from 50 to 260 cm (about 20 to 102 inches).');
+    if (weight === null || !Number.isFinite(weight) || weight < 20 || weight > 400) return setError('Enter a weight from 20 to 400 kg (about 44 to 882 lb).');
+    if (goalWeight !== null && (!Number.isFinite(goalWeight) || goalWeight < 20 || goalWeight > 400)) return setError('Goal weight must be from 20 to 400 kg, or left blank.');
+    lock.current = true; setBusy(true); locationGeneration.current++; setDetecting(false);
+    try { await onSubmit({ name: name.trim(), age: Number(age), sex, heightCm: height, weightKg: weight, ...(goalWeight === null ? {} : { goalWeightKg: goalWeight }), activityLevel: activity, goal, units }); }
+    catch (e: any) { setError(e?.response?.data?.error || e.message || 'Could not save. Your edits are still here; try again.'); }
+    finally { lock.current = false; setBusy(false); }
   };
-
-  return (
-    <KeyboardAwareScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>{title}</Text>
-      {!!subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
-
-      <Field label="Name">
-        <TextInput
-          style={styles.input}
-          value={name}
-          onChangeText={setName}
-          placeholder="Your name"
-          autoCapitalize="words"
-        />
-      </Field>
-
-      <Field label="Sex">
-        <Segmented options={SEXES} value={sex} onChange={setSex} />
-      </Field>
-
-      <Field label="Age (years)">
-        <TextInput style={styles.input} value={age} onChangeText={setAge} keyboardType="number-pad" />
-      </Field>
-
-      <Field label="Units">
-        <Segmented options={UNITS} value={units} onChange={switchUnits} />
-        <Pressable
-          onPress={() => detectUnitsFromLocation(false)}
-          disabled={detecting}
-          style={styles.detectBtn}
-        >
-          <Text style={styles.detectBtnText}>
-            {detecting ? 'Detecting location…' : 'Use my location'}
-          </Text>
-        </Pressable>
-        {detectedCountry && (
-          <Text style={styles.hint}>
-            Set to {units} for your region ({detectedCountry}). Tap a unit to change.
-          </Text>
-        )}
-        {detectError && <Text style={styles.detectError}>{detectError}</Text>}
-      </Field>
-
-      {units === 'metric' ? (
-        <>
-          <Field label="Height (cm)">
-            <TextInput style={styles.input} value={heightCm} onChangeText={setHeightCm} keyboardType="number-pad" />
-          </Field>
-          <Field label="Current weight (kg)">
-            <TextInput style={styles.input} value={weightKg} onChangeText={setWeightKg} keyboardType="decimal-pad" />
-          </Field>
-          <Field label="Goal weight (kg)">
-            <TextInput style={styles.input} value={goalWeightKg} onChangeText={setGoalWeightKg} keyboardType="decimal-pad" />
-          </Field>
-        </>
-      ) : (
-        <>
-          <Field label="Height">
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <TextInput style={[styles.input, { flex: 1 }]} value={heightFt} onChangeText={setHeightFt} keyboardType="number-pad" placeholder="ft" />
-              <TextInput style={[styles.input, { flex: 1 }]} value={heightIn} onChangeText={setHeightIn} keyboardType="number-pad" placeholder="in" />
-            </View>
-          </Field>
-          <Field label="Current weight (lb)">
-            <TextInput style={styles.input} value={weightLb} onChangeText={setWeightLb} keyboardType="decimal-pad" />
-          </Field>
-          <Field label="Goal weight (lb)">
-            <TextInput style={styles.input} value={goalWeightLb} onChangeText={setGoalWeightLb} keyboardType="decimal-pad" />
-          </Field>
-        </>
-      )}
-
-      <Field label="Activity level">
-        <Segmented options={ACTIVITY} value={activityLevel} onChange={setActivityLevel} />
-      </Field>
-
-      <Field label="Goal">
-        <Segmented options={GOALS} value={goal} onChange={setGoal} labels={GOAL_LABELS} />
-      </Field>
-
-      <View style={{ height: 8 }} />
-      <Button title={saving ? 'Saving…' : submitLabel} onPress={handleSubmit} disabled={saving} />
-      <AccountPrivacy />
-      <View style={{ height: 24 }} />
-    </KeyboardAwareScrollView>
-  );
+  const options = <T extends string,>(values: T[], value: T | null, change: (v: T) => void, labels: Partial<Record<T, string>> = {}) => <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{values.map(v => <Action key={v} label={labels[v] || v[0].toUpperCase() + v.slice(1)} secondary={value !== v} selected={value === v} disabled={disabled} onPress={() => { change(v); dirty(); }} />)}</View>;
+  return <KeyboardAwareScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 40 }}>
+    <Copy size="title" accessibilityRole="header">{title}</Copy><Copy tone="muted">{subtitle}</Copy>
+    <Card><Copy size="heading">About you</Copy><Field label="Name" value={name} maxLength={100} editable={!disabled} onChangeText={v => { setName(v); dirty(); }} autoCapitalize="words" />
+      <Field label="Age (years)" value={age} editable={!disabled} keyboardType="number-pad" onChangeText={v => { setAge(v); dirty(); }} />
+      <Copy>Sex used for calorie estimates</Copy>{options(['male', 'female', 'other'] as Sex[], sex, setSex)}
+      <Copy tone="muted">Current calorie formulas have limited sex categories. Targets are estimates, not a clinical assessment.</Copy>
+    </Card>
+    <Card><Copy size="heading">Measurements</Copy>{options(['metric', 'imperial'] as UnitSystem[], units, selectUnits, { metric: 'kg / cm', imperial: 'lb / inches' })}
+      <Copy tone="muted">Optional: use your location to choose regional units. You can choose them yourself without location access.</Copy>
+      <Action secondary label={detecting ? 'Finding region…' : 'Use my location for units'} disabled={disabled || detecting} onPress={() => void detectUnits()} />
+      <Measurement label={`Height (${units === 'metric' ? 'cm' : 'inches'})`} value={height} factor={units === 'metric' ? 1 : 1 / 2.54} disabled={disabled} onChange={v => { setHeight(v); dirty(); }} />
+      <Measurement label={`Current weight (${units === 'metric' ? 'kg' : 'lb'})`} value={weight} factor={units === 'metric' ? 1 : 1 / 0.45359237} disabled={disabled} onChange={v => { setWeight(v); dirty(); }} />
+      <Measurement label={`Goal weight (${units === 'metric' ? 'kg' : 'lb'}, optional)`} value={goalWeight} factor={units === 'metric' ? 1 : 1 / 0.45359237} disabled={disabled} onChange={v => { setGoalWeight(v); dirty(); }} />
+      <Copy tone="muted">Changing current weight saves a weight-history entry. Changing units alone does not.</Copy>
+    </Card>
+    <Card><Copy size="heading">Your preferences</Copy><Copy>Activity level</Copy>{options(Object.keys(ACTIVITY_LABELS) as ActivityLevel[], activity, setActivity, ACTIVITY_LABELS)}<Copy>Goal</Copy>{options(Object.keys(GOAL_LABELS) as Goal[], goal, setGoal, GOAL_LABELS)}</Card>
+    {!!error && <Notice title="Check your profile" message={error} error />}
+    <Action label={disabled ? 'Saving…' : submitLabel} disabled={disabled || detecting} onPress={() => void submit()} />
+    {footer}
+  </KeyboardAwareScrollView>;
 }
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
-      {children}
-    </View>
-  );
-}
-
-function Segmented<T extends string>({
-  options,
-  value,
-  onChange,
-  labels,
-}: {
-  options: T[];
-  value: T;
-  onChange: (v: T) => void;
-  labels?: Partial<Record<T, string>>;
-}) {
-  return (
-    <View style={styles.segmented}>
-      {options.map((opt) => {
-        const active = opt === value;
-        return (
-          <Pressable
-            key={opt}
-            onPress={() => onChange(opt)}
-            style={[styles.segment, active && styles.segmentActive]}
-          >
-            <Text style={[styles.segmentText, active && styles.segmentTextActive]}>
-              {labels?.[opt] ?? opt.replace('_', ' ')}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: { padding: 20, gap: 12 },
-  title: { fontSize: 26, fontWeight: '700' },
-  subtitle: { color: '#555', marginBottom: 8 },
-  field: { gap: 6 },
-  label: { fontSize: 13, color: '#444', fontWeight: '600' },
-  hint: { fontSize: 12, color: '#1e6fb8', marginTop: 4 },
-  detectBtn: { marginTop: 6, alignSelf: 'flex-start' },
-  detectBtnText: { fontSize: 13, color: '#1e6fb8', fontWeight: '600' },
-  detectError: { fontSize: 12, color: '#c0392b', marginTop: 4 },
-  input: {
-    borderWidth: 1,
-    borderColor: '#d0d0d5',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-    backgroundColor: '#fff',
-  },
-  segmented: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  segment: {
-    borderWidth: 1,
-    borderColor: '#d0d0d5',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: '#fff',
-  },
-  segmentActive: { backgroundColor: '#1e6fb8', borderColor: '#1e6fb8' },
-  segmentText: { color: '#222', fontSize: 14 },
-  segmentTextActive: { color: '#fff', fontWeight: '600' },
-});
