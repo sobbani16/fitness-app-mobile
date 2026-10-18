@@ -2,7 +2,16 @@
 
 Latest update October 17, 2026. Earlier dated sections below are historical checkpoints.
 
-## Latest approved build
+## Build 8 — October 18, 2026
+
+Owner authorized a new iOS build and TestFlight submission. Mobile commit `8399c99` was uploaded using the beta-safe `testflight` profile; build number incremented to 8. Existing signing and App Store Connect API credentials were available. Release configuration check passed; latest implementation tests remain 196 mobile tests with both platform exports.
+
+- [Build 1.0.0 (8)](https://expo.dev/accounts/sobbani16/projects/fitness-app-mobile/builds/d55be5bd-6165-4e2d-b7e4-8a0d75cefd4f)
+- [Scheduled exact-build submission](https://expo.dev/accounts/sobbani16/projects/fitness-app-mobile/submissions/3566ce2d-8f8e-4e60-ab80-af5fec3bf812)
+
+At October 18, 2026 07:31:50 UTC, EAS reported both build and exact-build submission FINISHED with no error. The upload to App Store Connect completed; Apple processing, internal-group availability and signed-device acceptance remain pending. This build includes M5/M6 and their new native dependencies. No public App Store release or backend deployment was requested or performed.
+
+## Previous approved build
 
 Mobile `ac80be6` and backend `d8c02a4` were pushed for the approved M1–M4 beta release. [EAS iOS build 7](https://expo.dev/accounts/sobbani16/projects/fitness-app-mobile/builds/6207b65d-51f6-4609-bf7d-787f4be2edd5) finished successfully using the `testflight` profile. No submission of build 7 to App Store Connect has been performed. Public release remains deferred. M5 changes are local and not in this build.
 

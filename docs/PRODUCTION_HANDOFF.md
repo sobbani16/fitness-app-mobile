@@ -77,6 +77,8 @@ Use this file as the work tracker. Assign an owner to each open item, record evi
 
 **Local commit checkpoint — October 18, 2026:** Owner requested committing all pending mobile/backend changes. Checkpoint includes M5/M6, C09 provisioning and email/DNS diagnosis. Whitespace and credential-pattern review passed (only a deliberate dummy connection string in a backend test). Latest implementation evidence remains 196 mobile tests, 266 backend tests and C09 database/HTTP checks; tests were not rerun solely for committing. No push, deployment, email send or cloud build is part of this checkpoint. M5/M6 remain absent from build 7.
 
+**Build 8 requested — October 18, 2026:** Owner authorized iOS build and TestFlight submission. Commit `8399c99` uploaded with the beta-safe TestFlight profile; [build 1.0.0 (8)](https://expo.dev/accounts/sobbani16/projects/fitness-app-mobile/builds/d55be5bd-6165-4e2d-b7e4-8a0d75cefd4f) and its [automatic submission](https://expo.dev/accounts/sobbani16/projects/fitness-app-mobile/submissions/3566ce2d-8f8e-4e60-ab80-af5fec3bf812) both FINISHED without error at 07:31:50 UTC. Upload to App Store Connect is complete; Apple processing, internal-group availability and signed-device acceptance remain pending. Includes M5/M6; no backend deployment or public release.
+
 ## 1. Accounts, profile and personal data
 
 | ID | Feature | Production status | Evidence / current behavior | Remaining work and acceptance condition | Priority |
@@ -161,7 +163,7 @@ These apply to every feature retained in the release. Feature-level implementati
 | D05 | API hardening and abuse controls | PARTIAL | Headers, validation, body limits and rate limits exist. Review route-specific errors/logging; use shared/edge limits for multiple instances. | P0 |
 | D06 | Backups, restore, monitoring and rollback | NOT VERIFIED | Restore drill, readiness monitoring, alerts, previous release artifacts and named rollback owner. | P0 |
 | D07 | Automated release checks | PUSHED — cloud acceptance pending | Manual GitHub workflow checks release configuration/types/lint/tests then EAS iOS build and exact-build submission. Pushed in ac80be6; hosted workflow not run/verified and EXPO_TOKEN setup remains unverified. [Setup](GITHUB_TESTFLIGHT_WORKFLOW.md). | P0 |
-| D08 | Signed release apps | IOS BUILD PASSED — acceptance pending | Latest signed iOS build 7 (M1–M4) finished successfully, not submitted. Earlier build 5 uploaded and owner screenshot confirmed processed/assigned to internal group. M5/M6 need a later build; signed-device acceptance and signed Android release remain pending. See TESTFLIGHT_RELEASE.md. | P0 |
+| D08 | Signed release apps | IOS BUILD PASSED — acceptance pending | Latest signed iOS build 8 (M1–M6, commit 8399c99) and exact-build EAS submission FINISHED with no error October 18. Apple processing/group availability, signed-device acceptance and signed Android release remain pending. See TESTFLIGHT_RELEASE.md. | P0 |
 | D09 | Physical-device and full UI acceptance | PENDING | iOS/Android happy paths, failure states, permissions, offline recovery and accessibility signed off. | P0 |
 | D10 | Privacy, data handling and distribution | PENDING REVIEW | Published/accepted disclosures, deletion/retention process, provider handling, model attribution and applicable store submission requirements reviewed. | P0 |
 | D11 | Public deployment and rollout | NOT PERFORMED | Staging sign-off, production readiness probe, monitored staged rollout and rollback availability. | P0 |
