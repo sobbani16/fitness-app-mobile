@@ -1,5 +1,7 @@
 import { betaFeatures } from '../config/betaFeatures';
 import React from 'react';
+import { View } from 'react-native';
+import FeedbackButton from '../components/FeedbackButton';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import DashboardScreen from '../screens/DashboardScreen';
@@ -44,7 +46,7 @@ export default function MainTabs() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         tabBarActiveTintColor: colors.primary,
-        headerRight: () => <QuickAdd />,
+        headerRight: () => <View style={{ flexDirection: 'row', gap: 8 }}><FeedbackButton source={route.name} /><QuickAdd /></View>,
         headerRightContainerStyle: { paddingRight: 16 },
         headerStyle: { backgroundColor: colors.surface },
         headerTintColor: colors.text,

@@ -1,3 +1,4 @@
+import { trackEvent } from '../analytics/events';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import {
   LoggedMeal,
@@ -37,6 +38,7 @@ export function MealsProvider({ children }: { children: React.ReactNode }) {
 
   const add = useCallback(async (m: LoggedMeal) => {
     const next = await saveMealChange(m);
+    trackEvent('meal_saved');
     setMeals(next);
     // Sync to backend so Health Score engine sees the meal
     flushMeals().then(()=>setSyncError(null)).catch(()=>setSyncError('Meals saved on this device. Sync pending; refresh when connected.'));

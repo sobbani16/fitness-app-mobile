@@ -8,6 +8,7 @@ import { getMacroGoals, MacroGoals } from '../api/macroScore';
 import { betaFeatures } from '../config/betaFeatures';
 import { Action, Card, Copy, Notice, Progress, Sheet, Skeleton } from '../design/components';
 import { useTheme } from '../design/theme';
+import { useDisplayPreferences } from '../context/DisplayPreferencesContext';
 import AppearancePicker from '../design/AppearancePicker';
 import StepsCard from '../components/today/StepsCard';
 import { SupplementsDetail, WeatherDetail } from '../components/today/OptionalDetails';
@@ -19,6 +20,7 @@ export default function DashboardScreen() {
   const route = useRoute<any>();
   const { colors } = useTheme();
   const { profile } = useProfile();
+  const { cards } = useDisplayPreferences();
   const diary = useMeals();
   const daily = useDailyStats(betaFeatures.supplements);
   const [goals, setGoals] = useState<MacroGoals | null>(null);
@@ -133,20 +135,20 @@ export default function DashboardScreen() {
         </View>
         <Copy tone="muted" size="caption">Meal values only. Missing nutrients stay unknown; supplement entries are shown separately.</Copy>
       </Card>
-      <Card><Copy accessibilityRole="header" size="title" style={{ fontWeight: '600' }}>A note for today</Copy>
+      {cards.note && <Card><Copy accessibilityRole="header" size="title" style={{ fontWeight: '600' }}>A note for today</Copy>
         <Copy>{summary.meals.length === 0 ? 'Your diary is ready whenever you are. Start with a meal you remember.' : summary.fiber === null
           ? 'Some meals have no fiber value. You can review their nutrition in your food diary.'
           : `${summary.meals.length} meal${summary.meals.length === 1 ? '' : 's'} logged today. A useful record starts with what you know.`}</Copy>
         <Copy size="caption" tone="muted">Based on your logged meals, not an AI or medical assessment.</Copy>
-        {betaFeatures.ai && <Action secondary label="Ask Leo" onPress={() => navigation.navigate('Chat')} />}
-      </Card>
-      <View style={styles.grid}><View style={styles.column}><Card><Copy accessibilityRole="header" size="title" style={{ fontWeight: '600' }}>Water</Copy>
+        <Action secondary label="Open Leo guide" onPress={() => navigation.navigate('LeoHelp')} />
+      </Card>}
+      <View style={styles.grid}>{cards.water && <View style={styles.column}><Card><Copy accessibilityRole="header" size="title" style={{ fontWeight: '600' }}>Water</Copy>
         <Copy size="heading" style={{ fontWeight: '700' }}>{daily.stats ? `${daily.stats.waterMl.toLocaleString()} ml` : '—'}</Copy>
         <Copy tone="muted" size="caption">Logged on this device</Copy>
         {daily.waterSyncError && <Copy tone="danger" size="caption">Sync pending</Copy>}
-        <Action secondary label="Log water" onPress={() => setWaterOpen(true)} /></Card></View>
-        <View style={styles.column}><StepsCard key={day} /></View></View>
-      <Card><Copy accessibilityRole="header" size="title" style={{ fontWeight: '600' }}>Your meals</Copy>
+        <Action secondary label="Log water" onPress={() => setWaterOpen(true)} /></Card></View>}
+        {cards.steps && <View style={styles.column}><StepsCard key={day} /></View>}</View>
+      {cards.meals && <Card><Copy accessibilityRole="header" size="title" style={{ fontWeight: '600' }}>Your meals</Copy>
         {summary.meals.length === 0 ? <Notice title="No meals logged yet" message="Missing logs don’t mean you haven’t eaten. Add a meal when it suits you." /> :
           summary.meals.slice(0, 3).map(meal => <View key={meal.id} style={{ gap: 4, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border, paddingBottom: 12 }}>
             <Copy style={{ fontWeight: '600' }}>{meal.name}</Copy>
@@ -154,7 +156,7 @@ export default function DashboardScreen() {
           </View>)}
         <Action secondary label="Open food diary" onPress={() => navigation.navigate('LogMeal')} />
         <Action secondary label="View previous days" onPress={() => navigation.navigate('History')} />
-      </Card>
+      </Card>}
       <Action secondary label={details ? 'Hide daily details' : 'More about your day'} onPress={() => setDetails(value => !value)} />
       {details && <>
         <Card><Notice title="Health score is provisional" message="The score reflects recorded data, not your health or the quality of your day. Missing logs can change it. Finalized days and data-completeness measures aren’t available yet." />

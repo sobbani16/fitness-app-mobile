@@ -1,3 +1,4 @@
+import { trackEvent } from '../analytics/events';
 import React, { useEffect, useRef, useState } from 'react';
 import { Image, Linking, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -25,6 +26,7 @@ export default function LabelScannerScreen() {
   useEffect(() => () => { generation.current++; }, []);
   useEffect(() => { if (!focused) generation.current++; }, [focused]);
   function review(extracted: unknown = null) {
+    trackEvent('label_review_opened');
     navigation.navigate('PortionAdjust', { extracted, photoUri: photo, ocrRawText: text, mealType: route.params?.mealType || 'lunch' });
   }
   async function capture() {
@@ -32,12 +34,14 @@ export default function LabelScannerScreen() {
     lock.current = true; setBusy(true); setError('');
     const request = ++generation.current;
     try {
+      trackEvent('label_capture_started');
       const image = await camera.current.takePictureAsync({ quality: 0.8 });
       if (request !== generation.current || !image) return;
       setPhoto(image.uri);
       const result = await recognizeLabel(image.uri);
       if (request !== generation.current) return;
       setText((result.text || '').slice(0, 20000));
+      if (result.text?.trim()) trackEvent('label_text_ready');
       if (!result.text?.trim()) setError('No readable text. Retake in good light or enter values manually.');
     } catch { if (request === generation.current) setError('Could not read the label. Try again or enter it manually.'); }
     finally { lock.current = false; setBusy(false); }

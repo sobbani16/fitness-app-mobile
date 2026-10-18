@@ -1,5 +1,5 @@
-import React from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TextInputProps, TextProps, View, ViewProps } from 'react-native';
+import React, { useRef } from 'react';
+import { AccessibilityInfo, findNodeHandle, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TextInputProps, TextProps, View, ViewProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { elevation, radius, typography, useTheme } from './theme';
 
@@ -54,12 +54,13 @@ export function Skeleton({ label = 'Loading' }: { label?: string }) {
 export function Sheet({ visible, title, onClose, children }: { visible: boolean; title: string; onClose: () => void; children: React.ReactNode }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  return <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
+  const heading = useRef<Text>(null);
+  return <Modal visible={visible} transparent animationType="none" onRequestClose={onClose} onShow={() => { const node = findNodeHandle(heading.current); if (node) AccessibilityInfo.setAccessibilityFocus(node); }}>
     <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: '#00000066' }}>
       <Pressable accessibilityLabel="Close sheet" accessibilityRole="button" onPress={onClose} style={StyleSheet.absoluteFill} />
-      <View accessibilityViewIsModal style={{ maxHeight: '90%', backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+      <View accessibilityViewIsModal onAccessibilityEscape={onClose} style={{ maxHeight: '90%', backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24,
         paddingTop: 24, paddingBottom: Math.max(24, insets.bottom), paddingHorizontal: 24 }}>
-        <ScrollView contentContainerStyle={{ gap: 16 }}><Copy size="title" accessibilityRole="header" style={{ fontWeight: '700' }}>{title}</Copy>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 16 }}><Text ref={heading} accessible accessibilityRole="header" style={{ color: colors.text, fontSize: typography.title, fontWeight: '700' }}>{title}</Text>
           {children}<Action label="Close" secondary onPress={onClose} /></ScrollView>
       </View>
     </View>

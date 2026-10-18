@@ -7,6 +7,7 @@ import { useProfile } from '../context/ProfileContext';
 import { Action, Card, Copy, Notice, Skeleton } from '../design/components';
 import AppearancePicker from '../design/AppearancePicker';
 import { useTheme } from '../design/theme';
+import DashboardPreferences from '../components/DashboardPreferences';
 import AccountPrivacy from '../components/AccountPrivacy';
 import { ACTIVITY_LABELS, GOAL_LABELS } from '../components/ProfileForm';
 import { formatHeight, formatWeight } from '../util/units';
@@ -40,9 +41,9 @@ export default function SummaryScreen() {
       <Action label="Edit profile" disabled={busy || loading} onPress={() => navigation.navigate('EditProfile')} />
       {!!profile && <><Copy>Display units</Copy>{(['metric', 'imperial'] as const).map(unit => <Action key={unit} label={unit === 'metric' ? 'Kilograms and centimeters' : 'Pounds and feet'} selected={profile.units === unit} secondary={profile.units !== unit} disabled={busy} onPress={() => void run(() => update({ units: unit }), 'Display units updated. Measurements are unchanged.')} />)}</>}
     </Card>
-    <Card><AppearancePicker /></Card>
+    <Card><AppearancePicker /></Card><Card><DashboardPreferences /></Card>
     <Card><Copy size="heading">Coaching</Copy><Action secondary label="Find a trainer" onPress={() => navigation.navigate('TrainerList')} /><Action secondary label="Become a trainer" onPress={() => navigation.navigate('TrainerSignup')} /></Card>
-    <Card><Copy size="heading">Privacy & support</Copy><AccountPrivacy /></Card>
+    <Card><Copy size="heading">Privacy & support</Copy><Action secondary label="Open Leo guide" onPress={() => navigation.navigate('LeoHelp')} /><Action secondary label="Give feedback" onPress={() => navigation.navigate('Feedback', { source: 'Summary' })} /><AccountPrivacy /></Card>
     <Card><Copy size="heading">Sign-in</Copy><Copy tone="muted">Signing out does not delete your account. Account deletion is under Privacy & support.</Copy><Action label={busy ? 'Please wait…' : 'Sign out'} secondary disabled={busy} onPress={signOut} /></Card>
   </ScrollView>;
 }

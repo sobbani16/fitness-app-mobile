@@ -1,0 +1,41 @@
+jest.mock('@react-native-async-storage/async-storage', () => require('@react-native-async-storage/async-storage/jest/async-storage-mock'));
+jest.mock('../../components/KeyboardAwareScrollView', () => ({ children }) => children);
+jest.mock('../../components/ProfileForm', () => ({ GOAL_LABELS: { maintain: 'Maintain weight' } }));
+const mockNavigate = jest.fn();
+jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: mockNavigate }), useFocusEffect: fn => require('react').useEffect(fn, [fn]) }));
+jest.mock('../../context/ProfileContext', () => ({ useProfile: () => ({ profile: { goal: 'maintain' } }) }));
+jest.mock('../../storage/session', () => ({ getSession: () => ({ user: { id: 'alice' } }) }));
+jest.mock('../../api/macroScore', () => ({ getMacroGoals: jest.fn(async () => ({ proteinTarget: 90 })) }));
+jest.mock('../../api/chat', () => ({ getChatStatus: jest.fn(async () => ({ limit: 7, used: 0, remaining: 7 })), sendChat: jest.fn() }));
+jest.mock('../../config/betaFeatures', () => ({ betaFeatures: { ai: false } }));
+const React = require('react'), { create, act } = require('react-test-renderer');
+const { Action, Field } = require('../../design/components');
+const { betaFeatures } = require('../../config/betaFeatures');
+const { sendChat, getChatStatus } = require('../../api/chat');
+const Screen = require('../ChatScreen').default;
+let tree;
+const button = label => tree.root.findAllByType(Action).find(n => n.props.label === label);
+const mount = async () => { await act(async () => { tree = create(<Screen />); }); };
+beforeEach(() => { jest.clearAllMocks(); betaFeatures.ai = false; sendChat.mockResolvedValue({ answer: 'General guidance', quota: { limit: 7, used: 1, remaining: 6 } }); });
+afterEach(async () => { if (tree) await act(async () => tree.unmount()); });
+it('keeps beta AI off while providing real feature navigation', async () => {
+  await mount(); expect(getChatStatus).not.toHaveBeenCalled(); expect(button('Send question')).toBeUndefined();
+  await act(async () => button('Review my weekly progress').props.onPress());
+  expect(mockNavigate).toHaveBeenCalledWith('Main', { screen: 'History' });
+});
+it('requires explicit opt-in for saved context and prevents duplicate sends', async () => {
+  betaFeatures.ai = true; await mount();
+  await act(async () => tree.root.findByType(Field).props.onChangeText('Help with dinner'));
+  const send = button('Send question').props.onPress;
+  await act(async () => { send(); send(); });
+  expect(sendChat).toHaveBeenCalledTimes(1); expect(sendChat).toHaveBeenLastCalledWith('Help with dinner');
+  await act(async () => { tree.root.findByType(Field).props.onChangeText('Explain target'); button('Include my saved goal and protein target').props.onPress(); });
+  await act(async () => button('Send question').props.onPress());
+  expect(sendChat).toHaveBeenLastCalledWith(expect.stringContaining('90 g/day'));
+});
+it('keeps failed questions editable for explicit retry', async () => {
+  betaFeatures.ai = true; sendChat.mockRejectedValue({ response: { status: 503 } }); await mount();
+  await act(async () => tree.root.findByType(Field).props.onChangeText('Question'));
+  await act(async () => button('Send question').props.onPress());
+  expect(tree.root.findByType(Field).props.value).toBe('Question'); expect(button('Send question').props.disabled).toBe(false);
+});

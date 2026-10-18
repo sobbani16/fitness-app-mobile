@@ -3,12 +3,12 @@
 <style>
 :root{color-scheme:light;--ink:#172b3b;--muted:#526475;--line:#dce4eb;--brand:#12645a}*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:110px}body{margin:0;background:#f4f7fa;color:var(--ink);font:15px/1.65 system-ui,-apple-system,sans-serif}header{background:#102c39;color:white;padding:32px max(24px,4vw)}.eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.16em;color:#9fdbd0}.hero{font-size:32px;font-weight:750;margin:6px 0}.summary{display:flex;gap:12px;flex-wrap:wrap}.summary span{border:1px solid #45616d;padding:7px 14px;border-radius:8px}.layout{display:grid;grid-template-columns:235px minmax(0,1fr);max-width:1800px;margin:auto}aside{padding:24px 16px;position:sticky;top:0;align-self:start;max-height:100vh;overflow:auto}aside a{display:block;padding:8px 12px;color:var(--muted);font-size:13px;text-decoration:none;border-radius:6px}aside a:hover{background:#e3eeeb;color:var(--brand)}main{min-width:0;padding:24px 32px 64px;background:white}.controls{display:flex;gap:12px;flex-wrap:wrap;padding:14px;background:#eef4f5;border:1px solid var(--line);border-radius:10px}label{font-size:12px;font-weight:650;display:flex;flex-direction:column;gap:4px}input,select,button{font:inherit;color:var(--ink);background:white;border:1px solid #a9b8c3;border-radius:6px;padding:9px 12px}input{min-width:250px}button{cursor:pointer;align-self:end}input:focus,select:focus,button:focus,a:focus{outline:3px solid #53b8a6;outline-offset:2px}.note{font-size:13px;color:var(--muted)}h1{font-size:27px;line-height:1.3}h2{margin-top:42px;padding-top:16px;border-top:2px solid #dbe9e6;font-size:23px;line-height:1.35}h3{font-size:18px}.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;margin:18px 0}table{width:100%;border-collapse:collapse;font-size:13px;line-height:1.55}th{text-align:left;background:#eaf1f3;font-size:12px;padding:12px;color:#324a5a}td{padding:13px 12px;border-top:1px solid var(--line);vertical-align:top}tr:nth-child(even){background:#f8fafc}tr.tracked td:first-child{font-weight:750;white-space:nowrap;color:var(--brand)}tr.tracked td:nth-child(2){min-width:150px;font-weight:600}tr.tracked td:nth-child(4),tr.tracked td:nth-child(5){min-width:230px}tr.tracked td:last-child{min-width:65px}.badge{display:inline-block;border-radius:6px;font-size:11px;font-weight:700;padding:4px 7px;min-width:110px}.pending{background:#e3eeff;color:#244577}.blocked{background:#ffe7e4;color:#8b302c}.partial{background:#fff1cf;color:#775714}a{color:var(--brand)}pre{white-space:pre-wrap;background:#eef3f7;border-left:4px solid var(--brand);padding:20px;border-radius:6px}code{font-size:.9em}li{margin:10px 0}[hidden]{display:none!important}.empty{padding:15px;background:#fff1cf}footer{margin-top:32px;color:var(--muted);font-size:12px}@media(max-width:900px){.layout{display:block}aside{position:static;max-height:none;display:flex;overflow:auto;padding:10px}aside a{min-width:160px}main{padding:18px}header{padding:24px}.hero{font-size:26px}}@media print{header{background:white;color:black;padding:0}.layout{display:block}aside,.controls,.note,.empty{display:none}main{padding:0}body{background:white;font-size:10px}.table-wrap{overflow:visible;border:0}table{font-size:8px}td,th{padding:5px}tr.tracked td{min-width:0!important}.badge{min-width:0}h2{break-after:avoid}tr{break-inside:avoid}thead{display:table-header-group}}
 </style></head><body>
-<header><div class="eyebrow">Fitness app / Release workspace</div><div class="hero">Production status &amp; handoff</div><div class="summary"><span>62 tracked features &amp; gates</span><span>25 P0 items, including conditional priorities</span><span>Source: PRODUCTION_HANDOFF.md</span></div></header>
-<div class="layout"><aside aria-label="Sections"><a href="#section-0">Status definitions</a><a href="#section-1">1. Accounts, profile and personal data</a><a href="#section-2">2. Food, nutrition and meal planning</a><a href="#section-3">3. Activity, coaching and dashboard</a><a href="#section-4">4. Trainers, nutritionists and administration</a><a href="#section-5">5. Shared deployment gates</a><a href="#section-6">6. Verification already completed</a><a href="#section-7">7. Recommended order to continue</a><a href="#section-8">8. Supporting documents</a></aside><main>
+<header><div class="eyebrow">Fitness app / Release workspace</div><div class="hero">Production status &amp; handoff</div><div class="summary"><span>66 tracked features &amp; gates</span><span>25 P0 items, including conditional priorities</span><span>Source: PRODUCTION_HANDOFF.md</span></div></header>
+<div class="layout"><aside aria-label="Sections"><a href="#section-0">Status definitions</a><a href="#section-1">1. Accounts, profile and personal data</a><a href="#section-2">2. Food, nutrition and meal planning</a><a href="#section-3">3. Activity, coaching and dashboard</a><a href="#section-4">4. Trainers, nutritionists and administration</a><a href="#section-5">5. Shared deployment gates</a><a href="#section-6">6. Verification already completed</a><a href="#section-7">7. Recommended order to continue</a><a href="#section-8">8. Supporting documents</a><a href="#section-9">Milestone 5 additions</a><a href="#section-10">Milestone 6 additions</a></aside><main>
 <div class="controls"><label>Search tracked items<input id="search" type="search" placeholder="Feature, ID, evidence…"></label><label>Priority<select id="priority"><option value="">All priorities</option><option>P0</option><option>P1</option></select></label><label>Status<select id="status"><option value="">All statuses</option></select></label><button id="reset">Reset</button><button id="print">Print / save PDF</button></div>
 <p class="note" id="freshness">Standalone snapshot. To refresh from Markdown, run <code>python3 scripts/handoff.py</code>. For automatic updates, run <code>python3 scripts/handoff.py --serve</code> and open <a href="http://127.0.0.1:8765/docs/PRODUCTION_HANDOFF.html">the live view</a>.</p><p id="results" class="note" aria-live="polite"></p><p id="empty" class="empty" hidden>No tracked items match. Reset the filters to see all items.</p>
 <h1 id="section-0">Production feature status and handoff</h1>
-<p><strong>Status date: October 16, 2026 (mobile UX milestones 1–4 and CI configuration; earlier feature/API evidence retains its recorded dates)</strong><br><strong>Scope:</strong> fitness-app-mobile and fitness-app-backend  <br><strong>Overall decision: NOT READY for public production deployment.</strong> Public App Store release has not been performed; the existing Railway backend serves the TestFlight beta. This document summarizes the implementation and verification from the readiness work; A03 implementation was added October 13; A04–A05, N04 and N08–N09 were updated October 14 with automated verification. Latest M4 regression: 173 mobile tests, 262 backend tests, six local PostgreSQL/HTTP progress/profile integrity scenarios, TypeScript and Android/iOS JavaScript exports passed October 16. The earlier 37 authenticated PostgreSQL integration tests were not rerun for this milestone. N08–N09 live AI acceptance remains blocked by the absent server key. Signed-device acceptance and remaining feature evidence have not been renewed.</p>
+<p><strong>Status date: October 17, 2026 (mobile UX milestones 1–6, C09 admin provisioning and beta build 7; earlier feature/API evidence retains its recorded dates)</strong><br><strong>Scope:</strong> fitness-app-mobile and fitness-app-backend  <br><strong>Overall decision: NOT READY for public production deployment.</strong> Public App Store release has not been performed; the existing Railway backend serves the TestFlight beta. This document summarizes the implementation and verification from the readiness work; A03 implementation was added October 13; A04–A05, N04 and N08–N09 were updated October 14 with automated verification. Latest M6 regression: 196 mobile tests across 45 suites, TypeScript and Android/iOS Hermes exports passed October 17. Latest C09 backend regression: 266 tests across 31 suites plus dedicated real PostgreSQL/HTTP administrator provisioning checks. Earlier M4 progress/profile integrity evidence retains its date. The earlier 37 authenticated PostgreSQL integration tests were not rerun for this milestone. N08–N09 live AI acceptance remains blocked by the absent server key. Signed-device acceptance and remaining feature evidence have not been renewed.</p>
 <p><strong>TestFlight-only update — October 15, 2026, 02:48 UTC:</strong> Owner confirmed beta distribution only; public App Store release is deferred. Corrected backend <code>https://fitness-app-backend-production-c5d4.up.railway.app/health</code> returned HTTP 200 with <code>status: ok</code>. Preview/production build settings now use this URL; the <code>testflight</code> profile inherits it. Earlier 404 checks were for the superseded domain. Health success does not verify authentication, database persistence or device flows. Privacy-policy URL is now configured; content corrections remain outstanding (see latest update below). No cloud build, signing credentials or submission performed. <a href="TESTFLIGHT_RELEASE.md">Configuration and remaining gates</a>. Earlier feature test counts are historical, not rerun by this configuration update.</p>
 <p><strong>Privacy-policy update — October 15, 2026 UTC:</strong> Public GitHub Pages policy returned HTTP 200 and is configured for TestFlight. Local TestFlight release configuration check passed. Policy still contains pre-publication placeholders and mismatches involving HealthKit, microphone access, account deletion and beta AI availability; content review remains blocked. See <a href="TESTFLIGHT_RELEASE.md">release notes</a>. No cloud build or submission initiated.</p>
 <p><strong>Policy revision recheck — October 15, 2026 UTC:</strong> Published corrections are live: draft placeholders removed; HealthKit/microphone disabled and deletion implementation accurately qualified. Remaining alignment: distinguish available on-device label OCR/posture processing from disabled server AI; match policy age eligibility to adult-only onboarding. <a href="TESTFLIGHT_RELEASE.md">Details</a>. TestFlight only; no build/submission performed.</p>
@@ -53,6 +53,13 @@
 </tr>
 </tbody></table></div>
 <p><strong>No feature is labeled production-approved.</strong> Passing a unit test, HTTP request or native build does not establish complete end-to-end correctness. Priority P0 means resolve before public launch; P1 means resolve before enabling the affected feature, or explicitly defer and disable it.</p>
+<p><strong>Approved beta release result — October 17, 2026:</strong> Mobile <code>ac80be6</code> and backend <code>d8c02a4</code> pushed. EAS iOS build 7 <a href="https://expo.dev/accounts/sobbani16/projects/fitness-app-mobile/builds/6207b65d-51f6-4609-bf7d-787f4be2edd5">finished successfully</a>; no App Store Connect submission performed. Railway deployment succeeded. After a protected database backup, migrations <code>20261016160000_unknown_label_nutrients</code> and <code>20261016190000_workout_finish</code> were manually applied (all 21 applied); health returned 200. Railway automatic migration execution remains an open gate. Build 7 contains M1–M4, not M5.</p>
+<p><strong>UX milestone 5 — October 17, 2026:</strong> Local Leo guide, explicit AI context opt-in in enabled builds, account/device dashboard-card choices and reviewed email feedback with optional flattened screenshot redaction. Beta AI remains disabled. 185 mobile tests/42 suites, TypeScript, release check and both platform Hermes exports passed; lint zero errors/30 existing warnings. New native dependencies require a later build and device acceptance; live AI remains unverified. M5 is not pushed or included in build 7. <a href="UX_MILESTONE_5.md">Changes and limitations</a>. Milestone 6 was subsequently approved; see its update below.</p>
+<p><strong>UX milestone 6 — October 17, 2026:</strong> Account-isolated Progress request coalescing, memoized food-entry styling, OS reduced-motion navigation, sheet focus/escape and compact accessible feedback control. Confirmed-action analytics hooks accept only allowlisted names/coarse duration buckets; collection stays disabled with no adapter, transport, persistence or identifiers. 196 tests/45 suites, TypeScript, release check and beta-safe iOS/Android Hermes exports passed; lint zero errors/30 existing warnings. Signed-device visual/accessibility, native attachment delivery, performance profiling and analytics consent/provider setup remain open. M5/M6 remain local and are not in build 7. <a href="UX_MILESTONE_6.md">M6 report</a> · <a href="ANALYTICS_EVENTS.md">Event specification</a>.</p>
+<p><strong>C09 administrator provisioning — October 17, 2026:</strong> Added an operator-only, read-only-by-default CLI and recovery runbook. Applying requires an independently reviewed account and exact state confirmation; grant, session revocation and audit commit together. 266 backend tests/31 suites passed; dedicated local PostgreSQL/HTTP checks verify CLI refusal/preview, invalid targets, incomplete RBAC, stale review state, rollback, eight competing bootstraps, fresh-login permissions, rejected old/spoofed credentials and recovery. All 21 migrations/RBAC seed applied only to a dedicated disposable local database for this task. No real administrator, production data, deployment, push or new iOS build changed. <a href="C09_ADMIN_PROVISIONING.md">Runbook</a>.</p>
+<p><strong>Verification-email incident — October 17, 2026:</strong> Read-only investigation found three exhausted verification jobs around 12:44–12:45 PM EDT October 16 and 15 failure entries in previous Railway deployment <code>2dc96040</code>. Current deployment logs naturally omit those earlier attempts. Sender remains <code>onboarding@resend.dev</code>, which cannot email arbitrary testers. Exact historical provider rejection bodies were not retained. Owner provided prashanthsobbani.com; default Resend DNS records are not yet visible. Domain verification/sender configuration and a fresh resend are required; no email, account mutation or deployment performed. <a href="A03_EMAIL_DELIVERY_DIAGNOSIS.md">Evidence and resolution</a>.</p>
+<p><strong>Email DNS recheck — October 18, 2026, 07:22 UTC:</strong> DKIM TXT is now present and both sending CNAMEs match the owner&#x27;s Resend configuration. Provider Verified status/full DKIM comparison and inbox acceptance remain unconfirmed. No fresh verification job has been requested; the last job exhausted its retries before DNS correction. Confirm Verified in Resend and request a new verification email. No messages or remote changes triggered. <a href="A03_EMAIL_DELIVERY_DIAGNOSIS.md">Evidence</a>.</p>
+<p><strong>Local commit checkpoint — October 18, 2026:</strong> Owner requested committing all pending mobile/backend changes. Checkpoint includes M5/M6, C09 provisioning and email/DNS diagnosis. Whitespace and credential-pattern review passed (only a deliberate dummy connection string in a backend test). Latest implementation evidence remains 196 mobile tests, 266 backend tests and C09 database/HTTP checks; tests were not rerun solely for committing. No push, deployment, email send or cloud build is part of this checkpoint. M5/M6 remain absent from build 7.</p>
 <h2 id="section-1">1. Accounts, profile and personal data</h2>
 <div class="table-wrap" tabindex="0" role="region" aria-label="Feature table"><table><thead><tr><th scope="col">ID</th><th scope="col">Feature</th><th scope="col">Production status</th><th scope="col">Evidence / current behavior</th><th scope="col">Remaining work and acceptance condition</th><th scope="col">Priority</th></tr></thead><tbody>
 <tr class="tracked" data-priority="P0" data-status="IMPLEMENTED">
@@ -71,12 +78,12 @@
 <td>Review auth security, brute-force controls, multi-instance limits and stolen/revoked-session behavior.</td>
 <td>P0</td>
 </tr>
-<tr class="tracked" data-priority="P0" data-status="IMPLEMENTED">
+<tr class="tracked" data-priority="P0" data-status="BLOCKED">
 <td>A03</td>
 <td>Password recovery and email verification</td>
-<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td><span class="badge blocked">BLOCKED — external email sender</span></td>
 <td>Resend queue, hosted link pages, mobile recovery/verification gate, expiring single-use links, shared rate limits and reset session revocation. 13 real-database auth tests; 219 backend and 67 mobile tests passed. <a href="A03_AUTH_LIFECYCLE.md">Setup and evidence</a>.</td>
-<td>Configure Resend sender/key, signing secret and HTTPS origin; verify staging inbox delivery and signed iOS/Android flows. Browser visual verification was blocked by tool connection failure.</td>
+<td>New accounts@prashanthsobbani.com sender deployed, but its latest job exhausted five attempts with no acceptance. October 18 authoritative DNS now has DKIM TXT and both exact sending CNAMEs. Confirm Resend Verified status, request a fresh verification email, and validate actual inbox delivery. <a href="A03_EMAIL_DELIVERY_DIAGNOSIS.md">Diagnosis</a>.</td>
 <td>P0</td>
 </tr>
 <tr class="tracked" data-priority="P0" data-status="IMPLEMENTED">
@@ -274,7 +281,7 @@
 <td>Manual workout sessions and sets</td>
 <td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
 <td>M3: explicit start/log/finish/review, kg/lb conversion, durable pending-set retries, stable IDs and owned transactional finish; real PostgreSQL concurrency/replay checks passed. <a href="UX_MILESTONE_3.md">Evidence</a>.</td>
-<td>Deploy compatible backend and finish migration before mobile distribution. Verify signed iOS/Android offline/restart, two-device history and camera lifecycle. One exercise per workout.</td>
+<td>Compatible backend and finish migration deployed for build 7. Verify signed iOS/Android offline/restart, two-device history and camera lifecycle. One exercise per workout.</td>
 <td>P0</td>
 </tr>
 <tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
@@ -368,9 +375,9 @@
 <tr class="tracked" data-priority="P1" data-status="BLOCKED">
 <td>F13</td>
 <td>AI chat assistant and daily quota</td>
-<td><span class="badge blocked">BLOCKED</span></td>
-<td>Real Responses API and database-backed quota; no configured OpenAI key found.</td>
-<td>Configure upstream service and budget; verify real responses, quota enforcement and failures.</td>
+<td><span class="badge blocked">BLOCKED — live AI</span></td>
+<td>M5 local guide works with beta AI off; enabled builds have explicit context opt-in, server quota and guarded retryable sends. Mocked tests pass.</td>
+<td>Configure upstream key/budget and verify real responses; native acceptance pending. <a href="UX_MILESTONE_5.md">M5 evidence</a>.</td>
 <td>P1</td>
 </tr>
 <tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
@@ -378,7 +385,7 @@
 <td>Progress trends and daily history</td>
 <td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
 <td>M4 7/30/90-day comparisons, owned bulk records, unknown-aware averages and selected-day hydration.</td>
-<td>Compatible backend deployment and signed-device/timezone/two-account acceptance; legacy water/step attribution remains limited. <a href="UX_MILESTONE_4.md">Evidence</a>.</td>
+<td>Backend deployed with migrations; signed-device/timezone/two-account acceptance pending; legacy water/step attribution remains limited. <a href="UX_MILESTONE_4.md">Evidence</a>.</td>
 <td>P1</td>
 </tr>
 <tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
@@ -456,12 +463,12 @@
 <td>Review complete role matrix and regression-test role/assignment removal.</td>
 <td>P0</td>
 </tr>
-<tr class="tracked" data-priority="P0" data-status="MISSING">
+<tr class="tracked" data-priority="P0" data-status="IMPLEMENTED">
 <td>C09</td>
 <td>Initial administrator bootstrap</td>
-<td><span class="badge blocked">MISSING — operational process</span></td>
-<td>Test harness grants a fixture administrator; no production bootstrap process established.</td>
-<td>Define and test controlled initial admin provisioning and recovery; no default/shared credentials.</td>
+<td><span class="badge pending">IMPLEMENTED — operational acceptance pending</span></td>
+<td>Operator-only preview/apply CLI; verified existing accounts, review-bound state hash, transaction locks, session revocation and atomic audit. Eight concurrent local attempts create one admin; recovery and fresh-login RBAC tested.</td>
+<td>Deploy command and rehearse independent operator/reviewer process; no real admin has been provisioned. No public bootstrap endpoint or default credentials. <a href="C09_ADMIN_PROVISIONING.md">Runbook and evidence</a>.</td>
 <td>P0</td>
 </tr>
 <tr class="tracked" data-priority="P0" data-status="PARTIAL">
@@ -490,11 +497,11 @@
 <td>Server-only secrets, HTTPS mobile API URL, intended CORS origins and verified proxy settings. USDA/Spoonacular keys found locally; OpenAI key missing.</td>
 <td>P0</td>
 </tr>
-<tr class="tracked" data-priority="P0" data-status="LOCAL CHECK PASSED">
+<tr class="tracked" data-priority="P0" data-status="BETA MIGRATED">
 <td>D03</td>
 <td>Schema migrations and seed data</td>
-<td><span class="badge partial">LOCAL CHECK PASSED</span></td>
-<td>All 21 migrations applied to disposable local PostgreSQL through M3; M4 progress/profile integrity checks passed without a new migration. M2/M3 changes remain undeployed remotely. Preserve nullable-read compatibility and rehearse deployment/rollback before distribution.</td>
+<td><span class="badge partial">BETA MIGRATED — automation pending</span></td>
+<td>All 21 migrations applied to the beta database during the approved build-7 release after backup; M2/M3 migrations were applied manually. Automatic Railway migration execution remains unverified/ineffective. C09 dedicated local migration/integrity checks also pass. Rehearse rollback and fix automatic migration configuration.</td>
 <td>P0</td>
 </tr>
 <tr class="tracked" data-priority="P0" data-status="OPEN">
@@ -518,18 +525,18 @@
 <td>Restore drill, readiness monitoring, alerts, previous release artifacts and named rollback owner.</td>
 <td>P0</td>
 </tr>
-<tr class="tracked" data-priority="P0" data-status="CONFIGURED LOCALLY">
+<tr class="tracked" data-priority="P0" data-status="PUSHED">
 <td>D07</td>
 <td>Automated release checks</td>
-<td><span class="badge partial">CONFIGURED LOCALLY — cloud acceptance pending</span></td>
-<td>Manual GitHub workflow checks release configuration/types/lint/tests then EAS iOS build and exact-build submission. Not pushed/run; EXPO_TOKEN secret setup required. <a href="GITHUB_TESTFLIGHT_WORKFLOW.md">Setup</a>.</td>
+<td><span class="badge partial">PUSHED — cloud acceptance pending</span></td>
+<td>Manual GitHub workflow checks release configuration/types/lint/tests then EAS iOS build and exact-build submission. Pushed in ac80be6; hosted workflow not run/verified and EXPO_TOKEN setup remains unverified. <a href="GITHUB_TESTFLIGHT_WORKFLOW.md">Setup</a>.</td>
 <td>P0</td>
 </tr>
 <tr class="tracked" data-priority="P0" data-status="IOS BUILD PASSED">
 <td>D08</td>
 <td>Signed release apps</td>
 <td><span class="badge partial">IOS BUILD PASSED — acceptance pending</span></td>
-<td>Signed iOS version 1.0.0 build 5 succeeded on EAS; TestFlight upload completed; internal group/tester created by owner. Build availability/assignment and device acceptance and signed Android release remain pending. See TESTFLIGHT_RELEASE.md.</td>
+<td>Latest signed iOS build 7 (M1–M4) finished successfully, not submitted. Earlier build 5 uploaded and owner screenshot confirmed processed/assigned to internal group. M5/M6 need a later build; signed-device acceptance and signed Android release remain pending. See TESTFLIGHT_RELEASE.md.</td>
 <td>P0</td>
 </tr>
 <tr class="tracked" data-priority="P0" data-status="PENDING">
@@ -558,12 +565,12 @@
 <div class="table-wrap" tabindex="0" role="region" aria-label="Recorded result table"><table><thead><tr><th scope="col">Check</th><th scope="col">Recorded result</th><th scope="col">Limit</th></tr></thead><tbody>
 <tr>
 <td>Backend unit suite</td>
-<td>Latest M4: 30 suites / 262 tests passed</td>
-<td>Includes mocked dependencies; six additional PostgreSQL/HTTP progress/profile scenarios passed.</td>
+<td>Latest C09: 31 suites / 266 tests passed</td>
+<td>Plus dedicated real PostgreSQL/HTTP CLI, concurrency, rollback, recovery and authenticated RBAC checks. Earlier M4 six-scenario evidence retained.</td>
 </tr>
 <tr>
 <td>Mobile unit suite</td>
-<td>Latest M4: 37 suites / 173 tests passed</td>
+<td>Latest M6: 45 suites / 196 tests passed</td>
 <td>Does not establish native sensor accuracy, visual/accessibility acceptance or complete UI behavior.</td>
 </tr>
 <tr>
@@ -637,6 +644,44 @@ Status and date:</pre>
 <li><a href="../README.md">Project setup</a></li>
 </ul>
 <p>The backend also contains <code>scripts/endpoint-smoke.js</code> and <code>docs/endpoint-results.json</code>. The harness mutates data and creates synthetic accounts; run it only against its supported disposable local readiness database, never production. Temporary build artifacts under <code>/private/tmp</code> are not durable release assets.</p>
+<h2 id="section-9">Milestone 5 additions</h2>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Feature table"><table><thead><tr><th scope="col">ID</th><th scope="col">Feature</th><th scope="col">Status</th><th scope="col">Evidence</th><th scope="col">Remaining work</th><th scope="col">Priority</th></tr></thead><tbody>
+<tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
+<td>UX05A</td>
+<td>Dashboard card personalization</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>Account-scoped device choices, persisted confirmation and storage-failure tests.</td>
+<td>Native/account-switch acceptance; no cross-device preference sync. <a href="UX_MILESTONE_5.md">Evidence</a>.</td>
+<td>P1</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
+<td>UX05B</td>
+<td>Reviewed feedback and screenshot redaction</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>Email draft, allowlisted screen context, text redaction and explicit flattened-image approval; mocked tests pass.</td>
+<td>New native build, received-image pixel verification and iOS/Android email lifecycle testing. <a href="UX_MILESTONE_5.md">Evidence</a>.</td>
+<td>P1</td>
+</tr>
+</tbody></table></div>
+<h2 id="section-10">Milestone 6 additions</h2>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Feature table"><table><thead><tr><th scope="col">ID</th><th scope="col">Feature</th><th scope="col">Status</th><th scope="col">Evidence</th><th scope="col">Remaining work</th><th scope="col">Priority</th></tr></thead><tbody>
+<tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
+<td>UX06A</td>
+<td>Core-flow performance and accessibility polish</td>
+<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
+<td>Duplicate Progress reads coalesce per account/window; reduced-motion subscription and sheet accessibility regression tests pass.</td>
+<td>Signed iOS/Android VoiceOver/TalkBack, large fonts, focus restoration and measured performance profiling. <a href="UX_MILESTONE_6.md">Evidence</a>.</td>
+<td>P1</td>
+</tr>
+<tr class="tracked" data-priority="P1" data-status="PARTIAL">
+<td>UX06B</td>
+<td>Privacy-conscious product measurement</td>
+<td><span class="badge partial">PARTIAL — collection disabled</span></td>
+<td>Allowlisted action hooks and coarse entry duration, no sensitive properties; tests cover payload stripping, failures and confirmed completion.</td>
+<td>Consent-aware provider, retention/deletion rules, correlation/unique-user metrics, native crash reporting and support resolution evidence. <a href="ANALYTICS_EVENTS.md">Contract</a>.</td>
+<td>P1</td>
+</tr>
+</tbody></table></div>
 <footer>Generated from the Markdown tracker. Status dates and verification evidence are preserved; refreshing this page does not rerun tests or approve a release.</footer></main></div>
 <script>
 const rows=[...document.querySelectorAll('.tracked')],search=document.querySelector('#search'),priority=document.querySelector('#priority'),status=document.querySelector('#status');
@@ -644,5 +689,5 @@ const rows=[...document.querySelectorAll('.tracked')],search=document.querySelec
 const saved=(()=>{try{return JSON.parse(sessionStorage.getItem('handoffFilters')||'{}')}catch{return {}}})();search.value=saved.search||'';priority.value=saved.priority||'';status.value=saved.status||'';
 function filter(){let count=0;const q=search.value.toLowerCase().trim();rows.forEach(r=>{r.hidden=!(r.textContent.toLowerCase().includes(q)&&(!priority.value||r.dataset.priority===priority.value)&&(!status.value||r.dataset.status===status.value));if(!r.hidden)count++});document.querySelector('#results').textContent=`Showing ${count} of ${rows.length} tracked items. Reference sections remain visible.`;document.querySelector('#empty').hidden=count>0;try{sessionStorage.setItem('handoffFilters',JSON.stringify({search:search.value,priority:priority.value,status:status.value}))}catch{}}
 [search,priority,status].forEach(e=>e.addEventListener('input',filter));document.querySelector('#reset').onclick=()=>{search.value=priority.value=status.value='';filter()};document.querySelector('#print').onclick=()=>window.print();filter();
-if(location.protocol!=='file:'){fetch('/handoff-version',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.text()}).then(hash=>{if(!/^[a-f0-9]{64}$/.test(hash))return;document.querySelector('#freshness').textContent='Live view: checks the Markdown tracker every 5 seconds and reloads when it changes. Keep the local server running.';setInterval(async()=>{try{const r=await fetch('/handoff-version',{cache:'no-store'});if(r.ok&&(await r.text())!=='c101ddd00d9671d21afa8b0c4609e700d2066e807cc14e1decf0a97902788b22')location.reload()}catch{document.querySelector('#freshness').textContent='Live connection lost. Restart python3 scripts/handoff.py --serve to resume updates.'}},5000)}).catch(()=>{})}
+if(location.protocol!=='file:'){fetch('/handoff-version',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.text()}).then(hash=>{if(!/^[a-f0-9]{64}$/.test(hash))return;document.querySelector('#freshness').textContent='Live view: checks the Markdown tracker every 5 seconds and reloads when it changes. Keep the local server running.';setInterval(async()=>{try{const r=await fetch('/handoff-version',{cache:'no-store'});if(r.ok&&(await r.text())!=='5ad4e95d3816a15fc435514986840b3497bda569f80e195e9afbfbe19bb7b442')location.reload()}catch{document.querySelector('#freshness').textContent='Live connection lost. Restart python3 scripts/handoff.py --serve to resume updates.'}},5000)}).catch(()=>{})}
 </script></body></html>

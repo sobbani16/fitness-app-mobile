@@ -1,228 +1,82 @@
-import React, { useEffect, useRef, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  Pressable,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
-} from 'react-native';
-import axios from 'axios';
+import React, { useCallback, useRef, useState } from 'react';
+import { View } from 'react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import KeyboardAwareScrollView from '../components/KeyboardAwareScrollView';
+import { Action, Card, Copy, Field, Notice, Skeleton } from '../design/components';
+import { useTheme } from '../design/theme';
+import { betaFeatures } from '../config/betaFeatures';
+import { useProfile } from '../context/ProfileContext';
+import { getMacroGoals, MacroGoals } from '../api/macroScore';
 import { getChatStatus, sendChat, ChatQuota } from '../api/chat';
-
-interface Msg {
-  id: string;
-  role: 'user' | 'assistant' | 'system';
-  text: string;
-}
-
-const SUGGESTIONS = [
-  'How much protein should I eat?',
-  'What cardio should I do this week?',
-  'Is my calorie deficit right?',
-  'Tips for better sleep?',
-];
-
+import { getSession } from '../storage/session';
+import { GOAL_LABELS } from '../components/ProfileForm';
+interface Message { id: number; role: 'You' | 'Leo'; text: string }
 export default function ChatScreen() {
-  const [messages, setMessages] = useState<Msg[]>([
-    {
-      id: 'welcome',
-      role: 'assistant',
-      text:
-        "Hi! Ask me about calories, protein, cardio, strength, sleep, or hydration. You get 5 questions per day.",
-    },
-  ]);
-  const [input, setInput] = useState('');
-  const [sending, setSending] = useState(false);
-  const [quota, setQuota] = useState<ChatQuota | null>(null);
-  const scrollRef = useRef<ScrollView>(null);
-
-  useEffect(() => {
-    getChatStatus().then(setQuota).catch(() => {});
+  const { colors } = useTheme(), { profile } = useProfile(), navigation = useNavigation<any>();
+  const [goals, setGoals] = useState<MacroGoals | null>(null), [quota, setQuota] = useState<ChatQuota | null>(null);
+  const [loading, setLoading] = useState(true), [statusError, setStatusError] = useState(''), [error, setError] = useState('');
+  const [input, setInput] = useState(''), [messages, setMessages] = useState<Message[]>([]);
+  const [includeContext, setIncludeContext] = useState(false), [sending, setSending] = useState(false);
+  const generation = useRef(0), request = useRef(0), lock = useRef(false), sequence = useRef(0);
+  const refresh = useCallback(async () => {
+    const token = ++generation.current, account = getSession()?.user.id;
+    setLoading(true); setStatusError('');
+    const [targets, allowance] = await Promise.allSettled([getMacroGoals(), betaFeatures.ai ? getChatStatus() : Promise.resolve(null)]);
+    if (token !== generation.current || account !== getSession()?.user.id) return;
+    setGoals(targets.status === 'fulfilled' ? targets.value : null);
+    setQuota(allowance.status === 'fulfilled' ? allowance.value : null);
+    if (targets.status === 'rejected' || allowance.status === 'rejected') setStatusError('Some targets or allowance details could not load. Guides below are still available.');
+    setLoading(false);
   }, []);
-
-  const scrollToEnd = () => {
-    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
-  };
-
-  const onSend = async (overrideText?: string) => {
-    const text = (overrideText ?? input).trim();
-    if (!text || sending) return;
-    const userMsg: Msg = { id: `u-${Date.now()}`, role: 'user', text };
-    setMessages((prev) => [...prev, userMsg]);
-    setInput('');
-    setSending(true);
-    scrollToEnd();
+  useFocusEffect(useCallback(() => { void refresh(); return () => { generation.current++; request.current++; lock.current = false; setSending(false); }; }, [refresh]));
+  const goal = profile?.goal ? GOAL_LABELS[profile.goal] : undefined;
+  const protein = goals && Number.isFinite(goals.proteinTarget) && goals.proteinTarget > 0 ? goals.proteinTarget : null;
+  const context = [goal ? `My saved goal is ${goal}.` : '', protein ? `My saved protein target is ${protein} g/day; it is an estimate.` : ''].filter(Boolean).join(' ');
+  const ask = async () => {
+    const text = input.trim();
+    if (!betaFeatures.ai || lock.current || !text || text.length > 3000 || quota?.remaining === 0) return;
+    const token = ++request.current, account = getSession()?.user.id;
+    const current = () => token === request.current && !!account && account === getSession()?.user.id;
+    lock.current = true; setSending(true); setError('');
+    const question = includeContext && context ? `${text}\n\nContext I chose to share: ${context}` : text;
     try {
-      const reply = await sendChat(text);
-      setQuota(reply.quota);
-      setMessages((prev) => [
-        ...prev,
-        { id: `a-${Date.now()}`, role: 'assistant', text: reply.answer },
-      ]);
+      const reply = await sendChat(question);
+      if (!current()) return;
+      setQuota(reply.quota); setMessages(v => [...v, { id: ++sequence.current, role: 'You', text: question }, { id: ++sequence.current, role: 'Leo', text: reply.answer }]); setInput('');
     } catch (e: any) {
-      let msg = 'Something went wrong.';
-      if (axios.isAxiosError(e) && e.response?.status === 429) {
-        msg = "You've reached today's 5-question limit. Try again tomorrow.";
-        if (e.response.data) setQuota({ limit: 5, used: 5, remaining: 0 });
-      } else if (e?.message) {
-        msg = e.message;
-      }
-      setMessages((prev) => [...prev, { id: `e-${Date.now()}`, role: 'system', text: msg }]);
-    } finally {
-      setSending(false);
-      scrollToEnd();
-    }
+      if (!current()) return;
+      const status = e?.response?.status;
+      setError(status === 429 ? 'The daily allowance has been reached. Check the allowance again later.' : status === 503 ? 'Leo’s AI service is unavailable. Your question is kept here; the guides still work.' : 'No answer was received. Your question is kept here. Sending again may use another question from your allowance.');
+      if (status === 429 && Number.isFinite(e.response.data?.limit)) setQuota({ limit: e.response.data.limit, used: e.response.data.used, remaining: 0 });
+    } finally { if (current()) { lock.current = false; setSending(false); } }
   };
-
-  const canSend = !sending && input.trim().length > 0 && (quota?.remaining ?? 1) > 0;
-
-  return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={80}
-    >
-      <View style={styles.header}>
-        <Text style={styles.title}>Chat</Text>
-        <Text style={styles.muted}>
-          {quota ? `${quota.remaining}/${quota.limit} left today` : '…'}
-        </Text>
-      </View>
-
-      <ScrollView
-        ref={scrollRef}
-        style={{ flex: 1 }}
-        contentContainerStyle={styles.messages}
-        onContentSizeChange={scrollToEnd}
-      >
-        {messages.map((m) => (
-          <View
-            key={m.id}
-            style={[
-              styles.bubble,
-              m.role === 'user' && styles.bubbleUser,
-              m.role === 'assistant' && styles.bubbleAssistant,
-              m.role === 'system' && styles.bubbleSystem,
-            ]}
-          >
-            <Text style={m.role === 'user' ? styles.bubbleTextUser : styles.bubbleText}>
-              {m.text}
-            </Text>
-          </View>
-        ))}
-        {sending && <ActivityIndicator style={{ marginTop: 8 }} />}
-
-        {messages.length <= 1 && (
-          <View style={styles.suggestions}>
-            <Text style={styles.muted}>Try asking:</Text>
-            {SUGGESTIONS.map((s) => (
-              <Pressable key={s} style={styles.chip} onPress={() => onSend(s)}>
-                <Text style={styles.chipText}>{s}</Text>
-              </Pressable>
-            ))}
-          </View>
-        )}
-      </ScrollView>
-
-      <View style={styles.inputBar}>
-        <TextInput
-          style={styles.input}
-          value={input}
-          onChangeText={setInput}
-          placeholder={
-            quota && quota.remaining === 0
-              ? 'Daily limit reached'
-              : 'Ask a fitness question…'
-          }
-          editable={!(quota && quota.remaining === 0)}
-          onSubmitEditing={() => onSend()}
-          returnKeyType="send"
-        />
-        <Pressable
-          onPress={() => onSend()}
-          disabled={!canSend}
-          style={[styles.sendBtn, !canSend && styles.sendBtnDisabled]}
-        >
-          <Text style={styles.sendBtnText}>Send</Text>
-        </Pressable>
-      </View>
-    </KeyboardAvoidingView>
-  );
+  const go = (screen: string) => navigation.navigate('Main', { screen });
+  return <KeyboardAwareScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 40 }}>
+    <Copy size="title" accessibilityRole="header">Leo</Copy><Copy tone="muted">A little guidance and a clear next step.</Copy>
+    {!betaFeatures.ai && <Notice title="Guides are available" message="AI replies are not enabled in this beta. The guidance below uses app features and any targets that loaded; it is not generated by AI." />}
+    {loading && <Skeleton label="Loading saved targets" />}
+    {!!statusError && <Card><Notice title="Some information is unavailable" message={statusError} /><Action secondary label="Retry targets and allowance" onPress={() => void refresh()} /></Card>}
+    <Card><Copy size="heading">Understand your protein target</Copy><Copy>{protein ? `Your saved target is ${protein} g per day.` : 'Your saved protein target is unavailable.'}</Copy>
+      {!!goal && <Copy>Saved goal: {goal}</Copy>}<Copy tone="muted">Targets are estimates. Logged intake may be incomplete; a gap in your diary does not prove you need to eat more. Review your profile if your goal has changed.</Copy>
+      <Action secondary label="Review goals and profile" onPress={() => navigation.navigate('EditProfile')} />
+      {betaFeatures.ai && <Action secondary label="Ask about this target" disabled={sending} onPress={() => { setInput('Explain how to use a daily protein target without treating incomplete logs as actual intake.'); setIncludeContext(false); }} />}
+    </Card>
+    <Card><Copy size="heading">What would help today?</Copy><Action label="Review my weekly progress" onPress={() => go('History')} />
+      <Action secondary label="Find food for dinner" onPress={() => navigation.navigate('FoodEntry', { mode: 'search' })} /><Action secondary label="Start or resume a workout" onPress={() => go('LogExercise')} />
+      <Copy tone="muted">Progress shows recorded days and gaps. Food search lets you review nutrition before logging. Workouts keep your confirmed sets and pending retry on this device.</Copy>
+    </Card>
+    {betaFeatures.ai && <>
+      <Card><Copy size="heading">Ask Leo</Copy><Copy tone="muted">Answers are general education, not medical advice. Each question is answered independently; earlier messages and your records are not automatically sent.</Copy>
+        <Copy>{quota ? `${quota.remaining} of ${quota.limit} questions available in the current daily allowance` : 'Daily allowance unavailable'}</Copy>
+        <Action secondary label="Refresh allowance" disabled={sending || loading} onPress={() => void refresh()} />
+        {messages.map(m => <View key={m.id} style={{ gap: 4, padding: 12, borderRadius: 12, backgroundColor: m.role === 'You' ? colors.accent : colors.background }}><Copy style={{ fontWeight: '600' }}>{m.role}</Copy><Copy selectable>{m.text}</Copy></View>)}
+        <Field label="Your question for Leo" value={input} multiline maxLength={3000} editable={!sending} onChangeText={setInput} placeholder="For example: help me plan a simple dinner" />
+        {!!context && <><Action secondary label={includeContext ? '✓ Include the context shown below' : 'Include my saved goal and protein target'} selected={includeContext} disabled={sending} onPress={() => setIncludeContext(v => !v)} />{includeContext && <Copy>{context}</Copy>}</>}
+        <Copy tone="muted">Only your question and any context you choose above go to the AI service. Avoid names, diagnoses and other private details. A failed request may still use an allowance slot.</Copy>
+        {!!error && <Notice title="Question not answered" message={error} error />}
+        <Action label={sending ? 'Asking Leo…' : 'Send question'} disabled={sending || !input.trim() || quota?.remaining === 0} onPress={() => void ask()} />
+      </Card>
+    </>}
+    <Action secondary label="Give feedback about Leo" onPress={() => navigation.navigate('Feedback', { source: 'Chat' })} />
+  </KeyboardAwareScrollView>;
 }
-
-const styles = StyleSheet.create({
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 8,
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-  },
-  title: { fontSize: 22, fontWeight: '700' },
-  muted: { color: '#666' },
-  messages: { padding: 16, gap: 8, paddingBottom: 24 },
-  bubble: {
-    maxWidth: '85%',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 14,
-  },
-  bubbleUser: {
-    alignSelf: 'flex-end',
-    backgroundColor: '#1e6fb8',
-  },
-  bubbleAssistant: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#eef0f3',
-  },
-  bubbleSystem: {
-    alignSelf: 'center',
-    backgroundColor: '#fdecec',
-    borderWidth: 1,
-    borderColor: '#f5c2c2',
-  },
-  bubbleText: { color: '#111', lineHeight: 20 },
-  bubbleTextUser: { color: '#fff', lineHeight: 20 },
-  suggestions: { marginTop: 12, gap: 6 },
-  chip: {
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderColor: '#d0d0d5',
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: '#fff',
-  },
-  chipText: { color: '#222' },
-  inputBar: {
-    flexDirection: 'row',
-    padding: 12,
-    gap: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#e5e5ea',
-    backgroundColor: '#fff',
-  },
-  input: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#d0d0d5',
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 16,
-    backgroundColor: '#fff',
-  },
-  sendBtn: {
-    backgroundColor: '#1e6fb8',
-    paddingHorizontal: 18,
-    justifyContent: 'center',
-    borderRadius: 20,
-  },
-  sendBtnDisabled: { backgroundColor: '#a8bfd4' },
-  sendBtnText: { color: '#fff', fontWeight: '700' },
-});

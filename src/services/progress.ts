@@ -38,7 +38,18 @@ export async function cachedProgress(dates: string[], timeZone: string): Promise
   if (getSession()?.user.id !== account) throw new Error('Account changed');
   return days;
 }
-export async function fetchProgress(dates: string[], timeZone: string): Promise<ProgressDay[]> {
+const inFlight = new Map<string, Promise<ProgressDay[]>>();
+export function fetchProgress(dates: string[], timeZone: string): Promise<ProgressDay[]> {
+  const account = getSession()?.user.id;
+  if (!account) return Promise.reject(new Error('Sign in required'));
+  const requestKey = JSON.stringify([account, dates[0], dates.at(-1), timeZone]);
+  const existing = inFlight.get(requestKey);
+  if (existing) return existing;
+  const pending = retrieveProgress(dates, timeZone).finally(() => { if (inFlight.get(requestKey) === pending) inFlight.delete(requestKey); });
+  inFlight.set(requestKey, pending);
+  return pending;
+}
+async function retrieveProgress(dates: string[], timeZone: string): Promise<ProgressDay[]> {
   const account = getSession()?.user.id, key = accountKey(`fitness.progress.v1.${timeZone}`);
   const { data } = await api.get<{ entries: ProgressDay[] }>('/me/progress', { params: { from: dates[0], to: dates.at(-1), timeZone } });
   if (!account || getSession()?.user.id !== account) throw new Error('Account changed');

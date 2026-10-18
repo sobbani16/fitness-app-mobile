@@ -1,3 +1,5 @@
+const mockCards = { note: true, water: true, steps: true, meals: true };
+jest.mock('../../context/DisplayPreferencesContext', () => ({ useDisplayPreferences: () => ({ cards: mockCards }) }));
 jest.mock('@react-native-async-storage/async-storage', () => require('@react-native-async-storage/async-storage/jest/async-storage-mock'));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ bottom: 0 }) }));
 const mockNavigate = jest.fn();
@@ -68,4 +70,17 @@ it('empty diary offers an action without describing actual intake', async () => 
   await act(async () => { tree = create(<Screen />); });
   expect(output()).toContain('No meals logged yet');
   expect(output()).toContain('Missing logs don’t mean');
+});
+
+it('hides optional cards while retaining essential logging', async () => {
+  Object.keys(mockCards).forEach(key => { mockCards[key] = false; });
+  try {
+    await act(async () => { tree = create(<Screen />); });
+    expect(output()).not.toContain('A note for today');
+    expect(output()).not.toContain('Your meals');
+    expect(output()).not.toContain('Connect steps');
+    expect(useStepCounter).not.toHaveBeenCalled();
+    await act(async () => press('Log a meal'));
+    expect(mockNavigate).toHaveBeenCalledWith('LogMeal');
+  } finally { Object.keys(mockCards).forEach(key => { mockCards[key] = true; }); }
 });

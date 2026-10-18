@@ -1,3 +1,4 @@
+import { useReducedMotion } from '../hooks/useReducedMotion';
 import { betaFeatures } from '../config/betaFeatures';
 import React from 'react';
 import { View, ActivityIndicator } from 'react-native';
@@ -17,10 +18,15 @@ import LabelScannerScreen from '../screens/LabelScannerScreen';
 import PortionAdjustScreen from '../screens/PortionAdjustScreen';
 import FoodEntryScreen from '../screens/FoodEntryScreen';
 import { LoggedMeal } from '../storage/meals';
+import ChatScreen from '../screens/ChatScreen';
+import FeedbackScreen from '../screens/FeedbackScreen';
+import FeedbackButton from '../components/FeedbackButton';
 import MainTabs from './MainTabs';
 import { useProfile } from '../context/ProfileContext';
 
 export type RootStackParamList = {
+  LeoHelp: undefined;
+  Feedback: { source?: string };
   Onboarding: undefined;
   Main: undefined;
   FoodEntry: { mode: 'search' | 'manual' | 'photo' | 'recipes' | 'repeat'; meal?: LoggedMeal };
@@ -41,6 +47,7 @@ export type RootStackParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
+  const reducedMotion = useReducedMotion();
   const { profile, loading } = useProfile();
 
   if (loading) {
@@ -52,10 +59,11 @@ export default function RootNavigator() {
   }
 
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator screenOptions={({ route }) => ({ animation: reducedMotion ? 'none' : 'default', headerShown: false, headerRight: () => <FeedbackButton source={route.name} /> })}>
       {profile ? (
         <>
           <Stack.Screen name="Main" component={MainTabs} />
+          <Stack.Screen name="LeoHelp" component={ChatScreen} options={{ headerShown: true, title: 'Leo guide' }} />
           <Stack.Screen name="FoodEntry" component={FoodEntryScreen} options={{ headerShown: true, title: 'Log food' }} />
           <Stack.Screen
             name="EditProfile"
@@ -128,6 +136,7 @@ export default function RootNavigator() {
           />
         </>
       )}
+      <Stack.Screen name="Feedback" component={FeedbackScreen} options={{ headerShown: true, title: 'Feedback', headerRight: () => null }} />
     </Stack.Navigator>
   );
 }

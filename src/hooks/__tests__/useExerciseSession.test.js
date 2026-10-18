@@ -66,3 +66,14 @@ it('blocks requests after account changes and does not overwrite another account
   await act(async () => current.addSet(5, 100));
   expect(api.createSession).not.toHaveBeenCalled();
 });
+it('emits completion only after confirmed persistence and never includes workout details', async () => {
+  const { setAnalyticsAdapter } = require('../../analytics/events'); const sink = jest.fn(); setAnalyticsAdapter(sink);
+  try {
+    await act(async () => current.start('squat')); await act(async () => current.addSet(5, 100));
+    api.finishSession.mockRejectedValueOnce(new Error('offline'));
+    await act(async () => current.finish()); expect(sink.mock.calls.map(call => call[0].name)).toEqual(['workout_started']);
+    api.finishSession.mockResolvedValue({ ...current.draft.session, finishedAt: new Date().toISOString() });
+    await act(async () => current.finish()); await act(async () => current.finish());
+    expect(sink.mock.calls.map(call => call[0])).toEqual([{ name: 'workout_started', version: 1 }, { name: 'workout_completed', version: 1 }]);
+  } finally { setAnalyticsAdapter(); }
+});

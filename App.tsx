@@ -1,5 +1,6 @@
 import 'react-native-gesture-handler';
 import { ThemeProvider, useTheme } from './src/design/theme';
+import { DisplayPreferencesProvider } from './src/context/DisplayPreferencesContext';
 import AuthGate from './src/components/AuthGate';
 import { StatusBar } from 'expo-status-bar';
 import { DefaultTheme, DarkTheme, NavigationContainer } from '@react-navigation/native';
@@ -23,7 +24,7 @@ export default function App() {
       <AuthGate><ProfileProvider>
         <MealsProvider>
           <RolesProvider>
-            <ThemedNavigation />
+            <DisplayPreferencesProvider><ThemedNavigation /></DisplayPreferencesProvider>
           </RolesProvider>
         </MealsProvider>
       </ProfileProvider></AuthGate>

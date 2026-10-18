@@ -1,0 +1,26 @@
+jest.mock('@react-native-async-storage/async-storage', () => require('@react-native-async-storage/async-storage/jest/async-storage-mock'));
+jest.mock('expo-image-picker', () => ({ launchImageLibraryAsync: jest.fn() }));
+jest.mock('react-native-view-shot', () => ({ captureRef: jest.fn(async () => 'file:///flattened.png'), releaseCapture: jest.fn() }));
+jest.mock('expo-file-system', () => ({ Paths: { cache: { uri: 'file:///cache/' } }, File: jest.fn(() => ({ delete: jest.fn() })) }));
+const React = require('react'), { create, act } = require('react-test-renderer');
+const { Image } = require('react-native');
+const { Action } = require('../../design/components');
+const Picker = require('expo-image-picker'), Capture = require('react-native-view-shot');
+const Component = require('../FeedbackAttachment').default;
+let tree, onChange;
+const button = label => tree.root.findAllByType(Action).find(n => n.props.label === label);
+beforeEach(() => { jest.clearAllMocks(); onChange = jest.fn(); Picker.launchImageLibraryAsync.mockResolvedValue({ canceled: false, assets: [{ uri: 'file:///cache/ImagePicker/raw.png', width: 1000, height: 2000 }] }); });
+afterEach(async () => { if (tree) await act(async () => tree.unmount()); });
+it('captures only after manual selection and attaches only after flattened preview approval', async () => {
+  await act(async () => { tree = create(<Component onChange={onChange} disabled={false} />); });
+  expect(Capture.captureRef).not.toHaveBeenCalled(); expect(Picker.launchImageLibraryAsync).not.toHaveBeenCalled();
+  await act(async () => button('Choose screenshot to redact').props.onPress());
+  await act(async () => tree.root.findByType(Image).props.onLoad());
+  await act(async () => button('Hide strip 2').props.onPress());
+  await act(async () => button('Preview redacted screenshot').props.onPress());
+  expect(Capture.captureRef).toHaveBeenCalledTimes(1); expect(onChange).not.toHaveBeenCalledWith('file:///flattened.png');
+  await act(async () => button('I reviewed this image; attach it').props.onPress());
+  expect(onChange).toHaveBeenLastCalledWith('file:///flattened.png');
+  await act(async () => button('Remove screenshot').props.onPress());
+  expect(onChange).toHaveBeenLastCalledWith(null); expect(Capture.releaseCapture).toHaveBeenCalledWith('file:///flattened.png');
+});

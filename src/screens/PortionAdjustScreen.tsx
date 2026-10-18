@@ -1,3 +1,4 @@
+import { startEntryTimer } from '../analytics/events';
 import React, { useRef, useState } from 'react';
 import { Alert, Image, View } from 'react-native';
 import { useNavigation, useRoute, usePreventRemove } from '@react-navigation/native';
@@ -12,6 +13,7 @@ import { getSession } from '../storage/session';
 
 const fields = ['Calories', 'Protein', 'Carbs', 'Fat', 'Fiber', 'Sugar'] as const;
 export default function PortionAdjustScreen() {
+  const [entryCompleted] = useState(() => startEntryTimer('label_meal_saved'));
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const params = route.params || {};
@@ -70,7 +72,7 @@ export default function PortionAdjustScreen() {
         quantityG: log.quantityG, macros: { protein_g: log.proteinG, carbs_g: log.carbsG, fat_g: log.fatG,
           ...(log.fiberG == null ? {} : { fiber_g: log.fiberG }) }, mealType: params.mealType || 'lunch',
         feedback: 'Reviewed label nutrition', source: 'label_scan', photoUri: params.photoUri || undefined };
-      await add(meal); setSaved(true);
+      await add(meal); entryCompleted(); setSaved(true);
     } catch (failure: any) {
       if (failure?.response?.status === 400) { pending.current = null; setReviewed(false); setError('The server could not accept these values. Check the name, units, portion and nutrition before saving again.'); }
       else if (failure?.response?.status === 410) { setRemoved(true); setError('This meal was removed from your diary. It will not be recreated by a retry.'); }

@@ -1,3 +1,4 @@
+import { trackEvent } from '../analytics/events';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as api from '../api/exercises';
 import { validateSet } from '../services/exerciseAutofill';
@@ -50,6 +51,7 @@ export function useExerciseSession() {
   const start = (exerciseType: string) => run(async () => {
     if (current.current) throw new Error('Finish the current workout first');
     await persist({ id: newId(), exerciseType, startedAt: new Date().toISOString(), session: null });
+    trackEvent('workout_started');
   });
   const sendPending = async (d: WorkoutDraft) => {
     if (!d.pending) return;
@@ -74,6 +76,7 @@ export function useExerciseSession() {
     await persist(next); check();
     const session = await api.finishSession(d.session.id);
     check(); await persist({ ...d, session, finishing: false });
+    if (!d.session.finishedAt) trackEvent('workout_completed');
   });
   const clear = () => run(async () => {
     const d = current.current;

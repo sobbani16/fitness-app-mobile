@@ -1,5 +1,6 @@
+import { startEntryTimer } from '../analytics/events';
 import { betaFeatures } from '../config/betaFeatures';
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -67,12 +68,13 @@ function macroStringsForPortion(per100: Macros, grams: number) {
 }
 
 export default function FoodEntryScreen() {
+  const [entryCompleted] = useState(() => startEntryTimer('food_entry_saved'));
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const mode = route.params?.mode || 'photo';
   const repeated = route.params?.meal as LoggedMeal | undefined;
   const { colors } = useTheme();
-  const styles = makeStyles(colors);
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const savingLock = useRef(false);
   const [saving, setSaving] = useState(false);
   const pendingMeal = useRef<LoggedMeal | null>(null);
@@ -290,7 +292,7 @@ export default function FoodEntryScreen() {
     savingLock.current = true; setSaving(true);
     pendingMeal.current ??= meal;
     try {
-      await add(pendingMeal.current);
+      await add(pendingMeal.current); entryCompleted();
       pendingMeal.current = null;
       setDescription('');
       setPreview(null);

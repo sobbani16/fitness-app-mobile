@@ -1,6 +1,14 @@
-# TestFlight preparation — release remains blocked
+# TestFlight beta release evidence
 
-Updated October 15, 2026 UTC. Local configuration only; no cloud build, signing credential creation, submission or Apple account change performed.
+Latest update October 17, 2026. Earlier dated sections below are historical checkpoints.
+
+## Latest approved build
+
+Mobile `ac80be6` and backend `d8c02a4` were pushed for the approved M1–M4 beta release. [EAS iOS build 7](https://expo.dev/accounts/sobbani16/projects/fitness-app-mobile/builds/6207b65d-51f6-4609-bf7d-787f4be2edd5) finished successfully using the `testflight` profile. No submission of build 7 to App Store Connect has been performed. Public release remains deferred. M5 changes are local and not in this build.
+
+Railway deployment `2860d9ab-87c3-45e3-850d-0cff3e1c25d1` succeeded at `d8c02a4`. Automatic pre-deploy migration execution did not apply the pending migrations. After a protected local database backup, `20261016160000_unknown_label_nutrients` and `20261016190000_workout_finish` were applied using Prisma migrate deploy; all 21 migrations are applied. `/health` returned HTTP 200. This is not signed-device acceptance. Automatic Railway migration configuration remains an open gate.
+
+## Historical preparation checkpoints
 
 ## Current scope and latest backend evidence
 
