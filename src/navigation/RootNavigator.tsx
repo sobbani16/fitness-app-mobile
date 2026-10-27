@@ -17,6 +17,8 @@ import ClientMealPlanScreen from '../screens/ClientMealPlanScreen';
 import LabelScannerScreen from '../screens/LabelScannerScreen';
 import PortionAdjustScreen from '../screens/PortionAdjustScreen';
 import FoodEntryScreen from '../screens/FoodEntryScreen';
+import SmartRemindersScreen from '../screens/SmartRemindersScreen';
+import ReminderInboxScreen from '../screens/ReminderInboxScreen';
 import { LoggedMeal } from '../storage/meals';
 import ChatScreen from '../screens/ChatScreen';
 import FeedbackScreen from '../screens/FeedbackScreen';
@@ -42,6 +44,8 @@ export type RootStackParamList = {
   ClientMealPlan: { clientId: string };
   LabelScanner: { mealType?: string; compareWith?: import('../api/labelScanner').LabelFacts };
   PortionAdjust: { extracted: any; photoUri: string | null; ocrRawText: string; mealType: string };
+  SmartReminders: undefined;
+  ReminderInbox: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -119,6 +123,16 @@ export default function RootNavigator() {
             name="LabelScanner"
             component={LabelScannerScreen}
             options={{ headerShown: true, title: 'Scan Label' }}
+          />
+          <Stack.Screen
+            name="SmartReminders"
+            component={SmartRemindersScreen}
+            options={{ headerShown: true, title: 'Smart reminders' }}
+          />
+          <Stack.Screen
+            name="ReminderInbox"
+            component={ReminderInboxScreen}
+            options={{ headerShown: true, title: 'Reminder history' }}
           />
           <Stack.Screen
             name="PortionAdjust"
