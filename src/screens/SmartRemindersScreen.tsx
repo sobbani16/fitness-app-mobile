@@ -89,7 +89,14 @@ export default function SmartRemindersScreen() {
       <Toggle label="Stop suggesting schedules" value={prefs.suggestionsMuted} onChange={v => void savePrefs({ suggestionsMuted: v })} hint="No more schedule suggestions until you turn this off." />
       <Toggle label="Weekly digest instead" value={prefs.weeklyDigest} onChange={v => void savePrefs({ weeklyDigest: v })} hint="Prefer one weekly summary over frequent nudges." />
       <Action secondary label={prefs.pausedUntil ? 'Resume reminders' : 'Pause for 1 hour'} onPress={() => void api.pauseReminders(prefs.pausedUntil ? null : 60).then(p => { setPrefs(p); return syncReminderSchedules(); }).catch(() => setError('Could not update pause.'))} />
-      {!!prefs.pausedUntil && <Copy tone="muted">Paused until {new Date(prefs.pausedUntil).toLocaleString()}.</Copy>}
+      <Copy size="caption" tone="muted">Pause modes (today)</Copy>
+      <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+        {([['vacation', 'Vacation'], ['rest_day', 'Rest day'], ['unwell', 'Feeling unwell'], ['custom', 'Custom']] as const).map(([reason, label]) => (
+          <Action secondary key={reason} label={label} selected={prefs.pauseReason === reason}
+            onPress={() => void api.pauseReminders(24 * 60, reason).then(p => { setPrefs(p); return syncReminderSchedules(); }).catch(() => setError('Could not pause.'))} />
+        ))}
+      </View>
+      {!!prefs.pausedUntil && <Copy tone="muted">Paused{ prefs.pauseReason ? ` (${prefs.pauseReason.replace('_', ' ')})` : ''} until {new Date(prefs.pausedUntil).toLocaleString()}. Schedules resume automatically.</Copy>}
     </Card>
 
     {!!suggestions.length && prefs.adaptiveEnabled && !prefs.suggestionsMuted && <Card>
@@ -131,6 +138,21 @@ export default function SmartRemindersScreen() {
             <Copy size="caption" tone="muted">Remind me before it starts</Copy>
             {[15, 30, 60].map(m => <Action secondary key={m} label={`${m} min before`} selected={(c.leadMinutes ?? 30) === m} onPress={() => void saveCategory(c.category, { leadMinutes: m })} />)}
           </>}
+        </>}
+        {c.category === 'supplement' && <>
+          <Copy size="caption" tone="muted">Habit stack — only after a confirmed logged meal</Copy>
+          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+            {([['meal:breakfast', 'After breakfast'], ['meal:lunch', 'After lunch'], ['meal:dinner', 'After dinner']] as const).map(([ev, label]) => (
+              <Action secondary key={ev} label={label} selected={c.triggerEvent === ev}
+                onPress={() => void saveCategory(c.category, { triggerEvent: c.triggerEvent === ev ? null : ev, triggerDelay: 15 })} />
+            ))}
+            {!!c.triggerEvent && <Action secondary label="Off" onPress={() => void saveCategory(c.category, { triggerEvent: null })} />}
+          </View>
+        </>}
+        {(c.category === 'water' || c.category === 'meal:snack') && <>
+          <Copy size="caption" tone="muted">Habit stack — after a finished workout</Copy>
+          <Action secondary label="After workout" selected={c.triggerEvent === 'workout:completed'}
+            onPress={() => void saveCategory(c.category, { triggerEvent: c.triggerEvent === 'workout:completed' ? null : 'workout:completed', triggerDelay: 15 })} />
         </>}
         <Copy size="caption" tone="muted">Days</Copy>
         <View style={{ flexDirection: 'row', gap: 8 }}>

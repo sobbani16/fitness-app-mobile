@@ -9,6 +9,7 @@ export interface ReminderPreferences {
   dailyCap: number;
   snoozeMinutes: number;
   pausedUntil: string | null;
+  pauseReason: string | null;
   weeklyDigest: boolean;
   timezone: string | null;
   timezoneLocked: boolean;
@@ -23,6 +24,8 @@ export interface ReminderCategorySetting {
   leadMinutes: number | null;
   wakingStart: string | null;
   wakingEnd: string | null;
+  triggerEvent: string | null;
+  triggerDelay: number | null;
   source: string;
 }
 
@@ -52,7 +55,7 @@ export type ReminderAction = 'snooze' | 'skip' | 'complete' | 'dismiss';
 
 export const getReminderPreferences = () => api.get<{ preferences: ReminderPreferences }>('/reminders/preferences').then(r => r.data.preferences);
 export const updateReminderPreferences = (patch: Partial<ReminderPreferences>) => api.put<{ preferences: ReminderPreferences }>('/reminders/preferences', patch).then(r => r.data.preferences);
-export const pauseReminders = (minutes: number | null) => api.post('/reminders/preferences/pause', { minutes }).then(r => r.data.preferences);
+export const pauseReminders = (minutes: number | null, reason?: string | null) => api.post('/reminders/preferences/pause', { minutes, reason }).then(r => r.data.preferences);
 export const revokeAdaptive = () => api.post('/reminders/preferences/revoke-adaptive').then(r => r.data);
 export const resetLearning = () => api.post('/reminders/preferences/reset-learning').then(r => r.data);
 export const muteSuggestions = () => api.post('/reminders/preferences/mute-suggestions').then(r => r.data);

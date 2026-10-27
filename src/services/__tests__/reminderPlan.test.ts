@@ -7,12 +7,12 @@ const NOW = new Date(2026, 9, 27, 12, 0, 0);
 const prefs: ReminderPreferences = {
   masterEnabled: true, adaptiveEnabled: true, suggestionsMuted: false,
   quietStart: '22:00', quietEnd: '07:00', dailyCap: 3, snoozeMinutes: 30,
-  pausedUntil: null, weeklyDigest: false, timezone: null, timezoneLocked: false,
+  pausedUntil: null, pauseReason: null, weeklyDigest: false, timezone: null, timezoneLocked: false,
 };
 
 const meal = (over: Partial<ReminderCategorySetting> = {}): ReminderCategorySetting => ({
   category: 'meal:lunch', enabled: true, times: ['12:30'], daysOfWeek: null,
-  intervalMinutes: null, leadMinutes: null, wakingStart: null, wakingEnd: null, source: 'manual', ...over,
+  intervalMinutes: null, leadMinutes: null, wakingStart: null, wakingEnd: null, triggerEvent: null, triggerDelay: null, source: 'manual', ...over,
 });
 
 const ctx = (over = {}) => ({ now: NOW, lastWaterAt: null as Date | null, mealsLoggedToday: new Set<string>(), supplementsEnabled: true, ...over });
@@ -81,5 +81,46 @@ describe('planNotifications', () => {
     const water: ReminderCategorySetting = { ...meal(), category: 'water', times: [], intervalMinutes: 60, wakingStart: '08:00', wakingEnd: '21:00' };
     const last = new Date(NOW.getTime() - 30 * 60000); // fires 12:30 — inside waking window
     expect(planNotifications(prefs, [water], ctx({ lastWaterAt: last }))).toHaveLength(1);
+  });
+});
+
+describe('budget, conflicts and copy', () => {
+  const waterSetting: ReminderCategorySetting = { category: 'water', enabled: true, times: [], daysOfWeek: null, intervalMinutes: 60, leadMinutes: null, wakingStart: null, wakingEnd: null, source: 'manual', triggerEvent: null, triggerDelay: null };
+
+  it('caps optional reminders per day without touching manual schedules', () => {
+    const adaptiveMeal: ReminderCategorySetting = { ...waterSetting, category: 'meal:lunch', times: ['09:00', '11:00', '13:00', '15:00', '17:00'], source: 'adaptive' };
+    const manual: ReminderCategorySetting = { ...waterSetting, category: 'meal:dinner', times: ['19:00', '20:00'] };
+    const plan = planNotifications({ ...prefs, dailyCap: 2 }, [adaptiveMeal, manual], ctx());
+    const todayOptional = plan.filter(p => p.optional && p.fireAt.toDateString() === NOW.toDateString());
+    const manualToday = plan.filter(p => !p.optional && p.fireAt.toDateString() === NOW.toDateString());
+    expect(todayOptional.length).toBeLessThanOrEqual(2);
+    expect(manualToday.length).toBe(2); // manual schedules are exempt from the cap
+  });
+  it('merges compatible same-slot reminders into one', () => {
+    const lunch = { identifier: 'a', category: 'meal:lunch', title: 'Lunch', body: '', fireAt: new Date(2026, 9, 27, 12, 30), deepLink: 'LogMeal' };
+    const supp = { identifier: 'b', category: 'supplement', title: 'Supplement', body: '', fireAt: new Date(2026, 9, 27, 12, 32), deepLink: 'Dashboard' };
+    const merged = require('../reminderPlan').resolveConflicts([lunch, supp], NOW);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].category).toBe('bundle:meal:lunch+supplement');
+    expect(merged[0].merged).toEqual(['meal:lunch', 'supplement']);
+  });
+  it('defers an optional reminder overlapping a manual one in both orders', () => {
+    const opt = { identifier: 'w', category: 'water', title: 'Water', body: '', fireAt: new Date(2026, 9, 27, 12, 25), deepLink: 'Dashboard', optional: true };
+    const manual = { identifier: 'm', category: 'meal:lunch', title: 'Lunch', body: '', fireAt: new Date(2026, 9, 27, 12, 30), deepLink: 'LogMeal' };
+    const { resolveConflicts } = require('../reminderPlan');
+    const plan = resolveConflicts([opt, manual], NOW);
+    expect(plan).toHaveLength(2);
+    const w = plan.find((p: any) => p.category === 'water');
+    expect(w.identifier).toContain('deferred');
+    expect(w.fireAt.getTime()).toBe(manual.fireAt.getTime() + 15 * 60000);
+  });
+  it('localized copy falls back to en and formats 12/24h', () => {
+    const { reminderTitle, formatReminderTime, resolveLocale } = require('../reminderCopy');
+    expect(reminderTitle('meal:lunch')).toBe('Time for lunch?');
+    expect(reminderTitle('meal:lunch', 'es')).toBe('¿Hora de comer?');
+    expect(reminderTitle('meal:lunch', 'fr')).toBe('Time for lunch?');
+    expect(resolveLocale('es-MX')).toBe('es');
+    expect(formatReminderTime(new Date(2026, 9, 27, 18, 30), 'en-US', true)).toContain('6:30');
+    expect(formatReminderTime(new Date(2026, 9, 27, 18, 30), 'en-US', false)).toContain('18:30');
   });
 });

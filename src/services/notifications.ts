@@ -71,6 +71,9 @@ export async function applyPlan(plan: PlannedNotification[]) {
         body: p.body,
         categoryIdentifier: CATEGORY_PREFIX + p.category,
         data: { category: p.category, deepLink: p.deepLink, identifier: p.identifier },
+        // Optional reminders stay low-interruption; nothing here is urgent enough
+        // for time-sensitive delivery.
+        interruptionLevel: p.optional ? 'passive' : 'active',
         ...(Platform.OS === 'android' ? { channelId: CHANNEL_ID } : {}),
       },
       trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: p.fireAt },

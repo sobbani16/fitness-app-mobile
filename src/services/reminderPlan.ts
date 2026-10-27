@@ -7,6 +7,8 @@ export interface PlannedNotification {
   body: string;
   fireAt: Date;
   deepLink: string;
+  optional?: boolean; // counts against the daily nonessential budget
+  merged?: string[];
 }
 
 const TITLES: Record<string, string> = {
@@ -29,6 +31,9 @@ const DEEP_LINKS: Record<string, string> = {
 const HHMM = /^([01]?\d|2[0-3]):([0-5]\d)$/;
 const HORIZON_DAYS = 14;
 const MAX_PER_CATEGORY = 20;
+const CONFLICT_WINDOW_MS = 10 * 60000;
+const OPTIONAL_DEFER_MS = 15 * 60000;
+const MERGEABLE = /^(meal:|supplement)/;
 
 // Quiet check: explicit waking bounds mean "only allowed inside" — implemented
 // by treating the complement as the quiet range.
@@ -86,7 +91,7 @@ export function planNotifications(
       const fire = new Date(ctx.lastWaterAt.getTime() + interval);
       if (fire <= ctx.now) continue; // backend tick handles the overdue gap
       if (isQuiet(fire.getHours() * 60 + fire.getMinutes(), s, prefs)) continue;
-      out.push({ identifier: `water|${ctx.lastWaterAt.toISOString()}`, category: cat, title: TITLES.water, body: `It's been ${s.intervalMinutes ?? 120} min since your last water log.`, fireAt: fire, deepLink: DEEP_LINKS.water });
+      out.push({ identifier: `water|${ctx.lastWaterAt.toISOString()}`, category: cat, title: TITLES.water, body: `It's been ${s.intervalMinutes ?? 120} min since your last water log.`, fireAt: fire, deepLink: DEEP_LINKS.water, optional: true });
       continue;
     }
 
@@ -103,9 +108,51 @@ export function planNotifications(
         if (cat.startsWith('meal:') && at.getDate() === ctx.now.getDate() && ctx.mealsLoggedToday.has(cat.split(':')[1])) continue;
         if (cat === 'workout' && at.getDate() === ctx.now.getDate() && ctx.mealsLoggedToday.has('workout')) continue;
         const slot = `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, '0')}-${String(at.getDate()).padStart(2, '0')}@${t}`;
-        out.push({ identifier: `${cat}|${slot}`, category: cat, title: TITLES[cat] || 'Reminder', body: cat === 'workout' ? `Your workout starts at ${t}.` : '', fireAt: at, deepLink: DEEP_LINKS[cat] || 'Dashboard' });
+        out.push({ identifier: `${cat}|${slot}`, category: cat, title: TITLES[cat] || 'Reminder', body: cat === 'workout' ? `Your workout starts at ${t}.` : '', fireAt: at, deepLink: DEEP_LINKS[cat] || 'Dashboard', optional: s.source === 'adaptive' });
       }
     }
   }
-  return out;
+  return enforceBudget(resolveConflicts(out, ctx.now), prefs, ctx.now);
+}
+
+// Compatible same-slot reminders merge; lower-priority optional ones defer —
+// never completed or dropped silently.
+export function resolveConflicts(plan: PlannedNotification[], now: Date): PlannedNotification[] {
+  const sorted = [...plan].sort((a, b) => a.fireAt.getTime() - b.fireAt.getTime() || Number(a.optional) - Number(b.optional));
+  const kept: PlannedNotification[] = [];
+  for (const p of sorted) {
+    const clash = kept.find(k => Math.abs(k.fireAt.getTime() - p.fireAt.getTime()) <= CONFLICT_WINDOW_MS);
+    if (!clash) { kept.push(p); continue; }
+    if (MERGEABLE.test(clash.category) && MERGEABLE.test(p.category) && Boolean(clash.optional) === Boolean(p.optional)) {
+      const cats = [...new Set([...(clash.merged || [clash.category]), p.category])].sort();
+      clash.category = `bundle:${cats.join('+')}`;
+      clash.identifier = `bundle|${cats.join('+')}|${clash.fireAt.toISOString()}`;
+      clash.merged = cats;
+      clash.title = `Reminder: ${cats.map(c => c.split(':').pop()).join(' and ')}`;
+      clash.body = 'These reminders line up, so they arrive together.';
+    } else if (p.optional && !clash.optional) {
+      kept.push({ ...p, identifier: `${p.identifier}|deferred`, fireAt: new Date(clash.fireAt.getTime() + OPTIONAL_DEFER_MS) });
+    } else if (clash.optional && !p.optional) {
+      // Incoming user-scheduled reminder wins the slot; defer the optional one.
+      clash.identifier = `${clash.identifier}|deferred`;
+      clash.fireAt = new Date(p.fireAt.getTime() + OPTIONAL_DEFER_MS);
+      kept.push(p);
+    } else {
+      kept.push(p);
+    }
+  }
+  return kept;
+}
+
+// Optional (adaptive/interval) reminders are capped per local day; explicit
+// user-scheduled times are exempt.
+export function enforceBudget(plan: PlannedNotification[], prefs: ReminderPreferences, now: Date): PlannedNotification[] {
+  const cap = prefs.dailyCap ?? 3;
+  const counts: Record<string, number> = {};
+  return plan.filter(p => {
+    if (!p.optional) return true;
+    const day = p.fireAt.toDateString();
+    counts[day] = (counts[day] || 0) + 1;
+    return counts[day] <= cap;
+  });
 }
