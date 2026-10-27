@@ -20,6 +20,9 @@ export default function LabelScannerScreen() {
   const lock = useRef(false);
   const [photo, setPhoto] = useState<string | null>(null);
   const [text, setText] = useState('');
+  const [panel, setPanel] = useState<'nutrition' | 'ingredients' | 'allergens' | 'claims'>('nutrition');
+  const [panels, setPanels] = useState<Record<string, string>>({});
+  const [photos, setPhotos] = useState<Record<string, string>>({});
   const [manual, setManual] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -27,7 +30,10 @@ export default function LabelScannerScreen() {
   useEffect(() => { if (!focused) generation.current++; }, [focused]);
   function review(extracted: unknown = null) {
     trackEvent('label_review_opened');
-    navigation.navigate('PortionAdjust', { extracted, photoUri: photo, ocrRawText: text, mealType: route.params?.mealType || 'lunch' });
+    const collected = { ...panels, [panel]: text };
+    const nutrition = collected.nutrition || '';
+    const result = extracted ? { ...(extracted as object), ...(collected.ingredients ? { ingredients: collected.ingredients.replace(/^ingredients\s*:\s*/i, '') } : {}) } : collected.ingredients ? { ingredients: collected.ingredients.replace(/^ingredients\s*:\s*/i, '') } : null;
+    (route.params?.compareWith ? navigation.push : navigation.navigate)('PortionAdjust', { compareWith: route.params?.compareWith, extracted: result, photoUri: photos.nutrition || (panel === 'nutrition' ? photo : null), labelPhotos: { ...photos, ...(photo ? { [panel]: photo } : {}) }, allergenText: collected.allergens || '', claimText: collected.claims || '', ocrRawText: nutrition, mealType: route.params?.mealType || 'lunch' });
   }
   async function capture() {
     if (lock.current || !camera.current) return;
@@ -47,11 +53,12 @@ export default function LabelScannerScreen() {
     finally { lock.current = false; setBusy(false); }
   }
   async function extract() {
-    if (lock.current || !text.trim()) return;
+    const nutritionText = panel === 'nutrition' ? text : panels.nutrition || '';
+    if (lock.current || !nutritionText.trim()) return;
     lock.current = true; setBusy(true); setError('');
     const request = ++generation.current, account = getSession()?.user.id;
     try {
-      const result = await extractFromOcrText(text);
+      const result = await extractFromOcrText(nutritionText);
       if (request === generation.current && account === getSession()?.user.id) review(result);
     } catch { if (request === generation.current) setError('Nutrition extraction is unavailable. Your text is kept; retry or enter nutrition manually.'); }
     finally { lock.current = false; setBusy(false); }
@@ -59,13 +66,20 @@ export default function LabelScannerScreen() {
   return <KeyboardAwareScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, gap: 16 }}>
     <Copy accessibilityRole="header" size="heading">Scan a nutrition label</Copy>
     <Copy tone="muted">Capture one nutrition column clearly. Text recognition runs on your device; extracting nutrition sends the reviewed text to the server and may use AI.</Copy>
+    <Copy>Capture each side separately. Only the nutrition panel is sent for nutrition extraction; review the other panels as exact label text.</Copy>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{(['nutrition', 'ingredients', 'allergens', 'claims'] as const).map(value => <Action secondary key={value} label={`Panel: ${value}`} disabled={busy} selected={panel === value} onPress={() => {
+      if (value === panel) return;
+      setPanels(previous => ({ ...previous, [panel]: text }));
+      if (photo) setPhotos(previous => ({ ...previous, [panel]: photo }));
+      setText(panels[value] || ''); setPhoto(photos[value] || null); setPanel(value); setManual(false); setError('');
+    }} />)}</View>
     {error !== '' && <Notice error title="Let’s try another way" message={error} />}
     {busy && <Skeleton label={photo ? 'Reading label' : 'Preparing camera'} />}
     {photo || manual ? <Card>
       {photo && <Image accessibilityLabel="Captured label" source={{ uri: photo }} style={{ width: '100%', height: 240 }} resizeMode="contain" />}
       <Field maxLength={20000} label="Label text — review and correct" value={text} multiline editable={!busy} style={{ minHeight: 150, textAlignVertical: 'top' }} onChangeText={setText} />
-      <Action label="Extract nutrition for review" disabled={busy || !text.trim()} onPress={() => { void extract(); }} />
-      <Action secondary label="Retake label" disabled={busy} onPress={() => { generation.current++; setPhoto(null); setText(''); setManual(false); setError(''); }} />
+      <Action label="Extract nutrition for review" disabled={busy || !(panel === 'nutrition' ? text : panels.nutrition || '').trim()} onPress={() => { void extract(); }} />
+      <Action secondary label="Retake label" disabled={busy} onPress={() => { generation.current++; setPhoto(null); setPhotos(previous => ({ ...previous, [panel]: '' })); setText(''); setPanels(previous => ({ ...previous, [panel]: '' })); setManual(false); setError(''); }} />
     </Card> : permission?.granted ? <>
       {focused && <CameraView ref={camera} facing="back" style={{ height: 300, borderRadius: 20 }} />}
       <Action label="Capture nutrition label" disabled={busy} onPress={() => { void capture(); }} />

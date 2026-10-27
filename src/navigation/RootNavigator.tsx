@@ -25,7 +25,7 @@ import MainTabs from './MainTabs';
 import { useProfile } from '../context/ProfileContext';
 
 export type RootStackParamList = {
-  LeoHelp: undefined;
+  LeoHelp: { labelAnalysis?: import('../api/labelScanner').LabelAnalysis } | undefined;
   Feedback: { source?: string };
   Onboarding: undefined;
   Main: undefined;
@@ -40,7 +40,7 @@ export type RootStackParamList = {
   TrainerDropForm: { clientId: string };
   ClientDropSurvey: undefined;
   ClientMealPlan: { clientId: string };
-  LabelScanner: { mealType?: string };
+  LabelScanner: { mealType?: string; compareWith?: import('../api/labelScanner').LabelFacts };
   PortionAdjust: { extracted: any; photoUri: string | null; ocrRawText: string; mealType: string };
 };
 

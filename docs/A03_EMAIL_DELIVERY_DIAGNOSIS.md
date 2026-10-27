@@ -47,3 +47,18 @@ Owner screenshots show the registrar warning that its DNS edits are inactive whi
 Authoritative DNS now publishes a TXT record at `resend._domainkey.prashanthsobbani.com` and both expected CNAMEs: `rsend` → `rsend.forge.rmta.net`, `send` → `send.forge.rmta.net`. These CNAMEs match the owner's Resend screenshot and supersede the earlier default MX/SPF assumption. The full DKIM value has not been compared with Resend's truncated screenshot; provider Verified status remains to be confirmed.
 
 No new verification job exists since October 17 15:16 UTC; that job exhausted all five attempts before the DNS correction and has no provider acceptance. Once Resend confirms Verified, the user must request a fresh verification email through the existing app flow. This check sent no messages and changed no remote data.
+
+## Partial-verification follow-up — October 18, 2026
+
+Owner's Resend screenshot shows DKIM and `send` Verified, but `rsend` Failed. Read-only checks against all four authoritative NS1 servers and Cloudflare/Google resolvers return the exact expected CNAME `rsend.prashanthsobbani.com → rsend.forge.rmta.net`. Its target resolves to the us-east-1 SES feedback MX and SPF TXT. No current DNS mismatch was found for the failed record. A stale verification result or provider-side validation issue is possible, not proven. Restart the failed verification in Resend; if it still fails, inspect the specific verification event or contact Resend with the matching DNS evidence. No record deletion/recreation, provider mutation or email send performed.
+
+
+## October 19 follow-up: provider acceptance now succeeds
+
+Read-only Railway log and queue inspection found three verification actions created October 19 at 02:23:01, 02:24:01 and 02:24:05 UTC (October 18, 10:23–10:24 PM Eastern). Each completed its first send attempt and recorded provider acceptance within seconds. None had been consumed at inspection. Older October 16–17 failed jobs remain distinct and expired.
+
+The deployed sender is `Humai Fitness <accounts@prashanthsobbani.com>`. `/auth/resend-verification` returned 202. This evidence does not prove mailbox delivery or identify these requests as the user's exact account without recipient correlation. The `deliveredAt` field means Resend API acceptance only.
+
+Read-only Resend `/emails` lookup returned HTTP 401 with `restricted_api_key`: “This API key is restricted to only send emails.” The key is intentionally send-only, not demonstrated invalid. Final delivery/bounce/suppression status must be inspected through the owner's Resend Emails dashboard. Do not broaden the server key simply for diagnosis. No new emails were sent, queue entries retried or provider settings changed by this check.
+
+A separate deployed `trust proxy`/X-Forwarded-For warning was found. It belongs to D02/D05 and does not explain these three accepted sends.

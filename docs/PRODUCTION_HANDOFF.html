@@ -8,7 +8,9 @@
 <div class="controls"><label>Search tracked items<input id="search" type="search" placeholder="Feature, ID, evidence…"></label><label>Priority<select id="priority"><option value="">All priorities</option><option>P0</option><option>P1</option></select></label><label>Status<select id="status"><option value="">All statuses</option></select></label><button id="reset">Reset</button><button id="print">Print / save PDF</button></div>
 <p class="note" id="freshness">Standalone snapshot. To refresh from Markdown, run <code>python3 scripts/handoff.py</code>. For automatic updates, run <code>python3 scripts/handoff.py --serve</code> and open <a href="http://127.0.0.1:8765/docs/PRODUCTION_HANDOFF.html">the live view</a>.</p><p id="results" class="note" aria-live="polite"></p><p id="empty" class="empty" hidden>No tracked items match. Reset the filters to see all items.</p>
 <h1 id="section-0">Production feature status and handoff</h1>
-<p><strong>Status date: October 17, 2026 (mobile UX milestones 1–6, C09 admin provisioning and beta build 7; earlier feature/API evidence retains its recorded dates)</strong><br><strong>Scope:</strong> fitness-app-mobile and fitness-app-backend  <br><strong>Overall decision: NOT READY for public production deployment.</strong> Public App Store release has not been performed; the existing Railway backend serves the TestFlight beta. This document summarizes the implementation and verification from the readiness work; A03 implementation was added October 13; A04–A05, N04 and N08–N09 were updated October 14 with automated verification. Latest M6 regression: 196 mobile tests across 45 suites, TypeScript and Android/iOS Hermes exports passed October 17. Latest C09 backend regression: 266 tests across 31 suites plus dedicated real PostgreSQL/HTTP administrator provisioning checks. Earlier M4 progress/profile integrity evidence retains its date. The earlier 37 authenticated PostgreSQL integration tests were not rerun for this milestone. N08–N09 live AI acceptance remains blocked by the absent server key. Signed-device acceptance and remaining feature evidence have not been renewed.</p>
+<p><strong>Nutrient Intelligence Phase 3 - October 27, 2026 (local only):</strong> Added evidence-linked nutrient rules and extended existing ingredient rules with clinical review metadata. Serving-aware evaluator exposes approved rules only, preserves unknowns and reports clinical-context gaps/conflicts. Fourteen conditions, twelve source references and seventeen draft rules seeded locally; zero approved rules. PCOS has no universal nutrient restriction encoded. 443 tests / 42 suites and PostgreSQL checks passed. Clinical activation and legacy safety consumer migration remain pending review. <a href="NUTRIENT_INTELLIGENCE_PHASE_3.md">Schema, commands, tests and review boundaries</a>.</p>
+<p><strong>Nutrient Intelligence Phase 2 - October 27, 2026 (local only):</strong> Processed all 3,022 ingredients; populated 142 USDA source-confirmed profiles. 13 matches require review and 2,867 remain pending. Resuming imported zero duplicates; all existing ingredient records and profile timestamps were preserved. 409 backend tests / 41 suites and PostgreSQL checks passed. Hosted data unchanged. <a href="NUTRIENT_INTELLIGENCE_PHASE_2.md">Commands, coverage and remaining inputs</a>.</p>
+<p><strong>Status date: October 18, 2026 (C10 audit/admin safeguards and D03 deployment readiness; earlier feature/API evidence retains its recorded dates)</strong><br><strong>Scope:</strong> fitness-app-mobile and fitness-app-backend  <br><strong>Overall decision: NOT READY for public production deployment.</strong> Public App Store release has not been performed; the existing Railway backend serves the TestFlight beta. This document summarizes the implementation and verification from the readiness work; A03 implementation was added October 13; A04–A05, N04 and N08–N09 were updated October 14 with automated verification. Latest M6 regression: 196 mobile tests across 45 suites, TypeScript and Android/iOS Hermes exports passed October 17. Latest C10 backend regression: 289 tests across 33 suites, 37 authentication/account integration tests, and dedicated PostgreSQL/HTTP administrator/coaching checks. Earlier C09 provisioning evidence retains its date. Earlier M4 progress/profile integrity evidence retains its date. The 37 authenticated PostgreSQL integration tests were rerun successfully for C10 on October 18. N08–N09 live AI acceptance remains blocked by the absent server key. Signed-device acceptance and remaining feature evidence have not been renewed.</p>
 <p><strong>TestFlight-only update — October 15, 2026, 02:48 UTC:</strong> Owner confirmed beta distribution only; public App Store release is deferred. Corrected backend <code>https://fitness-app-backend-production-c5d4.up.railway.app/health</code> returned HTTP 200 with <code>status: ok</code>. Preview/production build settings now use this URL; the <code>testflight</code> profile inherits it. Earlier 404 checks were for the superseded domain. Health success does not verify authentication, database persistence or device flows. Privacy-policy URL is now configured; content corrections remain outstanding (see latest update below). No cloud build, signing credentials or submission performed. <a href="TESTFLIGHT_RELEASE.md">Configuration and remaining gates</a>. Earlier feature test counts are historical, not rerun by this configuration update.</p>
 <p><strong>Privacy-policy update — October 15, 2026 UTC:</strong> Public GitHub Pages policy returned HTTP 200 and is configured for TestFlight. Local TestFlight release configuration check passed. Policy still contains pre-publication placeholders and mismatches involving HealthKit, microphone access, account deletion and beta AI availability; content review remains blocked. See <a href="TESTFLIGHT_RELEASE.md">release notes</a>. No cloud build or submission initiated.</p>
 <p><strong>Policy revision recheck — October 15, 2026 UTC:</strong> Published corrections are live: draft placeholders removed; HealthKit/microphone disabled and deletion implementation accurately qualified. Remaining alignment: distinguish available on-device label OCR/posture processing from disabled server AI; match policy age eligibility to adult-only onboarding. <a href="TESTFLIGHT_RELEASE.md">Details</a>. TestFlight only; no build/submission performed.</p>
@@ -52,6 +54,8 @@
 <td>Required capability is not implemented or has not been established.</td>
 </tr>
 </tbody></table></div>
+<p><strong>Label Truth — October 27, 2026 (local only):</strong> Existing scanner now separates photo panels and adds reviewed, versioned evidence cards, neutral ingredient/additive explanations, bounded India/U.S. sugar-free checks, opt-in goal/diabetes context, equal-quantity label comparison and Leo guide cards. Server recomputes snapshots on save; existing food logs/catalog are preserved. Backend: 366 tests / 38 suites passed. Mobile: 203 tests / 47 suites and TypeScript passed. Local PostgreSQL/HTTP integrity checks passed. No production data changes or builds. <a href="LABEL_TRUTH.md">Scope, sources, tests and files</a>.</p>
+<p><strong>Nutrient Intelligence Phase 1 — October 27, 2026 (local only):</strong> Additive Nutrient/profile/composition tables preserve existing ingredients and separate preparation/source records. Idempotent 27-definition seed and offline decimal-normalizing importer protect verified data and report ambiguous matches. 387 backend tests / 39 suites and local PostgreSQL compatibility checks passed. No health-condition rules, consumer cutover or production writes. <a href="NUTRIENT_INTELLIGENCE_PHASE_1.md">Schema, commands, import contract and assumptions</a>.</p>
 <p><strong>No feature is labeled production-approved.</strong> Passing a unit test, HTTP request or native build does not establish complete end-to-end correctness. Priority P0 means resolve before public launch; P1 means resolve before enabling the affected feature, or explicitly defer and disable it.</p>
 <p><strong>Approved beta release result — October 17, 2026:</strong> Mobile <code>ac80be6</code> and backend <code>d8c02a4</code> pushed. EAS iOS build 7 <a href="https://expo.dev/accounts/sobbani16/projects/fitness-app-mobile/builds/6207b65d-51f6-4609-bf7d-787f4be2edd5">finished successfully</a>; no App Store Connect submission performed. Railway deployment succeeded. After a protected database backup, migrations <code>20261016160000_unknown_label_nutrients</code> and <code>20261016190000_workout_finish</code> were manually applied (all 21 applied); health returned 200. Railway automatic migration execution remains an open gate. Build 7 contains M1–M4, not M5.</p>
 <p><strong>UX milestone 5 — October 17, 2026:</strong> Local Leo guide, explicit AI context opt-in in enabled builds, account/device dashboard-card choices and reviewed email feedback with optional flattened screenshot redaction. Beta AI remains disabled. 185 mobile tests/42 suites, TypeScript, release check and both platform Hermes exports passed; lint zero errors/30 existing warnings. New native dependencies require a later build and device acceptance; live AI remains unverified. M5 is not pushed or included in build 7. <a href="UX_MILESTONE_5.md">Changes and limitations</a>. Milestone 6 was subsequently approved; see its update below.</p>
@@ -84,7 +88,7 @@
 <td>Password recovery and email verification</td>
 <td><span class="badge blocked">BLOCKED — external email sender</span></td>
 <td>Resend queue, hosted link pages, mobile recovery/verification gate, expiring single-use links, shared rate limits and reset session revocation. 13 real-database auth tests; 219 backend and 67 mobile tests passed. <a href="A03_AUTH_LIFECYCLE.md">Setup and evidence</a>.</td>
-<td>New accounts@prashanthsobbani.com sender deployed, but its latest job exhausted five attempts with no acceptance. October 18 authoritative DNS now has DKIM TXT and both exact sending CNAMEs. Confirm Resend Verified status, request a fresh verification email, and validate actual inbox delivery. <a href="A03_EMAIL_DELIVERY_DIAGNOSIS.md">Diagnosis</a>.</td>
+<td>New accounts@prashanthsobbani.com sender deployed, but its latest job exhausted five attempts with no acceptance. October 18 authoritative DNS now has DKIM TXT and both exact sending CNAMEs. Resend screenshot shows DKIM/send Verified but rsend Failed; all four authoritative servers plus Google/Cloudflare return the expected rsend CNAME. Restart failed provider verification, inspect its error if persistent, then request fresh verification and confirm inbox delivery. <a href="A03_EMAIL_DELIVERY_DIAGNOSIS.md">Diagnosis</a>.</td>
 <td>P0</td>
 </tr>
 <tr class="tracked" data-priority="P0" data-status="IMPLEMENTED">
@@ -162,12 +166,12 @@
 <td>Run signed Android/iOS reinstall and two-device acceptance; see <a href="N04_MEAL_HISTORY.md">N04 validation</a>.</td>
 <td>P1</td>
 </tr>
-<tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
+<tr class="tracked" data-priority="P1" data-status="DEPLOYED">
 <td>N05</td>
-<td>USDA ingredient search and caching</td>
-<td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
-<td>Existing provider integration retained; M2 adds separate search, themed loading/empty/error states and stale-response protection.</td>
-<td>Verify live quotas, attribution and signed-device search; provider acceptance not renewed by mocked UI tests.</td>
+<td>Central ingredient catalog, search and USDA fallback</td>
+<td><span class="badge partial">DEPLOYED — signed-device acceptance pending</span></td>
+<td>v5 supports 2,893 stable IDs with verification labels, source/serving metadata, aliases, favorites, shared calculations and historical snapshots; isolated upgrade preserves all 684 old IDs. Approved hosted upgrade now contains all 2,893 catalog rows.</td>
+<td>Validate authenticated signed iOS/Android search and logging; new mobile controls need a later app build. Source licensing and live USDA quota acceptance remain open. <a href="INGREDIENT_CATALOG_V5.md">Evidence and commands</a>.</td>
 <td>P1</td>
 </tr>
 <tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
@@ -212,10 +216,10 @@
 </tr>
 <tr class="tracked" data-priority="P1" data-status="IMPLEMENTED">
 <td>N11</td>
-<td>Editable label text, nutrition parsing and portion adjustment</td>
+<td>Editable label text, nutrition parsing, portion adjustment and Label Truth</td>
 <td><span class="badge pending">IMPLEMENTED — acceptance pending</span></td>
-<td>Explicit g/ml/serving/package review; unknown nutrients retained; decimal rounding tested; atomic label+meal save deduplicates eight concurrent requests in local PostgreSQL. <a href="UX_MILESTONE_2.md">M2 evidence</a>.</td>
-<td>Deploy nullable-nutrient migration/backend before new app. Verify actual labels, volume mass input, multi-column correction, process death and signed iOS/Android UX.</td>
+<td>Multi-panel capture/review, evidence-linked versioned insights, bounded claim checks, opt-in personalization and equal-quantity comparison; local PostgreSQL snapshots/retry checks pass. <a href="LABEL_TRUTH.md">Evidence and limits</a>.</td>
+<td>Approve deployment/build; verify real labels on signed iOS/Android. Other marketing claims remain explicitly unassessed; no automatic branded recommendations.</td>
 <td>P1</td>
 </tr>
 <tr class="tracked" data-priority="P1" data-status="BLOCKED">
@@ -472,12 +476,12 @@
 <td>Deploy command and rehearse independent operator/reviewer process; no real admin has been provisioned. No public bootstrap endpoint or default credentials. <a href="C09_ADMIN_PROVISIONING.md">Runbook and evidence</a>.</td>
 <td>P0</td>
 </tr>
-<tr class="tracked" data-priority="P0" data-status="PARTIAL">
+<tr class="tracked" data-priority="P0" data-status="IMPLEMENTED">
 <td>C10</td>
 <td>Audit logs and operational administration</td>
-<td><span class="badge partial">PARTIAL</span></td>
-<td>Audit-log endpoints exercised.</td>
-<td>Review event coverage, retention, access and management workflow.</td>
+<td><span class="badge pending">IMPLEMENTED — deployment acceptance pending</span></td>
+<td>Atomic administrator and all current coaching writes/audits; permission safeguards, bounded queries, metadata-only snapshots and 30-day retention. PostgreSQL checks cover rollback, concurrency, session revocation and 12 coaching scenarios.</td>
+<td>Deploy and rehearse operator workflow/retention; confirm backup expiry. Backend-only changes serve Android and iOS. <a href="C10_AUDIT_ADMINISTRATION.md">Coverage, runbook and evidence</a>.</td>
 <td>P0</td>
 </tr>
 </tbody></table></div>
@@ -498,18 +502,18 @@
 <td>Server-only secrets, HTTPS mobile API URL, intended CORS origins and verified proxy settings. USDA/Spoonacular keys found locally; OpenAI key missing.</td>
 <td>P0</td>
 </tr>
-<tr class="tracked" data-priority="P0" data-status="BETA MIGRATED">
+<tr class="tracked" data-priority="P0" data-status="HARDENED">
 <td>D03</td>
 <td>Schema migrations and seed data</td>
-<td><span class="badge partial">BETA MIGRATED — automation pending</span></td>
-<td>All 21 migrations applied to the beta database during the approved build-7 release after backup; M2/M3 migrations were applied manually. Automatic Railway migration execution remains unverified/ineffective. C09 dedicated local migration/integrity checks also pass. Rehearse rollback and fix automatic migration configuration.</td>
+<td><span class="badge partial">HARDENED — hosted acceptance pending</span></td>
+<td>Pre-deploy preparation now verifies migration checksums and required RBAC; production startup refuses incomplete deployment. Railway targets <code>/health/ready</code>; RBAC seeding is atomic. Fresh local 21-migration/repeat-seed, failure/readiness and separate-database restore checks passed. Confirm resolved Railway hook/config execution; historical-binary rollback remains unverified. <a href="D03_DEPLOYMENT_READINESS.md">Runbook</a>.</td>
 <td>P0</td>
 </tr>
 <tr class="tracked" data-priority="P0" data-status="OPEN">
 <td>D04</td>
 <td>Dependency security</td>
-<td><span class="badge partial">OPEN</span></td>
-<td>Snapshot: backend 3 high/1 moderate; mobile 28 high/14 moderate; no critical advisories. Refresh audit, assess reachability and resolve or formally review exceptions.</td>
+<td><span class="badge partial">OPEN — compatible fixes applied</span></td>
+<td>October 19 full audits: backend 33 high/5 moderate; mobile 48 high/14 moderate, zero critical. Patched qs/PostCSS/ws; both clean installs, backend/mobile tests and platform exports pass. Remaining framework/tooling advisories are unapproved exceptions. <a href="D04_DEPENDENCY_REVIEW.md">Review</a>.</td>
 <td>P0</td>
 </tr>
 <tr class="tracked" data-priority="P0" data-status="PARTIAL">
@@ -566,8 +570,8 @@
 <div class="table-wrap" tabindex="0" role="region" aria-label="Recorded result table"><table><thead><tr><th scope="col">Check</th><th scope="col">Recorded result</th><th scope="col">Limit</th></tr></thead><tbody>
 <tr>
 <td>Backend unit suite</td>
-<td>Latest C09: 31 suites / 266 tests passed</td>
-<td>Plus dedicated real PostgreSQL/HTTP CLI, concurrency, rollback, recovery and authenticated RBAC checks. Earlier M4 six-scenario evidence retained.</td>
+<td>Latest D03: 34 suites / 296 tests passed</td>
+<td>Plus 37 authentication/account integration tests and dedicated PostgreSQL/HTTP administrator/coaching rollback, concurrency and access checks. Earlier C09/M4 evidence retained.</td>
 </tr>
 <tr>
 <td>Mobile unit suite</td>
@@ -683,6 +687,13 @@ Status and date:</pre>
 <td>P1</td>
 </tr>
 </tbody></table></div>
+<p><strong>C10 audit/admin hardening — October 18, 2026:</strong> 286 backend tests across 32 suites and dedicated PostgreSQL/HTTP administrator mutation checks pass. Privileged mutation/audit rollback, repeated role requests, session invalidation, competing super-admin removals, query bounds, historical snapshot redaction and 30-day cleanup are tested. Old bootstrap records retain only a non-personal completion marker. The broader 37-test authentication/account integration suite also passed after updating a historical-meal fixture to supply the nutrition fields required by the existing API. Coaching lifecycle coverage gaps are documented, so C10 remains partial. No deployment, role changes on Railway, push or iOS build was performed. <a href="C10_AUDIT_ADMINISTRATION.md">Details</a>.</p>
+<p><strong>C10 coaching audit completion — October 18, 2026:</strong> Closed the coverage gap recorded in the preceding C10 checkpoint. Every current coaching write endpoint now commits its audit in the same serializable transaction, including profile changes, assignments/status, switching trainers, drop forms/ratings, plans/items and notes. Real PostgreSQL/HTTP tests passed for 12 success/rollback scenarios, unauthorized writes and competing subscriptions; administrator checks and all 37 authentication/account integration tests passed again. Backend unit regression: 289 tests / 33 suites. C10 is implemented locally; deployment, operator rehearsal and backup/worker acceptance remain pending. No push, deployment or iOS build occurred. <a href="C10_AUDIT_ADMINISTRATION.md">Coverage and runbook</a>.</p>
+<p><strong>D03 deployment readiness — October 18, 2026:</strong> Added read-only migration checksum/failed-history and required-RBAC verification to production startup and readiness, shared RBAC definitions, atomic catalog seeding, and final verification in pre-deploy preparation. Railway health configuration now targets <code>/health/ready</code>. Local PostgreSQL rehearsal applied all 21 migrations, repeated preparation without user grants, rejected changed checksums/missing permissions, returned readiness 503 then 200 after repair, and restored a snapshot into a separate database. 296 backend tests/34 suites passed. No hosted deployment was performed: the cause of earlier skipped pre-deploy execution is not established, and Railway acceptance plus real-data/previous-binary rollback remain pending. <a href="D03_DEPLOYMENT_READINESS.md">Runbook and evidence</a>.</p>
+<p><strong>Email delivery recheck — October 19, 2026:</strong> Latest three verification requests (October 18 10:23–10:24 PM Eastern) were accepted by Resend on attempt one; inbox delivery remains unconfirmed. Resend read API explicitly rejects the send-only key, so owner dashboard delivery/bounce status is required. No email sent or queue mutated during investigation. A separate proxy configuration warning remains for D02/D05. <a href="A03_EMAIL_DELIVERY_DIAGNOSIS.md">Evidence</a>.</p>
+<p><strong>D04 dependency checkpoint — October 19, 2026:</strong> Compatible qs/PostCSS/ws fixes verified with clean installs, 296 backend/37 integration/196 mobile tests, TypeScript, release config, Expo compatibility and platform exports. Lint has zero errors/30 existing warnings. Audit remains open; no exceptions approved or deployment performed. <a href="D04_DEPENDENCY_REVIEW.md">Review</a>.</p>
+<p><strong>Ingredient catalog v5 — October 26, 2026:</strong> Latest owner CSV has 2,893 unique IDs: 210 source-backed full, 32 partial, 17 generic composition, 2,633 estimated and one review conflict. A disposable upgrade matched/updated all 684 original IDs and inserted 2,209 catalog records; repeated import inserted none. Missing values remain null; available/total carbohydrate, serving weights, recipe yields, source precedence, immutable meal history and correction provenance have automated coverage. Backend: 314 tests/36 suites; auth/account: 37 tests/5 suites; mobile: 199 tests/46 suites and TypeScript passed. Real authenticated API checks and 12 reviewed recipes resolving central FDC identities passed. Additional aliases correct aata/ladyfinger lookup. The original hosted 684-row import completed after a verified backup, but v5 remains local pending the owner&#x27;s explicit hosted-write approval. No new app build/submission or hosted user mutation occurred. This is not public-production acceptance; licensing, source-specific liquid mass basis and signed-device checks remain open. <a href="INGREDIENT_CATALOG_V5.md">Implementation, import report, API and maintenance</a>.</p>
+<p><strong>Approved v5 hosted rollout — October 26, 2026 EDT:</strong> Verified backup taken; additive migration applied. Hosted catalog: 684 matched/updated + 2,209 inserted = 2,893, no identity conflicts/errors; repeat preview produces no updates/inserts. Existing Ingredient IDs and original user/history/plan data fingerprints were preserved. Twelve shared reviewed recipes were initialized; an older rounded USDA cache was preserved with its reviewed recipe profile stored as an explicit source revision. Catalog/alias checks and all 12 recipe source checks passed against the hosted database. Isolated catalog release passed 284 tests/33 suites and deployed successfully as Railway <code>f98cd31b-9b81-4610-8c58-710a33395403</code>; <code>/health</code> returned 200 and unauthenticated ingredient endpoints returned 401. No real-user session impersonation, Git push, EAS build or TestFlight submission was performed. New mobile UI and authenticated signed-device acceptance remain pending. <a href="INGREDIENT_CATALOG_V5.md">Release evidence and maintenance</a>.</p>
 <footer>Generated from the Markdown tracker. Status dates and verification evidence are preserved; refreshing this page does not rerun tests or approve a release.</footer></main></div>
 <script>
 const rows=[...document.querySelectorAll('.tracked')],search=document.querySelector('#search'),priority=document.querySelector('#priority'),status=document.querySelector('#status');
@@ -690,5 +701,5 @@ const rows=[...document.querySelectorAll('.tracked')],search=document.querySelec
 const saved=(()=>{try{return JSON.parse(sessionStorage.getItem('handoffFilters')||'{}')}catch{return {}}})();search.value=saved.search||'';priority.value=saved.priority||'';status.value=saved.status||'';
 function filter(){let count=0;const q=search.value.toLowerCase().trim();rows.forEach(r=>{r.hidden=!(r.textContent.toLowerCase().includes(q)&&(!priority.value||r.dataset.priority===priority.value)&&(!status.value||r.dataset.status===status.value));if(!r.hidden)count++});document.querySelector('#results').textContent=`Showing ${count} of ${rows.length} tracked items. Reference sections remain visible.`;document.querySelector('#empty').hidden=count>0;try{sessionStorage.setItem('handoffFilters',JSON.stringify({search:search.value,priority:priority.value,status:status.value}))}catch{}}
 [search,priority,status].forEach(e=>e.addEventListener('input',filter));document.querySelector('#reset').onclick=()=>{search.value=priority.value=status.value='';filter()};document.querySelector('#print').onclick=()=>window.print();filter();
-if(location.protocol!=='file:'){fetch('/handoff-version',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.text()}).then(hash=>{if(!/^[a-f0-9]{64}$/.test(hash))return;document.querySelector('#freshness').textContent='Live view: checks the Markdown tracker every 5 seconds and reloads when it changes. Keep the local server running.';setInterval(async()=>{try{const r=await fetch('/handoff-version',{cache:'no-store'});if(r.ok&&(await r.text())!=='a881e5a61d6100b483243249d6d4ad7000af7dd192f9fed2410b549e19e3cfb9')location.reload()}catch{document.querySelector('#freshness').textContent='Live connection lost. Restart python3 scripts/handoff.py --serve to resume updates.'}},5000)}).catch(()=>{})}
+if(location.protocol!=='file:'){fetch('/handoff-version',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.text()}).then(hash=>{if(!/^[a-f0-9]{64}$/.test(hash))return;document.querySelector('#freshness').textContent='Live view: checks the Markdown tracker every 5 seconds and reloads when it changes. Keep the local server running.';setInterval(async()=>{try{const r=await fetch('/handoff-version',{cache:'no-store'});if(r.ok&&(await r.text())!=='e03d15ef1ae0dce5f1521e9fc88511546116d128e52dd4ef43af34cebe4070ee')location.reload()}catch{document.querySelector('#freshness').textContent='Live connection lost. Restart python3 scripts/handoff.py --serve to resume updates.'}},5000)}).catch(()=>{})}
 </script></body></html>

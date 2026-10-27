@@ -4,6 +4,10 @@ import { getDeviceId } from '../storage/device';
 // --- Types ---
 
 export interface ExtractedNutrition {
+  saturatedFatG?: number | null;
+  transFatG?: number | null;
+  addedSugarG?: number | null;
+  allergens?: string | null;
   productName: string | null;
   ingredients: string | null;
   servingSizeG: number | null;
@@ -57,6 +61,7 @@ export interface ScannedLabelRecord {
 }
 
 export interface SaveLabelInput {
+  labelFacts?: LabelFacts;
   id?: string;
   productName?: string;
   ingredients?: string;
@@ -133,4 +138,28 @@ export async function getLabelHistory(limit: number = 20): Promise<ScannedLabelR
     headers: { 'x-user-id': userId },
   });
   return res.data.labels;
+}
+
+export interface LabelFacts {
+  fatG?: number | null; saturatedFatG?: number | null; transFatG?: number | null;
+  basisMassG?: number | null; servingsPerContainer?: number | null;
+  ingredients: string; allergens: string; claims: string;
+  calories: number | null; proteinG: number | null; form: 'solid' | 'liquid' | 'unknown';
+  sugarG: number | null; addedSugarG: number | null; carbsG: number | null; fiberG: number | null; sodiumMg: number | null;
+  basisAmount: number | null; basisUnit: 'g' | 'ml' | 'unknown'; column: 'serving' | '100' | 'unknown';
+  portionRatio: number | null; jurisdiction: 'US' | 'IN' | 'unknown'; reviewed: boolean; personalize: boolean;
+}
+export interface LabelInsight {
+  ruleId: string; ruleVersion: string; category: string; finding: string;
+  evidence: { type: string; field: string; text: string; origin: string }[];
+  explanation: string; recommendation: string; personalRelevance: string | null;
+  source: { title: string; url: string }; confidence: string; confidenceExplanation: string;
+}
+export interface LabelAnalysis { version: string; facts: LabelFacts; insights: LabelInsight[]; limitations: string[]; foodIntelligence?: import('../components/FoodIntelligence').FoodIntelligenceResult }
+export async function analyzeLabel(facts: LabelFacts): Promise<LabelAnalysis> {
+  return (await api.post<LabelAnalysis>('/label-scanner/insights', facts)).data;
+}
+
+export async function compareLabels(first: LabelFacts, second: LabelFacts): Promise<LabelAnalysis> {
+  return (await api.post<LabelAnalysis>('/label-scanner/compare', { first, second })).data;
 }

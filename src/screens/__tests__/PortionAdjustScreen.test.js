@@ -6,8 +6,8 @@ jest.mock('../../components/KeyboardAwareScrollView', () => ({ children }) => ch
 const mockAdd = jest.fn();
 jest.mock('../../context/MealsContext', () => ({ useMeals: () => ({ add: mockAdd }) }));
 jest.mock('../../storage/session', () => ({ getSession: () => ({ user: { id: 'alice' } }) }));
-jest.mock('../../api/labelScanner', () => ({ saveLabelAndLog: jest.fn() }));
-const { saveLabelAndLog } = require('../../api/labelScanner');
+jest.mock('../../api/labelScanner', () => ({ saveLabelAndLog: jest.fn(), analyzeLabel: jest.fn() }));
+const { saveLabelAndLog, analyzeLabel } = require('../../api/labelScanner');
 const React = require('react');
 const { create, act } = require('react-test-renderer');
 const Screen = require('../PortionAdjustScreen').default;
@@ -60,4 +60,23 @@ it('allows corrections after a server validation rejection rather than locking i
   expect(field('Food name').props.value).toBe('Oats');
   expect(field('Save reviewed meal').props.disabled).toBe(true);
   expect(mockAdd).not.toHaveBeenCalled();
+});
+
+it('discards an insight response after the reviewed facts change', async () => {
+  let resolve;
+  analyzeLabel.mockImplementationOnce(() => new Promise(done => { resolve = done; }));
+  await ready();
+  await act(async () => press('Explain this reviewed label'));
+  await act(async () => field('Ingredients (optional, editable)').props.onChangeText('Whole wheat'));
+  await act(async () => resolve({ insights: [], facts: {}, version: 'old' }));
+  expect(tree.root.findAllByProps({ accessibilityLabel: 'View these findings with Leo' })).toHaveLength(0);
+  expect(field('Explain this reviewed label').props.disabled).toBe(true);
+});
+it('sends reviewed facts only and preserves them for server recomputation on save', async () => {
+  analyzeLabel.mockResolvedValueOnce({ insights: [], facts: {}, version: 'test' });
+  await ready(); await act(async () => press('Explain this reviewed label'));
+  expect(analyzeLabel).toHaveBeenCalledWith(expect.objectContaining({reviewed:true, personalize:false, fiberG:null, sugarG:0}));
+  await act(async () => press('Save reviewed meal'));
+  expect(saveLabelAndLog.mock.calls[0][0].labelFacts).toMatchObject({reviewed:true, personalize:false});
+  expect(saveLabelAndLog.mock.calls[0][0]).not.toHaveProperty('labelInsights');
 });

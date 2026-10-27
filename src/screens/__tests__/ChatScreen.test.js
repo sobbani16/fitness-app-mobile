@@ -2,7 +2,7 @@ jest.mock('@react-native-async-storage/async-storage', () => require('@react-nat
 jest.mock('../../components/KeyboardAwareScrollView', () => ({ children }) => children);
 jest.mock('../../components/ProfileForm', () => ({ GOAL_LABELS: { maintain: 'Maintain weight' } }));
 const mockNavigate = jest.fn();
-jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: mockNavigate }), useFocusEffect: fn => require('react').useEffect(fn, [fn]) }));
+jest.mock('@react-navigation/native', () => ({ useRoute: () => ({ params: {} }), useNavigation: () => ({ navigate: mockNavigate }), useFocusEffect: fn => require('react').useEffect(fn, [fn]) }));
 jest.mock('../../context/ProfileContext', () => ({ useProfile: () => ({ profile: { goal: 'maintain' } }) }));
 jest.mock('../../storage/session', () => ({ getSession: () => ({ user: { id: 'alice' } }) }));
 jest.mock('../../api/macroScore', () => ({ getMacroGoals: jest.fn(async () => ({ proteinTarget: 90 })) }));

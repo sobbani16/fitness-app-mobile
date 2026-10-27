@@ -32,3 +32,16 @@ it('keeps corrected text after extraction fails and retries without another phot
   await act(async () => control('Extract nutrition for review').props.onPress());
   expect(mockNavigate).toHaveBeenCalledWith('PortionAdjust', expect.objectContaining({ ocrRawText: 'Calories 200', extracted: { calories: 200 } }));
 });
+
+it('keeps photo-panel text separate and extracts nutrition from only its panel', async () => {
+  extractFromOcrText.mockResolvedValueOnce({ calories: 200 });
+  await act(async () => { tree = create(<Screen />); });
+  await act(async () => control('Type label text').props.onPress());
+  await act(async () => control('Label text — review and correct').props.onChangeText('Calories 200'));
+  await act(async () => control('Panel: claims').props.onPress());
+  await act(async () => control('Type label text').props.onPress());
+  await act(async () => control('Label text — review and correct').props.onChangeText('Sugar free'));
+  await act(async () => control('Extract nutrition for review').props.onPress());
+  expect(extractFromOcrText).toHaveBeenCalledWith('Calories 200');
+  expect(mockNavigate).toHaveBeenCalledWith('PortionAdjust', expect.objectContaining({claimText:'Sugar free',ocrRawText:'Calories 200'}));
+});

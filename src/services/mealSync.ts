@@ -24,6 +24,8 @@ async function flushAt(key: string, userId: string | undefined) {
     assertAccount(userId);
     const op = ops[0], m = op.meal;
     if (m) await api.post('/food-logs', {
+      nutritionProfileId: m.nutritionSnapshot?.nutritionProfileId,
+      catalogRevision: m.nutritionSnapshot?.revision, ingredientId: m.ingredientId, selectedServing: m.selectedServing,
       id: m.id, foodName: m.name, quantityG: m.quantityG || 0, calories: m.calories,
       proteinG: m.macros.protein_g, carbsG: m.macros.carbs_g, fatG: m.macros.fat_g,
       fiberG: m.macros.fiber_g ?? null, mealType: m.mealType || 'meal', loggedAt: m.createdAt,
@@ -61,6 +63,7 @@ export function saveMealChange(meal: LoggedMeal | string): Promise<LoggedMeal[]>
 }
 
 interface ServerMeal {
+  ingredientId?: string; nutritionSnapshot?: Record<string, unknown>;
   id: string; loggedAt: string; foodName: string; calories: number;
   quantityG: number; proteinG: number; carbsG: number; fatG: number; fiberG: number | null;
   mealType: string;
@@ -108,6 +111,7 @@ export function reconcileMealDays(dates: Date[]): Promise<LoggedMeal[][]> {
         if (time < start.getTime() || time >= end.getTime() || !Number.isFinite(time)) continue;
         records.set(row.id, {
           ...previous.get(row.id), id: row.id, createdAt: row.loggedAt,
+          ingredientId: row.ingredientId, nutritionSnapshot: row.nutritionSnapshot,
           name: row.foodName, calories: row.calories, quantityG: row.quantityG,
           macros: { protein_g: row.proteinG, carbs_g: row.carbsG, fat_g: row.fatG, ...(row.fiberG == null ? {} : { fiber_g: row.fiberG }) },
           mealType: ['breakfast', 'lunch', 'dinner', 'snack'].includes(row.mealType) ? row.mealType as LoggedMeal['mealType'] : undefined,

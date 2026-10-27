@@ -13,6 +13,9 @@ export interface Macros {
 }
 
 export interface LoggedMeal {
+  ingredientId?: string;
+  selectedServing?: string;
+  nutritionSnapshot?: Record<string, unknown>;
   id: string;
   createdAt: string;        // ISO
   name: string;

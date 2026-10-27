@@ -19,7 +19,7 @@ import RecipeSearch from '../components/RecipeSearch';
 import RecipeByIngredients from '../components/RecipeByIngredients';
 import IngredientSearch from '../components/IngredientSearch';
 import { RecipeNutrition } from '../api/recipes';
-import { IngredientResult } from '../api/ingredients';
+import { IngredientResult, verificationLabel } from '../api/ingredients';
 import { analyzeMeal, detectFood, FoodDetection } from '../api/meals';
 import { useMeals } from '../context/MealsContext';
 import { MealType, LoggedMeal, Macros } from '../storage/meals';
@@ -30,6 +30,7 @@ import { getSession } from '../storage/session';
 import { useNavigation, useRoute, usePreventRemove } from '@react-navigation/native';
 
 import { useTheme } from '../design/theme';
+import { FoodIntelligenceReview } from '../components/FoodIntelligence';
 
 function Button(props: React.ComponentProps<typeof NativeButton>) {
   const { colors } = useTheme();
@@ -40,6 +41,12 @@ const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
 
 // Editable form state for the preview card.
 interface PreviewForm {
+  recipeId?: string;
+  ingredientId?: string;
+  selectedServing?: string;
+  servings?: IngredientResult['servings'];
+  nutritionSnapshot?: Record<string, unknown>;
+  verification?: string;
   name: string;
   portionGrams: string;   // string so the field is fully controlled
   calories: string;
@@ -131,7 +138,7 @@ export default function FoodEntryScreen() {
     setReviewed(false);
     if (!preview) return;
     const grams = Number(t);
-    const next: PreviewForm = { ...preview, portionGrams: t };
+    const next: PreviewForm = { ...preview, portionGrams: t, selectedServing: undefined };
     if (preview.source !== 'Manual entry' && Number.isFinite(grams) && grams > 0) {
       next.calories = String(caloriesForPortion(preview.caloriesPer100g, grams));
       Object.assign(next, macroStringsForPortion(preview.macrosPer100g, grams));
@@ -142,7 +149,7 @@ export default function FoodEntryScreen() {
   const editNutrient = (field: 'calories' | 'protein' | 'carbs' | 'fat' | 'fiber', value: string) => {
     if (!preview) return;
     setReviewed(false);
-    const next = { ...preview, [field]: value, macrosPer100g: { ...preview.macrosPer100g } };
+    const next = { ...preview, [field]: value, ...(preview.ingredientId ? { verification: 'User-adjusted nutrition', nutritionSnapshot: { ...preview.nutritionSnapshot, userEdited: true } } : {}), macrosPer100g: { ...preview.macrosPer100g } };
     const grams = Number(preview.portionGrams), number = Number(value);
     if (grams > 0 && value.trim() && Number.isFinite(number) && number >= 0) {
       if (field === 'calories') next.caloriesPer100g = number * 100 / grams;
@@ -218,12 +225,16 @@ export default function FoodEntryScreen() {
     const grams = 100;
     setPreview({
       name: ing.name,
+      ingredientId: ing.id, servings: ing.servings, verification: verificationLabel(ing),
+      nutritionSnapshot: { source: ing.source, verificationLevel: ing.verificationLevel, provenance: ing.provenance, catalogId: ing.catalogId, revision: ing.revision },
+      needsReview: true,
+      uncertainty: [ing.provenance?.verification_explanation, ing.provenance?.estimate_warning, ing.provenance?.total_carb_estimation, ing.provenance?.basis?.includes('mL') ? 'Source basis may be per 100 mL. This is an estimated profile; weigh your portion and check its label.' : ''].filter(Boolean).join(' '),
       portionGrams: String(grams),
       calories: Number.isFinite(ing.caloriesPer100g) && ing.caloriesPer100g >= 0 ? String(caloriesForPortion(ing.caloriesPer100g, grams)) : '',
       ...macroStringsForPortion(ing.macrosPer100g, grams),
       caloriesPer100g: ing.caloriesPer100g,
       macrosPer100g: ing.macrosPer100g,
-      source: `ingredient: ${ing.source}`,
+      source: ing.provenance?.source ? `ingredient: ${ing.provenance.source} · ${ing.preparation || 'per 100 g'}${ing.provenance.carb_definition?.includes('EXCLUDES fibre') ? ' · carbs include fiber' : ''}` : `ingredient: ${ing.source}`,
     });
   };
 
@@ -233,6 +244,7 @@ export default function FoodEntryScreen() {
     setError(null);
     const grams = n.servingWeightGrams > 0 ? n.servingWeightGrams : 100;
     setPreview({
+      recipeId: n.id,
       name: n.name,
       portionGrams: String(grams),
       calories: Number.isFinite(n.caloriesPer100g) && n.caloriesPer100g >= 0 ? String(caloriesForPortion(n.caloriesPer100g, grams)) : '',
@@ -287,6 +299,7 @@ export default function FoodEntryScreen() {
       feedback: preview.source,
       source: preview.source,
       quantityG: Number(preview.portionGrams),
+      ingredientId: preview.ingredientId, selectedServing: preview.selectedServing, nutritionSnapshot: preview.nutritionSnapshot,
       photoUri: photoUri ?? undefined,
     };
     savingLock.current = true; setSaving(true);
@@ -360,7 +373,7 @@ export default function FoodEntryScreen() {
         {mode === 'search' && <>
         <Text style={styles.label}>Search an ingredient</Text>
         <IngredientSearch onSelect={onIngredientSelected} />
-        <Text style={styles.muted}>USDA ingredient database. Picks fill per-100g calories and macros.</Text>
+        <Text style={styles.muted}>Humai catalog first, USDA fallback. Check preparation, source and estimated values.</Text>
 
         </>}
         {mode === 'recipes' && <>
@@ -421,6 +434,8 @@ export default function FoodEntryScreen() {
               <Text style={styles.cardTitle}>Estimated nutrition — edit before saving</Text>
               {preview.source === 'Manual entry' && <Text style={styles.muted}>Enter values for your whole portion. Changing its weight does not change manually entered nutrition.</Text>}
               <Text style={styles.muted}>{preview.source.startsWith('ingredient:') ? 'Food database nutrition — review preparation and portion' : preview.source.startsWith('recipe:') ? 'Recipe nutrition — review the serving and ingredients' : preview.source === 'Manual entry' ? 'Your entered nutrition' : preview.source === 'Repeated meal' ? 'Copied from a saved meal — review before logging' : 'AI estimate — not measured nutrition'}</Text>
+              {preview.verification && <Text style={styles.muted}>{preview.verification}</Text>}
+              {preview.servings?.map(serving => <Button key={serving.id} title={`${serving.label} · ${serving.grams} g${serving.estimated ? ' · estimated serving' : ''}`} onPress={() => { onPortionChange(String(serving.grams)); setPreview(current => current ? { ...current, selectedServing: serving.label } : current); }} />)}
               {preview.lowConfidence && <Text style={styles.err}>Uncertain estimate — check the food and portion carefully.</Text>}
               {!!preview.uncertainty && <Text style={styles.muted}>{preview.uncertainty}</Text>}
 
@@ -487,6 +502,7 @@ export default function FoodEntryScreen() {
               </Text>}
 
               <View style={{ height: 6 }} />
+              <FoodIntelligenceReview key={preview.ingredientId||preview.recipeId||'manual'} ingredientId={preview.ingredientId} recipeId={preview.recipeId} grams={Number(preview.portionGrams)} onProfile={id=>setPreview(current=>current?{...current,nutritionSnapshot:{...current.nutritionSnapshot,nutritionProfileId:id}}:current)} />
               <>{preview.needsReview && <Button title={reviewed ? "Estimate reviewed ✓" : "I reviewed the food, portion and nutrition"} onPress={() => setReviewed(true)} />}
               <Button title={saving ? "Saving…" : "Save meal"} onPress={onSave} disabled={saving || (!!preview.needsReview && !reviewed)} /></>
             </View>
