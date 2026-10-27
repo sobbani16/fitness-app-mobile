@@ -13,6 +13,9 @@ export interface VideoResult {
   durationLabel: string | null;
   trusted: boolean;
   trustedChannelName: string | null;
+  tags: string[];
+  description: string;
+  why: string;
 }
 
 export type VideoSort = 'recommended' | 'most-viewed' | 'newest' | 'relevance';
@@ -23,6 +26,10 @@ export interface VideoSearchResponse {
   explore: VideoResult[];
   nextPageToken: string | null;
   query: string;
+}
+
+export function reportVideo(videoId: string, reason: string) {
+  return api.post('/videos/report', { videoId, reason }).then(r => r.data);
 }
 
 export function searchVideos(q: string, context: VideoContext = 'general', sort: VideoSort = 'recommended', pageToken?: string): Promise<VideoSearchResponse> {

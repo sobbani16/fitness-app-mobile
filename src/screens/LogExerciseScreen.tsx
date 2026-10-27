@@ -134,7 +134,7 @@ export default function LogExerciseScreen() {
         <Card><Copy size="heading">{exerciseName(selected)}</Copy>
           <Action secondary disabled={!prefsReady} label={prefs.favorites.includes(selected) ? 'Remove from favorites' : 'Save favorite exercise'} onPress={() => void savePreferences({ ...prefs, favorites: prefs.favorites.includes(selected) ? prefs.favorites.filter(t => t !== selected) : [...prefs.favorites, selected] })} />
           {targetSets && <Copy>{targetSets} planned sets</Copy>}
-          <Action secondary label="Find technique videos" onPress={() => navigation.navigate('VideoSearch', { query: `${exerciseName(selected)} proper form tutorial`, context: 'exercise' })} />
+          <Action secondary label="Find technique videos" onPress={() => navigation.navigate('VideoSearch', { query: `${exerciseName(selected)} proper form tutorial`, context: 'exercise', exerciseKey: selected })} />
           <Action label="Start workout" disabled={!prefsReady || saving || !workout.ready} onPress={() => void workout.start(selected)} />
         </Card>
       </>}

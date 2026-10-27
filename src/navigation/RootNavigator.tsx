@@ -20,6 +20,7 @@ import FoodEntryScreen from '../screens/FoodEntryScreen';
 import SmartRemindersScreen from '../screens/SmartRemindersScreen';
 import ReminderInboxScreen from '../screens/ReminderInboxScreen';
 import VideoSearchScreen from '../screens/VideoSearchScreen';
+import VideoCompareScreen from '../screens/VideoCompareScreen';
 import { LoggedMeal } from '../storage/meals';
 import ChatScreen from '../screens/ChatScreen';
 import FeedbackScreen from '../screens/FeedbackScreen';
@@ -47,7 +48,8 @@ export type RootStackParamList = {
   PortionAdjust: { extracted: any; photoUri: string | null; ocrRawText: string; mealType: string };
   SmartReminders: undefined;
   ReminderInbox: undefined;
-  VideoSearch: { query?: string; context?: 'exercise' | 'recipe' | 'nutrition' | 'education' | 'general' };
+  VideoSearch: { query?: string; context?: 'exercise' | 'recipe' | 'nutrition' | 'education' | 'general'; exerciseKey?: string };
+  VideoCompare: { videos: [import('../api/videos').VideoResult, import('../api/videos').VideoResult]; exerciseKey?: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -140,6 +142,11 @@ export default function RootNavigator() {
             name="VideoSearch"
             component={VideoSearchScreen}
             options={{ headerShown: true, title: 'Videos' }}
+          />
+          <Stack.Screen
+            name="VideoCompare"
+            component={VideoCompareScreen}
+            options={{ headerShown: true, title: 'Compare videos' }}
           />
           <Stack.Screen
             name="PortionAdjust"
