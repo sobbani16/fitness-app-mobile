@@ -1,6 +1,6 @@
 jest.mock('@react-native-async-storage/async-storage', () => require('@react-native-async-storage/async-storage/jest/async-storage-mock'));
 jest.mock('../../components/KeyboardAwareScrollView', () => ({ children }) => children);
-jest.mock('@react-navigation/native', () => ({ useIsFocused: () => true }));
+jest.mock('@react-navigation/native', () => ({ useIsFocused: () => true, useNavigation: () => ({ navigate: jest.fn() }) }));
 jest.mock('../../hooks/useExerciseSession', () => ({ useExerciseSession: jest.fn() }));
 jest.mock('../../hooks/useExerciseDetection', () => ({ useExerciseDetection: () => ({ status: 'idle', reps: 0, stop: mockStop, start: jest.fn() }) }));
 jest.mock('../PoseCameraScreen', () => () => null);

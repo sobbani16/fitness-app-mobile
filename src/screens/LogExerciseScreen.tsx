@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused, useNavigation } from '@react-navigation/native';
 import KeyboardAwareScrollView from '../components/KeyboardAwareScrollView';
 import { Action, Card, Copy, Field, Notice, Skeleton } from '../design/components';
 import { useTheme } from '../design/theme';
@@ -17,6 +17,7 @@ type Template = { name: string; exerciseType: string; reps: number; weight: numb
 type Preferences = { favorites: string[]; templates: Template[]; unit: WeightUnit };
 const categories: Record<string, string> = { 'bench-press': 'Push', 'overhead-press': 'Push', 'push-up': 'Push', 'barbell-row': 'Pull', 'pull-up': 'Pull', squat: 'Legs', deadlift: 'Legs' };
 export default function LogExerciseScreen() {
+  const navigation = useNavigation<any>();
   const { colors } = useTheme();
   const focused = useIsFocused();
   const workout = useExerciseSession();
@@ -133,6 +134,7 @@ export default function LogExerciseScreen() {
         <Card><Copy size="heading">{exerciseName(selected)}</Copy>
           <Action secondary disabled={!prefsReady} label={prefs.favorites.includes(selected) ? 'Remove from favorites' : 'Save favorite exercise'} onPress={() => void savePreferences({ ...prefs, favorites: prefs.favorites.includes(selected) ? prefs.favorites.filter(t => t !== selected) : [...prefs.favorites, selected] })} />
           {targetSets && <Copy>{targetSets} planned sets</Copy>}
+          <Action secondary label="Find technique videos" onPress={() => navigation.navigate('VideoSearch', { query: `${exerciseName(selected)} proper form tutorial`, context: 'exercise' })} />
           <Action label="Start workout" disabled={!prefsReady || saving || !workout.ready} onPress={() => void workout.start(selected)} />
         </Card>
       </>}
