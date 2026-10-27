@@ -1,6 +1,19 @@
 # TestFlight beta release evidence
 
-Latest update October 17, 2026. Earlier dated sections below are historical checkpoints.
+Latest update October 27, 2026. Earlier dated sections below are historical checkpoints.
+
+## Build 9 — October 27, 2026
+
+Owner authorized a new iOS build and TestFlight submission plus hosted backend data population. Mobile commit `34dc37d` was built using the beta-safe `testflight` profile; build number incremented from 8 to 9. Pre-flight checks passed: typecheck, lint (0 errors, pre-existing warnings), 203 tests across 47 suites and the testflight release configuration check.
+
+- [Build 1.0.0 (9)](https://expo.dev/accounts/sobbani16/projects/fitness-app-mobile/builds/9958c0f1-3c52-4b0e-b948-e4bd0dec34ab)
+- [Submission](https://expo.dev/accounts/sobbani16/projects/fitness-app-mobile/submissions/cc7c1e4d-2e72-4f34-aa71-9bc60e67071f)
+
+The EAS submission sat IN_QUEUE for ~35 minutes, then FINISHED at October 27, 2026 21:04:35 UTC; EAS reported the binary uploaded to App Store Connect. Apple processing, internal-group availability and signed-device acceptance remain pending.
+
+Backend: push of commit `fcd21c2` triggered a Railway redeploy whose automatic pre-deploy step again did not apply migrations; the service crash-looped on the startup migration check. After a protected local pg_dump snapshot, `prisma migrate deploy` applied `20261027000100_nutrient_intelligence` and `20261027000200_condition_nutrient_rules` (the two ingredient-catalog migrations were already applied; 25 total), `db:seed-rbac` refreshed 7 roles/32 permissions/53 mappings and `deploy:check` passed. A redeploy brought the service Online with `/health` and `/health/ready` returning 200.
+
+With owner approval for hosted writes: 27 nutrient definitions seeded; ingredient catalog v5 already current at 2,893 records (no changes needed); nutrient population imported 142 verified USDA profiles (13 manual review, 2,867 pending, 0 failed — matching the documented local outcome); 17 draft condition rules imported. Rule drafts remain unapproved and inactive for recommendations.
 
 ## Build 8 — October 18, 2026
 
