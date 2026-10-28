@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ScrollView, Switch, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -6,8 +6,12 @@ import { RootStackParamList } from '../navigation/RootNavigator';
 import { Action, Card, Copy, Field, Notice, Skeleton } from '../design/components';
 import { useTheme } from '../design/theme';
 import * as api from '../api/reminders';
+import * as Notifications from 'expo-notifications';
 import { requestNotificationPermission, setupNotifications } from '../services/notifications';
 import { syncReminderSchedules } from '../services/reminderSync';
+import { planNotifications } from '../services/reminderPlan';
+import { getLastWaterAt } from '../api/dailyStats';
+import { loadMealsFor } from '../storage/meals';
 
 const CATEGORY_LABELS: Record<string, string> = {
   'meal:breakfast': 'Breakfast', 'meal:lunch': 'Lunch', 'meal:dinner': 'Dinner', 'meal:snack': 'Snack',
@@ -38,6 +42,9 @@ export default function SmartRemindersScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [diag, setDiag] = useState<{ permission: string; scheduled: { id: string; when: string }[]; planned: number; backend: api.ReminderDiagnostics | null } | null>(null);
+  const [testState, setTestState] = useState('');
+  const lastTestAt = useRef(0);
 
   const load = useCallback(async () => {
     try {
@@ -63,6 +70,59 @@ export default function SmartRemindersScreen() {
       setError(''); await syncReminderSchedules();
     } catch (e: any) { setError(e?.response?.data?.error || 'Could not save.'); }
   }
+  async function loadDiagnostics() {
+    try {
+      const perm = await Notifications.getPermissionsAsync();
+      const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+      const [lastWaterIso, meals, backend] = await Promise.all([
+        getLastWaterAt().catch(() => null),
+        loadMealsFor(new Date()).catch(() => [] as { mealType?: string }[]),
+        api.getReminderDiagnostics().catch(() => null),
+      ]);
+      const planned = prefs && categories ? planNotifications(prefs, categories, {
+        now: new Date(), lastWaterAt: lastWaterIso ? new Date(lastWaterIso) : null,
+        mealsLoggedToday: new Set(meals.map(m => m.mealType).filter(Boolean) as string[]), supplementsEnabled: true,
+      }).length : 0;
+      setDiag({
+        permission: perm.granted ? 'granted' : perm.canAskAgain ? 'not asked/denied (can ask)' : 'denied in Settings',
+        scheduled: scheduled.slice(0, 4).map(n => ({ id: n.identifier.replace('humai-reminder:', ''), when: n.trigger && 'date' in n.trigger ? new Date(Number(n.trigger.date)).toLocaleString() : JSON.stringify(n.trigger) })),
+        planned,
+        backend,
+      });
+      setError('');
+    } catch { setError('Could not load diagnostics.'); }
+  }
+
+  // Explicit user-initiated test: one harmless local notification in 5s.
+  // Goes through the real delivery path (OS permission + local scheduling),
+  // bypassing eligibility/frequency rules for this test only.
+  async function sendTestNotification() {
+    if (Date.now() - lastTestAt.current < 30000) { setTestState('Wait 30 seconds between test notifications.'); return; }
+    const perm = await Notifications.getPermissionsAsync();
+    if (!perm.granted) { setTestState('OS permission is off — enable notifications in iPhone Settings first.'); return; }
+    lastTestAt.current = Date.now();
+    try {
+      await setupNotifications();
+      await Notifications.scheduleNotificationAsync({
+        identifier: 'humai-reminder:test',
+        content: { title: 'Humai test notification', body: 'If you can see this, notifications are working.', data: { deepLink: 'Dashboard' } },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(Date.now() + 5000) },
+      });
+      setTestState('Scheduled — leave this screen; it should arrive in ~5 seconds.');
+      void api.sendTestReminder().catch(() => {});
+    } catch { setTestState('Could not schedule the test notification.'); }
+  }
+
+  function whyZero(c: api.ReminderCategorySetting): string {
+    if (!prefs?.masterEnabled) return 'master switch off';
+    if (prefs.pausedUntil && new Date(prefs.pausedUntil) > new Date()) return 'paused';
+    if (!c.enabled) return 'turned off';
+    if (c.source === 'adaptive' && !prefs.adaptiveEnabled) return 'needs adaptive consent';
+    if (c.category === 'water') return 'needs a water log to anchor from';
+    if (!(c.times || []).length) return 'no times set';
+    return 'next times are quiet-hours or already done';
+  }
+
   function saveTimes(category: string) {
     const times = (timesText[category] || '').split(',').map(t => t.trim()).filter(Boolean);
     void saveCategory(category, { times });
@@ -164,8 +224,23 @@ export default function SmartRemindersScreen() {
     </Card>)}
 
     <Card>
-      <Copy size="heading">Tools</Copy>
-      <Action secondary label="Send test reminder" onPress={() => void api.sendTestReminder().then(() => setMessage('Test reminder saved to your inbox.')).catch(() => setError('Could not save test reminder.'))} />
+      <Copy size="heading">Notification diagnostics</Copy>
+      <Action secondary label="Run diagnostics" onPress={() => void loadDiagnostics()} />
+      {!!diag && <>
+        <Copy>OS permission: {diag.permission}</Copy>
+        <Copy>Scheduled on this phone: {diag.scheduled.length ? `${diag.scheduled.length}${diag.scheduled.length >= 4 ? '+' : ''}` : 'none'}</Copy>
+        {diag.scheduled.map(s => <Copy key={s.id} size="caption" tone="muted">{s.id} — {s.when}</Copy>)}
+        <Copy size="caption" tone="muted">Plan preview (next 14 days): {diag.planned} notification{diag.planned === 1 ? '' : 's'}.</Copy>
+        {categories.map(c => <Copy key={c.category} size="caption" tone="muted">{CATEGORY_LABELS[c.category] || c.category}: {c.enabled ? `${(c.times || []).length} time${(c.times || []).length === 1 ? '' : 's'}${c.intervalMinutes ? ` / every ${c.intervalMinutes}m` : ''}` : whyZero(c)}</Copy>)}
+        {diag.backend && <>
+          <Copy size="caption" tone="muted">Delivery: {diag.backend.delivery}. Registered devices: {diag.backend.devices.length}; push tokens: {diag.backend.devices.filter(d => d.hasPushToken).length}.</Copy>
+          {!!diag.backend.recent.length && <Copy size="caption" tone="muted">Recent outcomes: {diag.backend.recent.slice(0, 5).map(r => `${r.category.replace('meal:', '')} ${r.status}${r.reason ? ` (${r.reason})` : ''}`).join(' · ')}</Copy>}
+        </>}
+      </>}
+      {!!testState && <Copy size="caption" tone="muted">{testState}</Copy>}
+      <Action label="Send test notification" onPress={() => void sendTestNotification()} />
+      <Copy size="caption" tone="muted">Sends one harmless notification to this device in ~5 seconds, through the same path as real reminders. Limited to once per 30 seconds.</Copy>
+      <Action secondary label="Save test reminder to inbox" onPress={() => void api.sendTestReminder().then(() => setMessage('Test reminder saved to your inbox.')).catch(() => setError('Could not save test reminder.'))} />
       <Action secondary label="Notification history" onPress={() => navigation.navigate('ReminderInbox')} />
       <Action secondary label="Reset learned patterns" onPress={() => void api.resetLearning().then(() => setMessage('Learned patterns cleared. Your own schedules are unchanged.')).catch(() => setError('Could not reset.'))} />
       <Action secondary label="Turn off adaptive reminders" onPress={() => void api.revokeAdaptive().then(load).then(() => setMessage('Adaptive reminders off. Manual schedules still work.')).catch(() => setError('Could not update.'))} />

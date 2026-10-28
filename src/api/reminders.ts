@@ -73,4 +73,14 @@ export const actOnInstance = (id: string, action: ReminderAction, minutes?: numb
 export const getReminderInbox = (limit = 30) => api.get<{ notifications: { id: string; type: string; title: string; body: string; read: boolean; createdAt: string }[] }>('/reminders/inbox', { params: { limit } }).then(r => r.data.notifications);
 export const registerDevice = (deviceId: string, platform: 'ios' | 'android', expoPushToken?: string) => api.post('/reminders/devices', { deviceId, platform, expoPushToken }).then(r => r.data);
 export const sendTestReminder = () => api.post('/reminders/test').then(r => r.data);
+
+export interface ReminderDiagnostics {
+  delivery: string;
+  consent: { masterEnabled: boolean; adaptiveEnabled: boolean; pausedUntil: string | null; quietStart: string | null; quietEnd: string | null; dailyCap: number | null; timezone: string | null } | null;
+  categories: { category: string; enabled: boolean; times: string[]; intervalMinutes: number | null }[];
+  devices: { deviceId: string; platform: string; hasPushToken: boolean; lastSeenAt: string; active: boolean }[];
+  last24h: Record<string, number>;
+  recent: { category: string; status: string; reason: string | null; scheduledFor: string; actedAt: string | null }[];
+}
+export const getReminderDiagnostics = () => api.get<ReminderDiagnostics>('/reminders/diagnostics').then(r => r.data);
 export const tickReminders = () => api.post<{ planned: number; ready: number; suppressed: number }>('/reminders/tick').then(r => r.data);

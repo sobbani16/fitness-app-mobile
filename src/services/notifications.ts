@@ -73,7 +73,10 @@ export async function applyPlan(plan: PlannedNotification[]) {
         data: { category: p.category, deepLink: p.deepLink, identifier: p.identifier },
         // Optional reminders stay low-interruption; nothing here is urgent enough
         // for time-sensitive delivery.
-        interruptionLevel: p.optional ? 'passive' : 'active',
+        // Every scheduled reminder is an explicit user request — always show a
+        // banner. 'passive' delivery goes straight to Notification Center with
+        // no alert on iOS, which reads as "notifications not working".
+        interruptionLevel: 'active',
         ...(Platform.OS === 'android' ? { channelId: CHANNEL_ID } : {}),
       },
       trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: p.fireAt },

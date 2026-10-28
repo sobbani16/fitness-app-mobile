@@ -124,3 +124,36 @@ describe('budget, conflicts and copy', () => {
     expect(formatReminderTime(new Date(2026, 9, 27, 18, 30), 'en-US', false)).toContain('18:30');
   });
 });
+
+describe('delivery visibility and quiet-hours fixes', () => {
+  const waterSetting: ReminderCategorySetting = { category: 'water', enabled: true, times: [], daysOfWeek: null, intervalMinutes: 60, leadMinutes: null, wakingStart: null, wakingEnd: null, source: 'manual', triggerEvent: null, triggerDelay: null };
+
+  it('water reminders are not optional (they must show a banner on iOS)', () => {
+    const last = new Date(Date.now() + 60 * 60000 * -0.5 + 3600000); // fires 90m from now
+    const plan = planNotifications(prefs, [waterSetting], ctx({ lastWaterAt: last }));
+    expect(plan).toHaveLength(1);
+    expect(plan[0].optional).toBe(false);
+  });
+
+  it('a water reminder inside quiet hours is rescheduled to quiet end, not dropped', () => {
+    // Last water chosen so +60m lands at 23:00 (inside 22:00–07:00 quiet).
+    const anchor = new Date(); anchor.setHours(22, 0, 0, 0);
+    const plan = planNotifications(prefs, [{ ...waterSetting, intervalMinutes: 60 }], ctx({ lastWaterAt: anchor }));
+    expect(plan).toHaveLength(1);
+    const hour = plan[0].fireAt.getHours();
+    expect(hour >= 7 && hour < 22).toBe(true); // moved to morning boundary
+  });
+
+  it('equal quiet start/end disables quiet suppression instead of silencing all', () => {
+    const p = { ...prefs, quietStart: '22:00', quietEnd: '22:00' };
+    const plan = planNotifications(p, [meal()], ctx());
+    expect(plan.length).toBeGreaterThan(0);
+  });
+
+  it('workout suppression uses workoutDoneToday, not meal logs', () => {
+    const w: ReminderCategorySetting = { ...meal(), category: 'workout', times: ['14:00'] };
+    const isToday = (p: any) => p.fireAt.getDate() === NOW.getDate();
+    expect(planNotifications(prefs, [w], ctx({ workoutDoneToday: true })).filter(isToday)).toEqual([]);
+    expect(planNotifications(prefs, [w], ctx({ mealsLoggedToday: new Set(['workout'] as any) })).filter(isToday)).toHaveLength(1);
+  });
+});

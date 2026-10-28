@@ -51,7 +51,7 @@ function inWindow(minutes: number, start: string | null, end: string | null): bo
   const s = start == null ? null : parseHHMM(start);
   const e = end == null ? null : parseHHMM(end);
   if (s == null || e == null) return false;
-  if (s === e) return true;
+  if (s === e) return false; // equal start/end means "no quiet window", not 24h quiet
   return s < e ? minutes >= s && minutes < e : minutes >= s || minutes < e;
 }
 
@@ -73,7 +73,7 @@ function nextOccurrences(from: Date, minutes: number, daysOfWeek: number[] | nul
 export function planNotifications(
   prefs: ReminderPreferences,
   settings: ReminderCategorySetting[],
-  ctx: { now: Date; lastWaterAt: Date | null; mealsLoggedToday: Set<string>; supplementsEnabled: boolean },
+  ctx: { now: Date; lastWaterAt: Date | null; mealsLoggedToday: Set<string>; supplementsEnabled: boolean; workoutDoneToday?: boolean },
 ): PlannedNotification[] {
   const out: PlannedNotification[] = [];
   if (!prefs.masterEnabled) return out;
@@ -88,10 +88,18 @@ export function planNotifications(
       const interval = (s.intervalMinutes ?? 120) * 60000;
       // Water needs a real anchor: never guess from missing logs.
       if (!ctx.lastWaterAt) continue;
-      const fire = new Date(ctx.lastWaterAt.getTime() + interval);
+      let fire = new Date(ctx.lastWaterAt.getTime() + interval);
       if (fire <= ctx.now) continue; // backend tick handles the overdue gap
-      if (isQuiet(fire.getHours() * 60 + fire.getMinutes(), s, prefs)) continue;
-      out.push({ identifier: `water|${ctx.lastWaterAt.toISOString()}`, category: cat, title: TITLES.water, body: `It's been ${s.intervalMinutes ?? 120} min since your last water log.`, fireAt: fire, deepLink: DEEP_LINKS.water, optional: true });
+      if (isQuiet(fire.getHours() * 60 + fire.getMinutes(), s, prefs)) {
+        // Reschedule to the end of the quiet window instead of dropping the reminder.
+        const boundary = s.wakingStart != null && s.wakingEnd != null ? s.wakingStart : prefs.quietEnd;
+        const bm = parseHHMM(boundary || '');
+        if (bm == null) continue;
+        const day = new Date(fire.getFullYear(), fire.getMonth(), fire.getDate());
+        fire = new Date(day.getTime() + bm * 60000);
+        if (fire <= new Date(ctx.lastWaterAt.getTime() + interval)) fire = new Date(fire.getTime() + 86400000);
+      }
+      out.push({ identifier: `water|${ctx.lastWaterAt.toISOString()}`, category: cat, title: TITLES.water, body: `It's been ${s.intervalMinutes ?? 120} min since your last water log.`, fireAt: fire, deepLink: DEEP_LINKS.water, optional: false });
       continue;
     }
 
@@ -106,7 +114,7 @@ export function planNotifications(
       for (const at of nextOccurrences(ctx.now, minutes - lead, days, HORIZON_DAYS)) {
         if (isQuiet(at.getHours() * 60 + at.getMinutes(), s, prefs)) continue;
         if (cat.startsWith('meal:') && at.getDate() === ctx.now.getDate() && ctx.mealsLoggedToday.has(cat.split(':')[1])) continue;
-        if (cat === 'workout' && at.getDate() === ctx.now.getDate() && ctx.mealsLoggedToday.has('workout')) continue;
+        if (cat === 'workout' && at.getDate() === ctx.now.getDate() && ctx.workoutDoneToday) continue;
         const slot = `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, '0')}-${String(at.getDate()).padStart(2, '0')}@${t}`;
         out.push({ identifier: `${cat}|${slot}`, category: cat, title: TITLES[cat] || 'Reminder', body: cat === 'workout' ? `Your workout starts at ${t}.` : '', fireAt: at, deepLink: DEEP_LINKS[cat] || 'Dashboard', optional: s.source === 'adaptive' });
       }
