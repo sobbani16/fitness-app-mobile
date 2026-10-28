@@ -20,6 +20,7 @@ export default function PortionAdjustScreen() {
   const route = useRoute<any>();
   const params = route.params || {};
   const extracted: ExtractedNutrition | null = params.extracted || null;
+  const merged: import('../api/labelScanner').MergedLabel | null = params.merged || null;
   const { add } = useMeals();
   const { colors } = useTheme();
   const [name, setName] = useState(extracted?.productName || '');
@@ -31,13 +32,15 @@ export default function PortionAdjustScreen() {
   const [packageServings, setPackageServings] = useState(extracted?.servingsPerContainer == null ? '' : String(extracted.servingsPerContainer));
   const [values, setValues] = useState([extracted?.calories, extracted?.proteinG, extracted?.carbsG, extracted?.fatG, extracted?.fiberG, extracted?.sugarG].map(value => value == null ? '' : String(value)));
   const [allergens, setAllergens] = useState(params.allergenText || extracted?.allergens || '');
-  const [claims, setClaims] = useState(params.claimText || '');
+  const [claims, setClaims] = useState(params.claimText || merged?.merged?.claims || '');
   const [addedSugar, setAddedSugar] = useState(extracted?.addedSugarG == null ? '' : String(extracted.addedSugarG));
   const [sodium, setSodium] = useState(extracted?.sodiumMg == null ? '' : String(extracted.sodiumMg));
   const [saturatedFat,setSaturatedFat]=useState(extracted?.saturatedFatG==null?'':String(extracted.saturatedFatG));
   const [transFat,setTransFat]=useState(extracted?.transFatG==null?'':String(extracted.transFatG));
-  const [jurisdiction, setJurisdiction] = useState<LabelFacts['jurisdiction']>('unknown');
-  const [column, setColumn] = useState<LabelFacts['column']>('unknown');
+  const [jurisdiction, setJurisdiction] = useState<LabelFacts['jurisdiction']>(merged?.merged?.jurisdiction === 'IN' || merged?.merged?.jurisdiction === 'US' ? merged.merged.jurisdiction : 'unknown');
+  const [column, setColumn] = useState<LabelFacts['column']>(merged?.merged?.column === '100' || merged?.merged?.column === 'serving' ? merged.merged.column : 'unknown');
+  const [showOriginal, setShowOriginal] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
   const [form, setForm] = useState<LabelFacts['form']>('unknown');
   const [comparison, setComparison] = useState<LabelAnalysis | null>(null);
   const [personalize, setPersonalize] = useState(false);
@@ -81,6 +84,26 @@ export default function PortionAdjustScreen() {
     } catch { if (request === analysisRequest.current) setError('Insights or comparison unavailable. For comparison, confirm both labels’ quantities, units and physical form. Your reviewed meal can still be saved.'); }
     finally { if (request === analysisRequest.current) setAnalyzing(false); }
   }
+  // Diff reviewed values against what extraction produced — only real edits
+  // are persisted, so the record shows exactly what the user changed.
+  function correctionsAgainst(src: ExtractedNutrition) {
+    const pairs: [string, unknown, string][] = [
+      ['productName', src.productName, name], ['servingSizeG', src.servingSizeG, basis],
+      ['calories', src.calories, values[0]], ['proteinG', src.proteinG, values[1]],
+      ['carbsG', src.carbsG, values[2]], ['fatG', src.fatG, values[3]],
+      ['fiberG', src.fiberG, values[4]], ['sugarG', src.sugarG, values[5]],
+      ['addedSugarG', src.addedSugarG, addedSugar], ['sodiumMg', src.sodiumMg, sodium],
+      ['saturatedFatG', src.saturatedFatG, saturatedFat], ['transFatG', src.transFatG, transFat],
+      ['ingredients', src.ingredients, ingredients], ['allergens', src.allergens, allergens],
+    ];
+    const c: Record<string, { extracted: unknown; corrected: unknown }> = {};
+    for (const [f, a, b] of pairs) {
+      const as = a == null ? '' : String(a).trim();
+      const bs = (b ?? '').trim();
+      if (as !== bs && !(as === '' && bs === '')) c[f] = { extracted: a ?? null, corrected: bs === '' ? null : bs };
+    }
+    return Object.keys(c).length ? c : undefined;
+  }
   async function save() {
     labelFacts.fatG=numeric(values[3]);labelFacts.saturatedFatG=numeric(saturatedFat);labelFacts.transFatG=numeric(transFat);labelFacts.basisMassG=servingMass;labelFacts.servingsPerContainer=numeric(packageServings);
     if (lock.current || saved) return;
@@ -94,7 +117,9 @@ export default function PortionAdjustScreen() {
         labelCalories: numeric(values[0])!, labelProteinG: numeric(values[1])!, labelCarbsG: numeric(values[2])!, labelFatG: numeric(values[3])!,
         labelFiberG: numeric(values[4]), labelSugarG: numeric(values[5]), labelSodiumMg: numeric(sodium),
         labelFacts,
-        mealType: params.mealType || 'lunch', photoUri: params.photoUri || undefined, ocrRawText: params.ocrRawText || undefined };
+        mealType: params.mealType || 'lunch', photoUri: params.photoUri || undefined, ocrRawText: params.ocrRawText || undefined,
+        extraction: merged ? { schemaVersion: 1, provenance: merged.provenance, conflicts: merged.conflicts, productConflict: merged.productConflict, panelCount: merged.panelCount, productNames: merged.productNames } : undefined,
+        userCorrections: extracted ? correctionsAgainst(extracted) : undefined };
     }
     lock.current = true; setBusy(true); setError('');
     const account = getSession()?.user.id;
@@ -122,12 +147,24 @@ export default function PortionAdjustScreen() {
         {error !== '' && <Notice error title="Save incomplete" message={error} />}{removed ? <Action label="Open food diary" onPress={() => navigation.navigate('Main', { screen: 'LogMeal' })} /> : <Action label={busy ? 'Saving…' : 'Retry save'} disabled={busy} onPress={() => { void save(); }} />}</Card> : <>
       <Notice title="Check against the package" message="OCR can miss values or mix columns. Choose one column (per serving or per 100 g/ml) and review every value. Unknown is not zero." />
       {params.photoUri && <Image accessibilityLabel="Captured nutrition label" source={{ uri: params.photoUri }} style={{ width: '100%', height: 220 }} resizeMode="contain" />}
-      {Object.entries(params.labelPhotos || {}).filter(([key]) => key !== 'nutrition').map(([key, uri]) => uri ? <Image key={key} accessibilityLabel={`Captured ${key} panel`} source={{ uri: String(uri) }} style={{ width: '100%', height: 220 }} resizeMode="contain" /> : null)}
+      {Object.entries(params.labelPhotos || {}).filter(([key]) => key !== 'nutrition').flatMap(([key, uris]) => (Array.isArray(uris) ? uris : [uris]).filter(Boolean).map((uri, i) => <Image key={`${key}-${i}`} accessibilityLabel={`Captured ${key} panel ${i + 1}`} source={{ uri: String(uri) }} style={{ width: '100%', height: 220 }} resizeMode="contain" />))}
+      {!!merged?.productConflict && <Notice error title="Different products?" message={`These photos appear to be different products (${(merged.productNames || []).join(' vs ')}). Confirm they belong to the same package before saving.`} />}
+      {!!merged?.conflicts?.length && <Card><Copy size="title">Conflicting values — confirm which is right</Copy>
+        {merged.conflicts.map((c: any) => <Copy key={c.field} size="caption" tone="muted">{c.field}: {String(c.kept.value)} ({c.kept.source} panel) vs {String(c.rejected.value)} ({c.rejected.source} panel) — kept the higher-confidence value, edit below if the package says otherwise.</Copy>)}
+      </Card>}
       <Card><Field label="Food name" maxLength={300} value={name} onChangeText={value => edit(() => setName(value))} />
         <Field label="Ingredients (optional, editable)" maxLength={20000} multiline value={ingredients} onChangeText={value => edit(() => setIngredients(value))} />
         <Field label="Allergen statement — exact label text" multiline maxLength={20000} value={allergens} onChangeText={value => edit(() => setAllergens(value))} />
         <Field label="Front-of-pack claims — exact label text" multiline maxLength={20000} value={claims} onChangeText={value => edit(() => setClaims(value))} />
-        {params.ocrRawText ? <Copy size="caption" tone="muted">Label text: {params.ocrRawText}</Copy> : null}
+        <Action secondary label={showDetails ? 'Hide product details & sources' : 'Product details & sources'} onPress={() => setShowDetails(v => !v)} />
+        {showDetails && <>
+          {merged?.merged?.brand ? <Copy size="caption" tone="muted">Brand: {merged.merged.brand}</Copy> : null}
+          {merged?.merged?.barcode ? <Copy size="caption" tone="muted">Barcode: {merged.merged.barcode}</Copy> : null}
+          {merged?.panelCount ? <Copy size="caption" tone="muted">Fields merged from {merged.panelCount} label photo{merged.panelCount === 1 ? '' : 's'}. Each value keeps its source panel for traceability.</Copy> : null}
+          {merged?.provenance ? Object.entries(merged.provenance).slice(0, 14).map(([f, entries]: [string, any]) => <Copy key={f} size="caption" tone="muted">{f}: {entries.map((e: any) => `${e.source}${e.confidence ? ` (${Math.round(e.confidence * 100)}%)` : ''}`).join(', ')}</Copy>) : null}
+        </>}
+        {!!params.ocrRawText && <Action secondary label={showOriginal ? 'Hide original text' : 'View original text'} onPress={() => setShowOriginal(v => !v)} />}
+        {showOriginal && params.ocrRawText ? <Copy size="caption" tone="muted">{params.ocrRawText}</Copy> : null}
       </Card>
       <Card><Copy size="title">Nutrition column & quantity</Copy>
         <Copy tone="muted">For per-100-g nutrition, enter 100 as the label basis. For per-serving nutrition, enter the serving’s labeled weight.</Copy>

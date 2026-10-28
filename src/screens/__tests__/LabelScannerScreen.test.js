@@ -4,7 +4,7 @@ jest.mock('@react-navigation/native', () => ({ useIsFocused: () => true, useNavi
 jest.mock('expo-camera', () => ({ CameraView: () => null, useCameraPermissions: () => [{ granted: false, canAskAgain: false }, mockPermission] }));
 jest.mock('../../components/KeyboardAwareScrollView', () => ({ children }) => children);
 jest.mock('../../storage/session', () => ({ getSession: () => ({ user: { id: 'alice' } }) }));
-jest.mock('../../api/labelScanner', () => ({ extractFromOcrText: jest.fn() }));
+jest.mock('../../api/labelScanner', () => ({ extractFromOcrText: jest.fn(), extractMergedLabel: jest.fn().mockResolvedValue(null), classifyDocument: jest.fn() }));
 jest.mock('../../services/ocr', () => ({ recognizeLabel: jest.fn() }));
 const { extractFromOcrText } = require('../../api/labelScanner');
 const React = require('react');

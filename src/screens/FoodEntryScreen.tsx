@@ -108,6 +108,7 @@ export default function FoodEntryScreen() {
   const invalidate = () => { request.current++; setPreview(null); setReviewed(false); setDetecting(false); };
   useEffect(() => () => { request.current++; }, []);
   const [error, setError] = useState<string | null>(null);
+  const [expandedMeal, setExpandedMeal] = useState<string | null>(null);
   usePreventRemove(Boolean(preview || description || photoUri || pendingMeal.current), ({ data }) => {
     if (saving) return;
     Alert.alert('Leave this entry?', pendingMeal.current ? 'A save may already be pending. Check your diary before logging this meal again.' : 'Your unsaved entry will be discarded.', [
@@ -516,24 +517,44 @@ export default function FoodEntryScreen() {
         <Text style={styles.sectionTitle}>Today&apos;s meals</Text>
         {meals.length === 0 && <Text style={styles.muted}>No meals logged yet.</Text>}
         {meals.map((m) => (
-          <Pressable key={m.id} onLongPress={() => onRemove(m.id)} style={styles.mealRow}>
-            {m.photoUri ? (
-              <Image source={{ uri: m.photoUri }} style={styles.thumb} />
-            ) : (
-              <View style={[styles.thumb, styles.thumbPlaceholder]} />
+          <View key={m.id}>
+            <Pressable
+              onPress={() => setExpandedMeal(expandedMeal === m.id ? null : m.id)}
+              onLongPress={() => onRemove(m.id)}
+              style={styles.mealRow}
+              accessibilityRole="button"
+              accessibilityLabel={`${m.name}, ${m.calories} kcal. Tap for nutrition details.`}
+              accessibilityState={{ expanded: expandedMeal === m.id }}
+            >
+              {m.photoUri ? (
+                <Image source={{ uri: m.photoUri }} style={styles.thumb} />
+              ) : (
+                <View style={[styles.thumb, styles.thumbPlaceholder]} />
+              )}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.mealName}>{m.name}</Text>
+                <Text style={styles.muted}>
+                  {m.mealType ?? '—'} ·{' '}
+                  {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </Text>
+              </View>
+              <Text style={styles.mealKcal}>{m.calories} kcal</Text>
+            </Pressable>
+            {expandedMeal === m.id && (
+              <View style={styles.mealDetail}>
+                {m.quantityG != null && <Text style={styles.muted}>Portion: {m.quantityG} g</Text>}
+                <Text style={styles.macroDetail}>
+                  Protein {m.macros.protein_g} g · Carbs {m.macros.carbs_g} g · Fat {m.macros.fat_g} g
+                  {m.macros.fiber_g != null ? ` · Fiber ${m.macros.fiber_g} g` : ''}
+                </Text>
+                {!!m.description && <Text style={styles.muted}>{m.description}</Text>}
+                {!!m.source && <Text style={styles.muted}>Source: {m.source}</Text>}
+              </View>
             )}
-            <View style={{ flex: 1 }}>
-              <Text style={styles.mealName}>{m.name}</Text>
-              <Text style={styles.muted}>
-                {m.mealType ?? '—'} ·{' '}
-                {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </Text>
-            </View>
-            <Text style={styles.mealKcal}>{m.calories} kcal</Text>
-          </Pressable>
+          </View>
         ))}
         {meals.length > 0 && (
-          <Text style={styles.muted}>Long-press a meal to remove.</Text>
+          <Text style={styles.muted}>Tap a meal for nutrition details. Long-press to remove.</Text>
         )}
         <View style={{ height: 24 }} />
     </KeyboardAwareScrollView>
@@ -590,6 +611,14 @@ const makeStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet
   },
   mealName: { fontSize: 16, fontWeight: '600', color: colors.text },
   mealKcal: { fontSize: 15, fontWeight: '700', color: colors.primary },
+  mealDetail: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.accent,
+    paddingVertical: 8,
+    paddingHorizontal: 56,
+    gap: 4,
+  },
+  macroDetail: { fontSize: 14, fontWeight: '600', color: colors.text },
   photoRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   photoWrap: { gap: 8 },
   photo: { width: '100%', height: 200, borderRadius: 10, backgroundColor: colors.accent },

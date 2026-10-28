@@ -79,6 +79,8 @@ export interface SaveLabelInput {
   photoUri?: string;
   ocrRawText?: string;
   aiConfidence?: number;
+  extraction?: Record<string, unknown>;
+  userCorrections?: Record<string, unknown>;
 }
 
 export interface SaveLabelResponse {
@@ -162,4 +164,37 @@ export async function analyzeLabel(facts: LabelFacts): Promise<LabelAnalysis> {
 
 export async function compareLabels(first: LabelFacts, second: LabelFacts): Promise<LabelAnalysis> {
   return (await api.post<LabelAnalysis>('/label-scanner/compare', { first, second })).data;
+}
+
+export type DocumentType = 'NUTRITION_LABEL' | 'INGREDIENT_LIST' | 'FOOD_PACKAGING' | 'RESTAURANT_MENU' | 'UNSUPPORTED' | 'UNCERTAIN';
+export interface Classification { type: DocumentType; confidence: number; guess?: DocumentType }
+export async function classifyDocument(ocrText: string, hint?: 'menu'): Promise<Classification> {
+  return (await api.post<Classification>('/label-scanner/classify', { ocrText, hint })).data;
+}
+
+export interface MenuItem {
+  name: string; description: string | null; price: number | null; currency: string | null;
+  calories: number | null; calorieSource: string | null; section: string | null; priceAmbiguous?: boolean; userCorrected?: boolean;
+  nutritionSource: 'restaurant-reported' | 'estimated' | 'insufficient_information';
+  estimate: { calories: { min: number; max: number; portionGMin: number; portionGMax: number }; proteinG: { min: number; max: number }; carbsG: { min: number; max: number }; fatG: { min: number; max: number } } | null;
+  matchedTo?: { kind: string; name: string }; explanation: string;
+}
+export interface MergeEntry { value: any; source: string; confidence: number; evidence: string | null }
+export interface MergedLabel {
+  merged: ExtractedNutrition & { brand?: string; barcode?: string; claims?: string; column?: string; jurisdiction?: string };
+  provenance: Record<string, MergeEntry[]>;
+  conflicts: { field: string; kept: MergeEntry; rejected: MergeEntry }[];
+  productConflict: boolean;
+  productNames: string[];
+  panelCount: number;
+}
+export async function extractMergedLabel(panels: Record<string, string | string[] | undefined>): Promise<MergedLabel> {
+  const userId = await getDeviceId();
+  return (await api.post<MergedLabel>('/label-scanner/extract-merged', { panels }, { headers: { 'x-user-id': userId } })).data;
+}
+
+export interface MenuResult { restaurant: string | null; items: MenuItem[] }
+export async function scanMenu(pages: string[], restaurantName?: string): Promise<MenuResult> {
+  const userId = await getDeviceId();
+  return (await api.post<MenuResult>('/label-scanner/menu', { pages, restaurantName }, { headers: { 'x-user-id': userId } })).data;
 }

@@ -15,6 +15,7 @@ import TrainerDropFormScreen from '../screens/TrainerDropFormScreen';
 import ClientDropSurveyScreen from '../screens/ClientDropSurveyScreen';
 import ClientMealPlanScreen from '../screens/ClientMealPlanScreen';
 import LabelScannerScreen from '../screens/LabelScannerScreen';
+import MenuScanScreen from '../screens/MenuScanScreen';
 import PortionAdjustScreen from '../screens/PortionAdjustScreen';
 import FoodEntryScreen from '../screens/FoodEntryScreen';
 import SmartRemindersScreen from '../screens/SmartRemindersScreen';
@@ -46,6 +47,7 @@ export type RootStackParamList = {
   ClientDropSurvey: undefined;
   ClientMealPlan: { clientId: string };
   LabelScanner: { mealType?: string; compareWith?: import('../api/labelScanner').LabelFacts };
+  MenuScan: { mealType?: string; seedText?: string };
   PortionAdjust: { extracted: any; photoUri: string | null; ocrRawText: string; mealType: string };
   SmartReminders: undefined;
   ReminderInbox: undefined;
@@ -129,6 +131,11 @@ export default function RootNavigator() {
             name="LabelScanner"
             component={LabelScannerScreen}
             options={{ headerShown: true, title: 'Scan Label' }}
+          />
+          <Stack.Screen
+            name="MenuScan"
+            component={MenuScanScreen}
+            options={{ headerShown: true, title: 'Scan Menu' }}
           />
           <Stack.Screen
             name="SmartReminders"
