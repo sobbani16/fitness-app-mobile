@@ -46,7 +46,7 @@ it('ignores superseded responses and hydrates only the selected diary', async ()
   await act(async () => button('30 days').props.onPress());
   await act(async () => finish([{ ...fixture(['2000-01-01'])[0], calories: 99999 }]));
   expect(output()).not.toContain('99999');
-  const day = tree.root.findAll(n => n.props.accessibilityRole === 'button' && /meal records$/.test(n.props.accessibilityLabel || ''))[0];
+  const day = tree.root.findAll(n => n.props.accessibilityRole === 'button' && /records/.test(n.props.accessibilityLabel || ''))[0];
   await act(async () => day.props.onPress());
   expect(reconcileMealDays).toHaveBeenCalledTimes(1);
   expect(reconcileMealDays.mock.calls[0][0]).toHaveLength(1);

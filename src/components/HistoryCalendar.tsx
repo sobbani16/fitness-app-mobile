@@ -19,11 +19,20 @@ export default function HistoryCalendar({ days, selected, onSelect }: { days: Pr
     {compact && <View style={{ flexDirection: 'row' }}>{['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => <View key={i} style={{ width: '14.2857%', alignItems: 'center' }}><Copy>{d}</Copy></View>)}</View>}
     <View style={{ flexDirection: compact ? 'row' : 'column', flexWrap: 'wrap', gap: compact ? 0 : 8 }}>
       {compact && Array.from({ length: blanks }, (_, i) => <View key={`blank-${i}`} style={{ width: '14.2857%' }} />)}
-      {entries.map(day => <Pressable key={day.date} accessibilityRole="button" accessibilityLabel={`${day.date}: ${day.mealCount} meal records`} accessibilityState={{ selected: selected === day.date }} onPress={() => onSelect(day.date)}
-        style={{ width: compact ? '14.2857%' : '100%', minHeight: 48, padding: 6, borderWidth: 1, borderColor: selected === day.date ? colors.primary : colors.border, borderRadius: 8, backgroundColor: selected === day.date ? colors.accent : colors.surface }}>
-        <Copy style={{ textAlign: compact ? 'center' : 'left' }}>{compact ? Number(day.date.slice(8)) : day.date}</Copy>
-        <Copy size="caption" tone="muted" style={{ textAlign: compact ? 'center' : 'left' }}>{day.mealCount ? `${day.mealCount} ${compact ? 'logs' : 'meals'}` : 'No log'}</Copy>
-      </Pressable>)}
+      {entries.map(day => {
+        const meals = day.mealCount > 0, work = (day.workouts ?? 0) > 0;
+        const tint = meals && work ? `${colors.primary}2E` : meals || work ? `${colors.warning}33` : `${colors.danger}22`;
+        const status = `${day.mealCount} meal records${work ? ', workout logged' : ''}`;
+        return <Pressable key={day.date} accessibilityRole="button" accessibilityLabel={`${day.date}: ${status}`} accessibilityState={{ selected: selected === day.date }} onPress={() => onSelect(day.date)}
+          style={{ width: compact ? '14.2857%' : '100%', minHeight: 48, padding: 6, borderWidth: 1, borderColor: selected === day.date ? colors.primary : colors.border, borderRadius: 8, backgroundColor: selected === day.date ? colors.accent : tint }}>
+          <Copy style={{ textAlign: compact ? 'center' : 'left' }}>{compact ? Number(day.date.slice(8)) : day.date}</Copy>
+          <Copy size="caption" tone="muted" style={{ textAlign: compact ? 'center' : 'left' }}>{meals ? `${day.mealCount} ${compact ? 'logs' : 'meals'}` : 'No log'}</Copy>
+        </Pressable>; })}
+    </View>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+      {[[`${colors.primary}2E`, 'Meals + workout'], [`${colors.warning}33`, 'Meals or workout'], [`${colors.danger}22`, 'No records']].map(([bg, label]) => <View key={label} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+        <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: bg, borderWidth: 1, borderColor: colors.border }} /><Copy size="caption" tone="muted">{label}</Copy>
+      </View>)}
     </View>
   </View>;
 }
