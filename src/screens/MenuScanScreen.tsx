@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Image, View } from 'react-native';
+import { Image, ScrollView, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
@@ -157,7 +157,7 @@ export default function MenuScanScreen() {
         {!!sections.length && <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
           {[null, ...sections].map(s => <Action secondary key={s || 'all'} label={s || 'All'} selected={sectionFilter === s} onPress={() => setSectionFilter(s)} />)}
         </View>}
-        <View style={{ maxHeight: 360 }}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 8 }} keyboardShouldPersistTaps="handled">
           {filtered.map(i => <View key={i.name}><ListRow title={i.name}
             subtitle={`${[i.section, i.price != null ? `${i.currency == null ? '' : i.currency === 'INR' ? '₹' : i.currency === 'EUR' ? '€' : i.currency === 'GBP' ? '£' : '$'}${i.price}${(i as any).priceAmbiguous ? ' (price?)' : ''}` : null, itemCaloriesText(i), i.explanation && i.nutritionSource !== 'restaurant-reported' ? i.nutritionSource === 'estimated' ? `est. from ${i.matchedTo?.name}` : 'not enough info' : null].filter(Boolean).join(' · ')}${i.nutritionSource === 'restaurant-reported' ? ' · restaurant-reported' : ''}`}
             onPress={() => toggle(i)}
@@ -181,7 +181,7 @@ export default function MenuScanScreen() {
           </View>}
           </View>)}
           {!filtered.length && <Copy tone="muted">No dishes match.</Copy>}
-        </View>
+        </ScrollView>
         {!!selectedItems.length && <Card>
           <Copy size="heading">Your order · ≈ {total} kcal</Copy>
           {selectedItems.map(i => <Copy key={i.name} size="caption" tone="muted">{i.name} — {itemCaloriesText(i)}</Copy>)}
