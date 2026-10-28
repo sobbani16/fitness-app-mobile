@@ -22,7 +22,7 @@ const SCAN_TIMEOUT_MS = 8000;
 function tryLoadBlePlx(): any | null {
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    if (!NativeModules.BleClientManager) return null;
+    if (!NativeModules.BlePlx) return null;
     return require('react-native-ble-plx');
   } catch {
     return null;
