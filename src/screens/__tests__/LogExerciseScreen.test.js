@@ -25,7 +25,7 @@ it('searches exercises and starts the selected exercise without automatic loggin
   await act(async () => { tree = create(<Screen />); });
   await act(async () => tree.root.findByType(TextInput).props.onChangeText('squat'));
   expect(button('Bench Press')).toBeUndefined();
-  await act(async () => button('Squat').props.onPress());
+  await act(async () => tree.root.findAllByProps({ accessibilityLabel: 'Squat' })[0].props.onPress());
   await act(async () => button('Start workout').props.onPress());
   expect(model.start).toHaveBeenCalledWith('squat');
   expect(model.addSet).not.toHaveBeenCalled();

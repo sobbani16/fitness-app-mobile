@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import KeyboardAwareScrollView from '../components/KeyboardAwareScrollView';
-import { Action, Card, Copy, Field, Notice, Skeleton } from '../design/components';
+import { Action, Card, Copy, Field, IconAction, ListRow, Notice, Skeleton } from '../design/components';
 import { useTheme } from '../design/theme';
 import { useExerciseSession } from '../hooks/useExerciseSession';
 import { useExerciseDetection } from '../hooks/useExerciseDetection';
@@ -123,10 +123,17 @@ export default function LogExerciseScreen() {
       {!loading && !draft && <>
         <Card><Field label="Search exercises" value={query} onChangeText={setQuery} />
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{['All', 'Push', 'Pull', 'Legs', 'Favorites'].map(item => <Action key={item} label={item} secondary selected={category === item} onPress={() => setCategory(item)} />)}</View>
-          {candidates.map(type => <Action key={type} label={exerciseName(type)} secondary={selected !== type} selected={selected === type} onPress={() => choose(type)} />)}
+          <View style={{ marginTop: 4 }}>
+            {candidates.map(type => { const fav = prefs.favorites.includes(type); return <ListRow key={type}
+              title={exerciseName(type)} subtitle={selected === type ? 'Selected' : categories[type] || undefined}
+              onPress={() => choose(type)}>
+              <IconAction icon={fav ? '♥' : '♡'} label={fav ? `Remove favorite: ${exerciseName(type)}` : `Save favorite: ${exerciseName(type)}`}
+                onPress={() => void savePreferences({ ...prefs, favorites: fav ? prefs.favorites.filter(t => t !== type) : [...prefs.favorites, type] })} />
+            </ListRow>; })}
+          </View>
           {!candidates.length && <Copy tone="muted">No matching exercises. Try another category or search.</Copy>}
         </Card>
-        {recent.length > 0 && <Card><Copy size="heading">Recent exercises</Copy>{recent.map(type => <Action key={type} secondary label={exerciseName(type)} onPress={() => choose(type)} />)}</Card>}
+        {recent.length > 0 && <Card style={{ paddingVertical: 4 }}><Copy size="heading" style={{ paddingVertical: 12 }}>Recent exercises</Copy>{recent.map(type => <ListRow key={type} title={exerciseName(type)} onPress={() => choose(type)}><IconAction icon="↻" label={`Start ${exerciseName(type)}`} onPress={() => choose(type)} /></ListRow>)}</Card>}
         {prefs.templates.length > 0 && <Card><Copy size="heading">Your templates</Copy><Copy tone="muted">Single-exercise routines saved on this device. Sets are logged individually.</Copy>
           {prefs.templates.map(t => <View key={t.name} style={{ gap: 8 }}><Action secondary label={`${t.name} · ${t.sets} sets of ${t.reps}`} onPress={() => choose(t.exerciseType, t)} />
             <Action secondary label={`Remove ${t.name}`} onPress={() => void savePreferences({ ...prefs, templates: prefs.templates.filter(x => x.name !== t.name) })} /></View>)}
