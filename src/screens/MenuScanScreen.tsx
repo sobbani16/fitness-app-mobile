@@ -93,10 +93,17 @@ export default function MenuScanScreen() {
     finally { setBusy(false); }
   }
 
-  const sections = items ? [...new Set(items.map(i => i.section).filter(Boolean) as string[])] : [];
+  // Collapse OCR variants of the same section ("Drink"/"Drinks", "Side Salad O").
+  const normSection = (s?: string | null) => (s || '').toLowerCase().replace(/[^a-z]/g, '').replace(/s$/, '');
+  const sectionLabels = new Map<string, string>();
+  for (const i of items || []) {
+    const k = normSection(i.section);
+    if (k && !sectionLabels.has(k)) sectionLabels.set(k, i.section!.trim());
+  }
+  const sections = [...sectionLabels.keys()];
   const filtered = (items || []).filter(i =>
     (!query || i.name.toLowerCase().includes(query.toLowerCase()) || (i.description || '').toLowerCase().includes(query.toLowerCase())) &&
-    (!sectionFilter || i.section === sectionFilter));
+    (!sectionFilter || normSection(i.section) === sectionFilter));
 
   const toggle = (i: MenuItem) => {
     const next = new Map(selected);
@@ -155,7 +162,7 @@ export default function MenuScanScreen() {
         <Copy size="heading">{restaurant || 'Menu'} · {items.length} item{items.length === 1 ? '' : 's'}</Copy>
         <Field label="Search dishes" value={query} onChangeText={setQuery} />
         {!!sections.length && <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-          {[null, ...sections].map(s => <Action secondary key={s || 'all'} label={s || 'All'} selected={sectionFilter === s} onPress={() => setSectionFilter(s)} />)}
+          {[null, ...sections].map(s => <Action secondary key={s || 'all'} label={s ? sectionLabels.get(s)! : 'All'} selected={sectionFilter === s} onPress={() => setSectionFilter(s)} />)}
         </View>}
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 8 }} keyboardShouldPersistTaps="handled">
           {filtered.map(i => <View key={i.name}><ListRow title={i.name}
