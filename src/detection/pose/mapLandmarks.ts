@@ -4,7 +4,9 @@ export function mapLandmarks(points: Array<{x:number;y:number;visibility?:number
   const pose:PoseFrame={};
   for(const [name,index] of Object.entries(indices)) {
     const p=points[index!];
-    if(p && Number.isFinite(p.x) && Number.isFinite(p.y))pose[name as KeypointName]={x:p.x,y:p.y,confidence:Math.min(p.visibility??0,p.presence??1)};
+    // Some bindings omit visibility/presence entirely — missing confidence must
+    // not silently zero every keypoint (that starves the rep counter).
+    if(p && Number.isFinite(p.x) && Number.isFinite(p.y))pose[name as KeypointName]={x:p.x,y:p.y,confidence:Math.min(p.visibility??1,p.presence??1)};
   }
   return pose;
 }

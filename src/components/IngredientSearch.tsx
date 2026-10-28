@@ -38,7 +38,7 @@ export default function IngredientSearch({ onSelect }: { onSelect: (ingredient: 
       title={`${item.name}${item.preparation ? ` (${item.preparation})` : ''}`}
       subtitle={`${item.verificationLevel && item.verificationLevel !== 'SOURCE_BACKED_FULL' ? '≈ ' : ''}${item.caloriesPer100g} kcal per 100 g · ${verificationLabel(item)}`}
       onPress={() => { Keyboard.dismiss(); onSelect(item); setQuery(''); setSaved([]); void selectIngredient(item.id).catch(() => {}); }}>
-      <IconAction label={item.favorite ? `Unfavorite ${item.name}` : `Favorite ${item.name}`} icon={item.favorite ? '★' : '☆'} onPress={() => toggleFavorite(item)} />
+      <IconAction label={item.favorite ? `Unfavorite ${item.name}` : `Favorite ${item.name}`} icon={item.favorite ? '♥' : '♡'} onPress={() => toggleFavorite(item)} />
     </ListRow>)}
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
       <Action secondary label={preparation ? `Preparation: ${preparation}` : 'Any preparation'} selected={!!preparation} onPress={() => setPreparation(value => value === '' ? 'raw' : value === 'raw' ? 'cooked' : '')} />

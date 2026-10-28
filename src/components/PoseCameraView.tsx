@@ -13,7 +13,13 @@ function NativePoseCamera({onError,facing='back'}:Props) {
   const device=useCameraDevice(facing);
   const [error,setError]=useState(''),[active,setActive]=useState(AppState.currentState==='active');
   const handleError=useCallback((e:{message:string})=>{setError(e.message);onError?.(e.message);},[onError]);
-  const callbacks=useMemo(()=>({onResults:(result:PoseDetectionResultBundle)=>{const points=result.results?.[0]?.landmarks?.[0];if(points)getRealEngine().pushPoseFrame(mapLandmarks(points));},onError:handleError}),[handleError]);
+  const callbacks=useMemo(()=>({onResults:(result:PoseDetectionResultBundle)=>{getRealEngine().noteRawFrame();
+    // Bindings differ: landmarks may be NormalizedLandmark[][] (per pose) or a
+    // flat NormalizedLandmark[] for pose 0. Accept both.
+    const lms=result.results?.[0]?.landmarks;
+    const points=Array.isArray(lms?.[0])?lms[0]:(lms as unknown as any[]|undefined);
+    if(Array.isArray(points)&&points.length>=29)getRealEngine().pushPoseFrame(mapLandmarks(points));
+    else getRealEngine().noteNoPerson();},onError:handleError}),[handleError]);
   const detection=usePoseDetection(callbacks,RunningMode.LIVE_STREAM,'pose_landmarker_lite.task',{numPoses:1,delegate:Delegate.CPU,minPoseDetectionConfidence:0.6,minPosePresenceConfidence:0.6,minTrackingConfidence:0.6,fpsMode:15});
   useEffect(()=>{if(!hasPermission)requestPermission().then(ok=>{if(!ok)setError('Camera permission is required.');}).catch(e=>setError(e.message));},[hasPermission,requestPermission]);
   useEffect(()=>{const sub=AppState.addEventListener('change',s=>setActive(s==='active'));return ()=>sub.remove();},[]);

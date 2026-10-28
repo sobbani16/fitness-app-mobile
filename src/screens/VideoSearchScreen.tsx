@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Image, Linking, ScrollView, View } from 'react-native';
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/RootNavigator';
-import { Action, Card, Copy, Field, Notice, Skeleton } from '../design/components';
+import { Action, Card, Copy, Field, IconAction, Notice, Skeleton } from '../design/components';
 import { useTheme } from '../design/theme';
 import { searchVideos, reportVideo, VideoResult, VideoSort, VideoContext } from '../api/videos';
 import { loadFavoriteVideos, toggleFavoriteVideo, loadWatchLater, toggleWatchLater, setPreferredVideo } from '../storage/favoriteVideos';
@@ -39,7 +39,7 @@ function VideoRow({ v, favorite, later, comparing, picked, onToggleFav, onToggle
     </View>
     <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
       <Action label="Watch on YouTube" secondary onPress={onOpen} />
-      <Action secondary label={favorite ? '★ Saved' : '☆ Save'} onPress={onToggleFav} />
+      <IconAction label={favorite ? `Remove saved video: ${v.title}` : `Save video: ${v.title}`} icon={favorite ? '♥' : '♡'} onPress={onToggleFav} />
       <Action secondary label={later ? 'Watch later ✓' : 'Watch later'} onPress={onToggleLater} />
       {comparing && <Action secondary label={picked ? 'Picked ✓' : 'Compare'} selected={picked} onPress={onCompare} />}
       <Action secondary label="Report" onPress={onReport} />

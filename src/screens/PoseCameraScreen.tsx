@@ -9,6 +9,7 @@ import {
   LayoutChangeEvent,
 } from 'react-native';
 import * as Speech from 'expo-speech';
+import { getRealEngine, type PoseDebugInfo } from '../detection/realEngine';
 import PoseCameraView from '../components/PoseCameraView';
 import PoseOverlay from '../components/PoseOverlay';
 import type { UseExerciseDetection } from '../hooks/useExerciseDetection';
@@ -29,7 +30,15 @@ export default function PoseCameraScreen({ visible, onClose, detection }: Props)
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [facing, setFacing] = useState<'front' | 'back'>('front');
   const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [debugOn, setDebugOn] = useState(__DEV__);
+  const [dbg, setDbg] = useState<PoseDebugInfo | null>(null);
   const lastSpokenRef = useRef('');
+
+  useEffect(() => {
+    if (!debugOn || !visible) { setDbg(null); return; }
+    const id = setInterval(() => setDbg(getRealEngine().getDebug()), 500);
+    return () => clearInterval(id);
+  }, [debugOn, visible]);
 
   const onLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
@@ -38,6 +47,10 @@ export default function PoseCameraScreen({ visible, onClose, detection }: Props)
 
   const posture = detection.posture;
   const formOk = posture?.overallOk ?? false;
+
+  // Positioning guidance when tracking is running but no usable pose is seen.
+  const noPerson = detection.status === 'running' && dbg && !dbg.personDetected;
+  const lowConfidence = detection.status === 'running' && dbg?.personDetected && dbg.lastReject;
 
   // Voice commands — speak posture feedback when it changes
   useEffect(() => {
@@ -102,6 +115,30 @@ export default function PoseCameraScreen({ visible, onClose, detection }: Props)
             </Pressable>
           </View>
 
+          {noPerson && (
+            <View style={[styles.formBanner, { backgroundColor: 'rgba(37,99,235,0.92)' }]}>
+              <Text style={styles.formBannerText}>
+                {dbg!.framesReceived === 0
+                  ? 'Waiting for camera frames…'
+                  : 'Move back so your full body (hips, knees, ankles) is visible.'}
+              </Text>
+            </View>
+          )}
+
+          {!noPerson && lowConfidence && (
+            <View style={[styles.formBanner, { backgroundColor: 'rgba(37,99,235,0.92)' }]}>
+              <Text style={styles.formBannerText}>Adjust so your knees and ankles are clearly visible — stand sideways for better tracking.</Text>
+            </View>
+          )}
+
+          {debugOn && dbg && (
+            <View style={styles.debugBox}>
+              <Text style={styles.debugText}>
+                {`Camera: ${dbg.framesReceived > 0 ? 'active' : 'no frames'} (${dbg.framesReceived} raw / ${dbg.framesWithPerson} poses)\nPerson: ${dbg.personDetected ? 'yes' : 'no'}\nL knee: ${dbg.leftKneeDeg ?? '—'}°  R knee: ${dbg.rightKneeDeg ?? '—'}°\nConf: ${dbg.minJointConfidence?.toFixed(2) ?? '—'}  State: ${dbg.phase}\nReps: ${detection.reps}${dbg.lastReject ? `\nLast: ${dbg.lastReject}` : ''}`}
+              </Text>
+            </View>
+          )}
+
           {posture && (
             <View
               style={[
@@ -117,7 +154,9 @@ export default function PoseCameraScreen({ visible, onClose, detection }: Props)
           )}
 
           <View style={styles.bottomBar}>
-            <Text style={styles.repCount}>{detection.reps}</Text>
+            <Pressable onLongPress={() => setDebugOn((d) => !d)}>
+              <Text style={styles.repCount}>{detection.reps}</Text>
+            </Pressable>
             <Text style={styles.repLabel}>reps</Text>
             {detection.error && (
               <Text style={styles.error}>{detection.error}</Text>
@@ -195,4 +234,14 @@ const styles = StyleSheet.create({
   },
   repLabel: { color: '#fff', fontSize: 18, fontWeight: '600', opacity: 0.9 },
   error: { color: '#fca5a5', marginTop: 8 },
+  debugBox: {
+    alignSelf: 'center',
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    maxWidth: '92%',
+  },
+  debugText: { color: '#4ade80', fontSize: 11, fontFamily: 'Menlo' },
 });

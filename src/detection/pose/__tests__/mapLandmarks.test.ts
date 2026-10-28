@@ -9,6 +9,7 @@ describe('native landmark mapping', () => {
   it('does not invent landmarks for absent or invalid data', () => {
     expect(mapLandmarks([])).toEqual({});
     expect(mapLandmarks([{ x: NaN, y: 0 }])).toEqual({});
-    expect(mapLandmarks([{ x: .5, y: .5 }]).nose?.confidence).toBe(0);
+    // Missing visibility/presence fields default to 1 — they must not zero the keypoint.
+    expect(mapLandmarks([{ x: .5, y: .5 }]).nose?.confidence).toBe(1);
   });
 });

@@ -24,16 +24,35 @@ import type { PoseFrame } from './pose/types';
 import { isPoseDetectorAvailable } from './pose/poseDetectorLoader';
 import { evaluatePosture } from './posture';
 
+export interface PoseDebugInfo {
+  framesReceived: number;   // raw detector callbacks
+  framesWithPerson: number; // frames yielding a mapped pose
+  personDetected: boolean;  // latest frame had enough joints
+  leftKneeDeg: number | null;
+  rightKneeDeg: number | null;
+  minJointConfidence: number | null;
+  phase: string;            // rep FSM phase (up/down/unknown)
+  lastReject: string | null;
+}
+
 interface RealEngineHandle extends DetectionEngine {
   /**
    * Called by PoseCameraView on every processed frame.
    * Safe to call when the engine is stopped — it's a no-op in that case.
    */
   pushPoseFrame(pose: PoseFrame, timestampMs?: number): void;
+  /** Called on every raw detector callback (even empty results). */
+  noteRawFrame(): void;
+  /** Called when a callback produced no usable person. */
+  noteNoPerson(): void;
+  /** Live diagnostics snapshot for the debug overlay. */
+  getDebug(): PoseDebugInfo;
 
   /** Current exercise the engine is configured for (null when stopped). */
   getActiveExerciseType(): string | null;
 }
+
+const finite = (n: number): number | null => (Number.isFinite(n) ? Math.round(n) : null);
 
 let instance: RealEngineHandle | null = null;
 
@@ -48,6 +67,7 @@ export function getRealEngine(): RealEngineHandle {
   let counter: RepCounter | null = null;
   let activeExercise: string | null = null;
   let running = false;
+  const debug: PoseDebugInfo = { framesReceived: 0, framesWithPerson: 0, personDetected: false, leftKneeDeg: null, rightKneeDeg: null, minJointConfidence: null, phase: 'idle', lastReject: null };
 
   function emit(e: DetectionEvent) {
     listeners.forEach((l) => l(e));
@@ -85,10 +105,28 @@ export function getRealEngine(): RealEngineHandle {
       return activeExercise;
     },
 
+    noteRawFrame() {
+      debug.framesReceived += 1;
+      debug.personDetected = false;
+    },
+
+    noteNoPerson() {
+      debug.lastReject = 'no person in frame';
+    },
+
+    getDebug() {
+      return { ...debug, phase: counter ? counter.phase : (running ? 'waiting' : 'idle') };
+    },
+
     pushPoseFrame(pose, timestampMs = Date.now()) {
       if (!running || !counter || !activeExercise) return;
       const cfg = EXERCISE_CONFIGS[activeExercise];
       if (!cfg) return;
+
+      debug.framesWithPerson += 1;
+      debug.personDetected = true;
+      debug.leftKneeDeg = finite(angleBetween(pose, ['leftHip', 'leftKnee', 'leftAnkle'], 0).angleDeg);
+      debug.rightKneeDeg = finite(angleBetween(pose, ['rightHip', 'rightKnee', 'rightAnkle'], 0).angleDeg);
 
       // Emit live posture/form feedback for the overlay.
       emit({
@@ -103,7 +141,13 @@ export function getRealEngine(): RealEngineHandle {
         cfg.angleJoints,
         cfg.minVisibility,
       );
-      if (!Number.isFinite(angleDeg)) return;
+      if (!Number.isFinite(angleDeg)) {
+        debug.minJointConfidence = visibility;
+        debug.lastReject = `low joint confidence (${visibility.toFixed(2)}) or missing landmarks`;
+        return;
+      }
+      debug.minJointConfidence = visibility;
+      debug.lastReject = null;
 
       const event = counter.push({ angleDeg, visibility, timestampMs });
       if (event) {
