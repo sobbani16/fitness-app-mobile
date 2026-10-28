@@ -2,7 +2,7 @@ const React = require('react');
 const { act, create } = require('react-test-renderer');
 jest.mock('../../api/client', () => ({ api: {} }));
 jest.mock('../../api/ingredients', () => ({ ...jest.requireActual('../../api/ingredients'), searchIngredients: jest.fn(), selectIngredient: jest.fn().mockResolvedValue(undefined), loadIngredientSelections: jest.fn().mockResolvedValue([]) }));
-jest.mock('../../design/components', () => ({ Action: 'Action', Copy: 'Copy', Field: 'Field', Notice: 'Notice', Skeleton: 'Skeleton' }));
+jest.mock('../../design/components', () => ({ Action: 'Action', Copy: 'Copy', Field: 'Field', Notice: 'Notice', Skeleton: 'Skeleton', ListRow: 'ListRow', IconAction: 'IconAction' }));
 const { searchIngredients } = require('../../api/ingredients');
 const IngredientSearch = require('../IngredientSearch').default;
 let tree;
@@ -16,7 +16,7 @@ it('debounces queries and ignores an older response after the query changes', as
  await act(async () => tree.root.findByType('Field').props.onChangeText('bajra'));
  await act(async () => jest.advanceTimersByTime(350));
  await act(async () => oldResolve([{ id: 'old', name: 'Rice', caloriesPer100g: 100 }]));
- const actions = tree.root.findAllByType('Action').filter(x => x.props.label.includes('kcal per 100 g'));expect(actions).toHaveLength(1);expect(actions[0].props.label).toContain('Pearl millet');expect(actions[0].props.label).toContain('raw/dry');
+ const rows = tree.root.findAllByType('ListRow');expect(rows).toHaveLength(1);expect(rows[0].props.title).toContain('Pearl millet');expect(rows[0].props.title).toContain('raw/dry');expect(rows[0].props.subtitle).toContain('kcal per 100 g');
 });
 it('passes sourced nutrition unchanged on selection and clears the search', async () => {
  const item = { id: 'catalog-1', name: 'Millet', caloriesPer100g: 348, macrosPer100g: { protein_g: 10.96, carbs_g: 73.27, fat_g: 5.43, fiber_g: 11.49 } }, select = jest.fn();
@@ -24,7 +24,7 @@ it('passes sourced nutrition unchanged on selection and clears the search', asyn
  await act(async () => { tree = create(<IngredientSearch onSelect={select} />); });
  await act(async () => tree.root.findByType('Field').props.onChangeText('millet'));
  await act(async () => jest.advanceTimersByTime(350));
- await act(async () => tree.root.findAllByType('Action').find(x => x.props.label.includes('kcal per 100 g')).props.onPress());
+ await act(async () => tree.root.findAllByType('ListRow').find(x => x.props.subtitle.includes('kcal per 100 g')).props.onPress());
  expect(select).toHaveBeenCalledWith(item);expect(tree.root.findByType('Field').props.value).toBe('');
 });
 
