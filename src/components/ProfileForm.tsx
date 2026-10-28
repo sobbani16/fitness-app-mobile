@@ -7,7 +7,7 @@ import { useTheme } from '../design/theme';
 import { ActivityLevel, Goal, Profile, Sex, UnitSystem } from '../storage/profile';
 import { countryToUnitSystem } from '../util/units';
 export type ProfileFormData = Omit<Profile, 'createdAt'>;
-export const GOAL_LABELS: Record<Goal, string> = { weight_loss: 'Weight loss', muscle_gain: 'Muscle gain', body_recomposition: 'Body recomposition', maintain: 'Maintain weight' };
+export const GOAL_LABELS: Record<Goal, string> = { weight_loss: 'Weight loss', muscle_gain: 'Muscle gain', body_recomposition: 'Body recomposition', weight_gain: 'Weight gain', maintain: 'Maintain weight' };
 export const ACTIVITY_LABELS: Record<ActivityLevel, string> = { sedentary: 'Mostly seated', light: 'Light activity', moderate: 'Moderate activity', active: 'Active', very_active: 'Very active' };
 interface Props {
   initial?: Partial<Profile> | null; title?: string; subtitle?: string; submitLabel?: string; saving?: boolean;

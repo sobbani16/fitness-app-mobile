@@ -8,6 +8,7 @@ export type Goal =
   | 'weight_loss'
   | 'muscle_gain'
   | 'body_recomposition'
+  | 'weight_gain'
   | 'maintain';
 
 // Legacy goal values from older app versions, mapped to the new taxonomy.
@@ -20,7 +21,7 @@ const LEGACY_GOAL_MAP: Record<string, Goal> = {
 export function normalizeGoal(goal: unknown): Goal {
   if (typeof goal !== 'string') return 'maintain';
   if (goal in LEGACY_GOAL_MAP) return LEGACY_GOAL_MAP[goal];
-  const valid: Goal[] = ['weight_loss', 'muscle_gain', 'body_recomposition', 'maintain'];
+  const valid: Goal[] = ['weight_loss', 'muscle_gain', 'body_recomposition', 'weight_gain', 'maintain'];
   return (valid as string[]).includes(goal) ? (goal as Goal) : 'maintain';
 }
 export type ActivityLevel =

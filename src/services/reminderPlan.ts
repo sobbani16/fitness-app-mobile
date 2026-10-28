@@ -73,7 +73,7 @@ function nextOccurrences(from: Date, minutes: number, daysOfWeek: number[] | nul
 export function planNotifications(
   prefs: ReminderPreferences,
   settings: ReminderCategorySetting[],
-  ctx: { now: Date; lastWaterAt: Date | null; mealsLoggedToday: Set<string>; supplementsEnabled: boolean; workoutDoneToday?: boolean },
+  ctx: { now: Date; lastWaterAt: Date | null; mealsLoggedToday: Set<string>; supplementsEnabled: boolean; workoutDoneToday?: boolean; workoutPlanDays?: number[] },
 ): PlannedNotification[] {
   const out: PlannedNotification[] = [];
   if (!prefs.masterEnabled) return out;
@@ -106,7 +106,12 @@ export function planNotifications(
     if (cat === 'movement') continue; // needs fresh device health data — later milestone
 
     const times = Array.isArray(s.times) ? s.times : [];
-    const days = Array.isArray(s.daysOfWeek) ? s.daysOfWeek : null;
+    // Workout reminders honor the configured training plan: when plan days are
+    // set, reminders fire only on those days (plan ∩ schedule days).
+    let days = Array.isArray(s.daysOfWeek) ? s.daysOfWeek : null;
+    if (cat === 'workout' && ctx.workoutPlanDays?.length) {
+      days = days ? days.filter(d => ctx.workoutPlanDays!.includes(d)) : ctx.workoutPlanDays;
+    }
     for (const t of times) {
       const minutes = parseHHMM(t);
       if (minutes == null) continue;

@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { useProfile } from '../context/ProfileContext';
+import { estimateBMR, estimateTDEE, calorieTarget, energyBalance } from '../services/energy';
+import { getEnergyRecords, EnergyRecord } from '../api/healthData';
 import { useMeals } from '../context/MealsContext';
 import { useDailyStats } from '../hooks/useDailyStats';
 import { getMacroGoals, MacroGoals } from '../api/macroScore';
@@ -38,6 +40,12 @@ export default function DashboardScreen() {
   const goalRequest = useRef(0);
   const summary = todaySummary(diary.meals, now);
   const target = validTarget(goals?.caloriesTarget);
+  const energy = { bmr: estimateBMR(profile), tdee: estimateTDEE(profile), target: calorieTarget(profile), balance: energyBalance(summary.calories, estimateTDEE(profile)) };
+  const [wearable, setWearable] = useState<EnergyRecord[] | null>(null);
+  useEffect(() => { getEnergyRecords(7).then(r => setWearable(r.records)).catch(() => setWearable([])); }, []);
+  // Latest day's imported active energy, grouped by provider (no double counting).
+  const todayActive = (wearable || []).filter(r => r.startAt.slice(0, 10) === new Date().toISOString().slice(0, 10))
+    .reduce((m: Record<string, { kcal: number; syncedAt: string }>, r) => { const p = m[r.provider] || { kcal: 0, syncedAt: r.syncedAt }; p.kcal += r.activeKcal; if (r.syncedAt > p.syncedAt) p.syncedAt = r.syncedAt; m[r.provider] = p; return m; }, {});
   const waterTarget = validTarget(goals?.waterMlTarget);
   const loadGoals = useCallback(async () => {
     const request = ++goalRequest.current;
@@ -134,6 +142,18 @@ export default function DashboardScreen() {
           </View>)}
         </View>
         <Copy tone="muted" size="caption">Meal values only. Missing nutrients stay unknown; supplement entries are shown separately.</Copy>
+      </Card>
+      <Card>
+        <Copy accessibilityRole="header" size="title" style={{ fontWeight: '600' }}>Energy (estimated)</Copy>
+        {energy.bmr == null
+          ? <Copy tone="muted">Complete your profile to estimate resting energy use.</Copy>
+          : <>
+            <Copy>~{energy.bmr} kcal/day resting (BMR estimate) · ~{energy.tdee} kcal/day total (TDEE)</Copy>
+            {energy.target && <Copy tone="muted">Food target: {energy.target.low}–{energy.target.high} kcal</Copy>}
+            <Copy>{summary.calories == null ? 'No food logged yet — balance unknown, not zero.' : `Logged ${Math.round(summary.calories)} kcal · est. balance ${energy.balance! > 0 ? '+' : ''}${energy.balance} kcal`}</Copy>
+            {Object.entries(todayActive).map(([provider, v]) => <Copy key={provider} size="caption" tone="muted">{provider === 'healthkit' ? 'Apple Health' : provider === 'health_connect' ? 'Health Connect' : 'Fitbit'} reports ~{Math.round(v.kcal)} kcal active today (synced {new Date(v.syncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}) — informational only, already inside the TDEE estimate.</Copy>)}
+            <Copy size="caption" tone="muted">Estimates, not measurements. Routine activity is already inside TDEE — workouts aren't added again.</Copy>
+          </>}
       </Card>
       {cards.note && <Card><Copy accessibilityRole="header" size="title" style={{ fontWeight: '600' }}>A note for today</Copy>
         <Copy>{summary.meals.length === 0 ? 'Your diary is ready whenever you are. Start with a meal you remember.' : summary.fiber === null

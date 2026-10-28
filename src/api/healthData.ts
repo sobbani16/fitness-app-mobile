@@ -13,3 +13,12 @@ export interface HealthSummary {
 export function getHealthSummary(days: 7 | 30 | 90 = 7): Promise<HealthSummary> {
   return api.get<HealthSummary>('/health-data/summary', { params: { days } }).then(r => r.data);
 }
+
+export interface EnergyRecord {
+  provider: 'fitbit' | 'healthkit' | 'health_connect';
+  sourceId: string; deviceLabel: string | null;
+  startAt: string; endAt: string; activeKcal: number; syncedAt: string;
+}
+export function getEnergyRecords(days: 7 | 30 | 90 = 7): Promise<{ records: EnergyRecord[] }> {
+  return api.get<{ records: EnergyRecord[] }>('/health-data/energy', { params: { days } }).then(r => r.data);
+}

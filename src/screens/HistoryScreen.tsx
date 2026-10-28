@@ -9,6 +9,9 @@ import { cachedProgress, chartPoints, dateWindow, fetchProgress, mean, Metric, P
 import { getSession } from '../storage/session';
 import { loadMealsFor, LoggedMeal } from '../storage/meals';
 import { reconcileMealDays } from '../services/mealSync';
+import { loadProgressPrefs, saveProgressPrefs } from '../storage/progressPrefs';
+import { assessDay, CalendarView, DayAssessment, DayStatus } from '../services/dayAssessment';
+import { calorieTarget, estimateBMR, estimateTDEE, energyBalance, proteinTargetG } from '../services/energy';
 import { formatWeight } from '../util/units';
 const metrics: { key: Metric; label: string; unit: string }[] = [
   { key: 'calories', label: 'Logged calories', unit: 'kcal' }, { key: 'weightKg', label: 'Weight', unit: 'kg' },
@@ -25,6 +28,9 @@ export default function HistoryScreen() {
   const [loading, setLoading] = useState(true), [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(''), [cached, setCached] = useState(true);
   const [metric, setMetric] = useState<Metric>('calories');
+  const [view, setView] = useState<CalendarView>('overall');
+  const [planDays, setPlanDays] = useState<{ workout: number[]; rest: number[] } | null>(null);
+  const prefsLoaded = useRef(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [meals, setMeals] = useState<LoggedMeal[]>([]), [mealError, setMealError] = useState('');
   const [mealLoading, setMealLoading] = useState(false);
@@ -47,6 +53,13 @@ export default function HistoryScreen() {
     } finally { if (current()) { setLoading(false); setRefreshing(false); } }
   }, [days, offset]);
   useFocusEffect(useCallback(() => { void load(); return () => { request.current++; diaryRequest.current++; }; }, [load]));
+  useFocusEffect(useCallback(() => {
+    void loadProgressPrefs().then(p => {
+      setPlanDays(p.workoutDays.length || p.restDays.length ? { workout: p.workoutDays, rest: p.restDays } : null);
+      if (!prefsLoaded.current) { prefsLoaded.current = true; setView(p.calendarView); }
+    });
+  }, []));
+  const changeView = (v: CalendarView) => { setView(v); void loadProgressPrefs().then(p => saveProgressPrefs({ ...p, calendarView: v })); };
   const selectDay = async (date: string) => {
     const token = ++diaryRequest.current, account = getSession()?.user.id;
     const current = () => token === diaryRequest.current && getSession()?.user.id === account;
@@ -67,6 +80,24 @@ export default function HistoryScreen() {
   const unit = imperialWeight ? 'lb' : choice.unit;
   const number = (value: number | null) => value === null ? 'No records' : `${Math.round((imperialWeight ? value / 0.45359237 : value) * 10) / 10} ${unit}`;
   const detail = visible.find(d => d.date === selected);
+  // Goal-aware day assessment — same date can differ across views.
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const target = calorieTarget(profile), protein = proteinTargetG(profile);
+  const assessments = new Map<string, DayStatus>(), details = new Map<string, DayAssessment>();
+  let inactiveStreak = 0;
+  for (const d of [...entries].sort((a, b) => a.date.localeCompare(b.date))) {
+    const weekday = new Date(`${d.date}T12:00:00`).getDay();
+    const ctx = { goal: profile?.goal ?? 'maintain', view: view, target, proteinTarget: protein, profile, isToday: d.date === todayStr, consecutiveInactiveDays: inactiveStreak,
+      plannedWorkout: planDays ? planDays.workout.includes(weekday) : null,
+      // In a configured plan, non-training days are planned rest — green, not failure.
+      plannedRest: planDays ? !planDays.workout.includes(weekday) : null };
+    const a = assessDay(d, ctx);
+    assessments.set(d.date, a.status); details.set(d.date, a);
+    inactiveStreak = (d.workouts ?? 0) > 0 ? 0 : inactiveStreak + 1;
+  }
+  const bmr = estimateBMR(profile), tdee = estimateTDEE(profile);
+  const selectedAssessment = selected ? details.get(selected) : null;
+  const balance = energyBalance(detail?.calories ?? null, tdee);
   return <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 40 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} />}>
     <Copy size="title" accessibilityRole="header" style={{ fontWeight: '700' }}>Progress</Copy>
     <Copy tone="muted">Patterns in your records, at your pace. A missing log does not describe what you ate or how active you were.</Copy>
@@ -78,6 +109,15 @@ export default function HistoryScreen() {
     {!!visible.length && <>
       <Copy>{visible[0].date} – {visible.at(-1)!.date}</Copy>
       <Copy tone="muted">{cached ? 'Saved snapshot and available device meals; may be incomplete.' : 'Synced records only. Pending device logs may not appear yet.'}</Copy>
+      <Card><Copy size="heading">Energy expenditure (estimated)</Copy>
+        {bmr == null ? <Copy tone="muted">Complete your profile (sex, age, height, weight) to estimate resting energy.</Copy> : <>
+          <Copy>{bmr} kcal/day — resting body functions (BMR, Mifflin–St Jeor estimate)</Copy>
+          <Copy>{tdee} kcal/day — total estimate including routine movement (TDEE)</Copy>
+          {target && <Copy>Food target for your goal: {target.low}–{target.high} kcal</Copy>}
+          {balance !== null && <Copy>Selected day balance: {balance > 0 ? '+' : ''}{balance} kcal vs TDEE estimate</Copy>}
+          <Copy tone="muted">Estimates only — routine activity is inside TDEE, so logged workouts are context, not extra burn. Not a measurement of actual intake or fat change.</Copy>
+        </>}
+      </Card>
       <Card><Copy size="heading">Logging consistency</Copy>
         <Copy>{visible.filter(d => d.mealCount > 0).length} of {days} days have meal records</Copy>
         <Copy>{visible.filter(d => d.workouts !== null && d.workouts > 0).length} days have workout records</Copy>
@@ -92,8 +132,10 @@ export default function HistoryScreen() {
         {metric === 'steps' && <Copy tone="muted">Step records may cover only part of a day. Duplicate legacy daily totals use the highest count.</Copy>}
         <BarChart points={chartPoints(chartEntries, metric)} unit={unit} />
       </Card>
-      <Card><Copy size="heading">Daily history</Copy><Copy tone="muted">Choose a date to review its records and saved meals.</Copy>
-        <HistoryCalendar days={visible} selected={selected} onSelect={date => void selectDay(date)} />
+      <Card><Copy size="heading">Daily history</Copy>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{([['nutrition', 'Nutrition'], ['workouts', 'Workouts'], ['overall', 'Overall goal']] as [CalendarView, string][]).map(([v, label]) => <Action key={v} label={label} selected={view === v} secondary={view !== v} onPress={() => changeView(v)} />)}</View>
+        <Copy tone="muted">Choose a date to review its records and saved meals. Colors reflect the selected view.</Copy>
+        <HistoryCalendar days={visible} selected={selected} onSelect={date => void selectDay(date)} assessments={assessments} />
       </Card>
       {detail && <Card><Copy size="heading">{detail.date}</Copy>
         <Copy>{detail.calories === null ? 'No calorie records' : `${Math.round(detail.calories)} kcal logged`}</Copy>
@@ -104,6 +146,13 @@ export default function HistoryScreen() {
         {!!mealError && <><Notice title="Saved diary" message={mealError} /><Action label="Retry selected day" onPress={() => void selectDay(detail.date)} /></>}
         {meals.map(m => <Copy key={m.id}>{m.name} · {m.calories} kcal saved</Copy>)}
         {!mealLoading && !meals.length && <Copy tone="muted">No saved meals available for this day.</Copy>}
+        {selectedAssessment && <>
+          <Copy size="heading" style={{ marginTop: 8 }}>Why this status?{selectedAssessment.provisional ? ' (provisional — today still accruing)' : ''}</Copy>
+          {selectedAssessment.reasons.map((r, i) => <Copy key={i}>• {r}</Copy>)}
+          {!!selectedAssessment.missing.length && <Copy tone="muted">Missing: {selectedAssessment.missing.join(', ')}</Copy>}
+          <Copy>{selectedAssessment.nextStep}</Copy>
+          <Copy tone="muted" size="caption">Goal: {profile?.goal || 'maintain'} · View: {view} · Rules: {selectedAssessment.ruleVersion}</Copy>
+        </>}
       </Card>}
     </>}
     <Card><Copy size="heading">About health scores</Copy><Copy tone="muted">Scores are provisional estimates and can change as you log. There is no confirmed complete-day score in this version. Progress does not rank foods or days, infer a physiological calorie deficit, or suggest exercise to offset eating.</Copy></Card>

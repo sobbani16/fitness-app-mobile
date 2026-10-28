@@ -3,7 +3,8 @@ import { Pressable, View, useWindowDimensions } from 'react-native';
 import { Action, Copy } from '../design/components';
 import { useTheme } from '../design/theme';
 import { ProgressDay } from '../services/progress';
-export default function HistoryCalendar({ days, selected, onSelect }: { days: ProgressDay[]; selected: string | null; onSelect: (date: string) => void }) {
+import type { DayStatus } from '../services/dayAssessment';
+export default function HistoryCalendar({ days, selected, onSelect, assessments }: { days: ProgressDay[]; selected: string | null; onSelect: (date: string) => void; assessments?: Map<string, DayStatus> }) {
   const { colors } = useTheme();
   const { width, fontScale } = useWindowDimensions();
   const months = [...new Set(days.map(d => d.date.slice(0, 7)))];
@@ -21,8 +22,9 @@ export default function HistoryCalendar({ days, selected, onSelect }: { days: Pr
       {compact && Array.from({ length: blanks }, (_, i) => <View key={`blank-${i}`} style={{ width: '14.2857%' }} />)}
       {entries.map(day => {
         const meals = day.mealCount > 0, work = (day.workouts ?? 0) > 0;
-        const tint = meals && work ? `${colors.primary}2E` : meals || work ? `${colors.warning}33` : `${colors.danger}22`;
-        const status = `${day.mealCount} meal records${work ? ', workout logged' : ''}`;
+        const st: DayStatus = assessments?.get(day.date) ?? (meals && work ? 'green' : meals || work ? 'yellow' : 'red');
+        const tint = st === 'green' ? `${colors.primary}2E` : st === 'yellow' ? `${colors.warning}33` : st === 'red' ? `${colors.danger}22` : colors.track;
+        const status = `${day.mealCount} meal records${work ? ', workout logged' : ''}${st === 'gray' ? ', insufficient data' : ''}`;
         return <Pressable key={day.date} accessibilityRole="button" accessibilityLabel={`${day.date}: ${status}`} accessibilityState={{ selected: selected === day.date }} onPress={() => onSelect(day.date)}
           style={{ width: compact ? '14.2857%' : '100%', minHeight: 48, padding: 6, borderWidth: 1, borderColor: selected === day.date ? colors.primary : colors.border, borderRadius: 8, backgroundColor: selected === day.date ? colors.accent : tint }}>
           <Copy style={{ textAlign: compact ? 'center' : 'left' }}>{compact ? Number(day.date.slice(8)) : day.date}</Copy>
@@ -30,7 +32,7 @@ export default function HistoryCalendar({ days, selected, onSelect }: { days: Pr
         </Pressable>; })}
     </View>
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-      {[[`${colors.primary}2E`, 'Meals + workout'], [`${colors.warning}33`, 'Meals or workout'], [`${colors.danger}22`, 'No records']].map(([bg, label]) => <View key={label} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+      {[[`${colors.primary}2E`, 'On track'], [`${colors.warning}33`, 'Review'], [`${colors.danger}22`, 'Outside plan'], [colors.track, 'Insufficient data']].map(([bg, label]) => <View key={label} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
         <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: bg, borderWidth: 1, borderColor: colors.border }} /><Copy size="caption" tone="muted">{label}</Copy>
       </View>)}
     </View>

@@ -8,6 +8,8 @@ import { useExerciseSession } from '../hooks/useExerciseSession';
 import { useExerciseDetection } from '../hooks/useExerciseDetection';
 import { EXERCISE_TYPES, ExerciseSession } from '../types/exercise';
 import { listSessions } from '../api/exercises';
+import { loadProgressPrefs, saveProgressPrefs } from '../storage/progressPrefs';
+import { syncReminderSchedules } from '../services/reminderSync';
 import { clockText, displayWeight, elapsed, exerciseName, toPounds, validateSet, WeightUnit } from '../services/exerciseAutofill';
 import { accountStorage } from '../storage/accountStorage';
 import { accountKey, getSession } from '../storage/session';
@@ -23,6 +25,15 @@ export default function LogExerciseScreen() {
   const workout = useExerciseSession();
   const { draft, sets, loading, saving, error } = workout;
   const detection = useExerciseDetection();
+  const [workoutPlan, setWorkoutPlan] = useState<number[]>([]);
+  useEffect(() => { void loadProgressPrefs().then(p => setWorkoutPlan(p.workoutDays)); }, []);
+  const togglePlanDay = async (day: number) => {
+    const next = workoutPlan.includes(day) ? workoutPlan.filter(d => d !== day) : [...workoutPlan, day].sort();
+    setWorkoutPlan(next);
+    const p = await loadProgressPrefs();
+    await saveProgressPrefs({ ...p, workoutDays: next });
+    void syncReminderSchedules().catch(() => {});
+  };
   const stopDetection = detection.stop;
   const [camera, setCamera] = useState(false);
   const [query, setQuery] = useState('');
@@ -138,6 +149,12 @@ export default function LogExerciseScreen() {
             </View>; })}
           </View>
           {!candidates.length && <Copy tone="muted">No matching exercises. Try another category or search.</Copy>}
+          <View style={{ marginTop: 4 }}>
+            <Copy size="caption" tone="muted">Planned training days (tap to toggle — other days count as planned rest)</Copy>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
+              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => <Action key={i} label={d} secondary={!workoutPlan.includes(i)} selected={workoutPlan.includes(i)} onPress={() => void togglePlanDay(i)} />)}
+            </View>
+          </View>
         </Card>
         {recent.length > 0 && <Card style={{ paddingVertical: 4 }}><Copy size="heading" style={{ paddingVertical: 12 }}>Recent exercises</Copy>{recent.map(type => <ListRow key={type} title={exerciseName(type)} onPress={() => choose(type)}><IconAction icon="↻" label={`Start ${exerciseName(type)}`} onPress={() => choose(type)} /></ListRow>)}</Card>}
         {prefs.templates.length > 0 && <Card><Copy size="heading">Your templates</Copy><Copy tone="muted">Single-exercise routines saved on this device. Sets are logged individually.</Copy>

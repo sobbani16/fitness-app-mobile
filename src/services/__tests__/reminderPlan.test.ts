@@ -157,3 +157,10 @@ describe('delivery visibility and quiet-hours fixes', () => {
     expect(planNotifications(prefs, [w], ctx({ mealsLoggedToday: new Set(['workout'] as any) })).filter(isToday)).toHaveLength(1);
   });
 });
+
+test('workout plan days intersect reminder days; no plan keeps schedule', () => {
+  const workout = meal({ category: 'workout', times: ['18:00'], daysOfWeek: null, leadMinutes: 30 });
+  const withPlan = planNotifications(prefs, [workout], ctx({ workoutPlanDays: [1, 3, 5] }));
+  expect(withPlan.length).toBeGreaterThan(0);
+  expect(withPlan.every(p => [1, 3, 5].includes(p.fireAt.getDay()))).toBe(true);
+});

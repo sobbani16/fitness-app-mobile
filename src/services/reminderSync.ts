@@ -2,6 +2,7 @@ import { getReminderPreferences, getReminderCategories } from '../api/reminders'
 import { getLastWaterAt } from '../api/dailyStats';
 import { loadMealsFor } from '../storage/meals';
 import { planNotifications } from './reminderPlan';
+import { loadProgressPrefs } from '../storage/progressPrefs';
 import { applyPlan, setupNotifications } from './notifications';
 
 // Pulls settings + facts, recomputes the local notification plan, applies it.
@@ -21,6 +22,7 @@ export async function syncReminderSchedules(): Promise<{ planned: number }> {
       lastWaterAt: lastWaterIso ? new Date(lastWaterIso) : null,
       mealsLoggedToday: new Set(meals.map(m => m.mealType).filter(Boolean) as string[]),
       supplementsEnabled: categories.some(c => c.category === 'supplement' && c.enabled),
+      workoutPlanDays: (await loadProgressPrefs()).workoutDays,
     });
     await applyPlan(plan);
     return { planned: plan.length };
