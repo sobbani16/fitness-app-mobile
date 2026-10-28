@@ -21,6 +21,7 @@ import SmartRemindersScreen from '../screens/SmartRemindersScreen';
 import ReminderInboxScreen from '../screens/ReminderInboxScreen';
 import VideoSearchScreen from '../screens/VideoSearchScreen';
 import VideoCompareScreen from '../screens/VideoCompareScreen';
+import ConnectedHealthScreen from '../screens/ConnectedHealthScreen';
 import { LoggedMeal } from '../storage/meals';
 import ChatScreen from '../screens/ChatScreen';
 import FeedbackScreen from '../screens/FeedbackScreen';
@@ -49,6 +50,7 @@ export type RootStackParamList = {
   SmartReminders: undefined;
   ReminderInbox: undefined;
   VideoSearch: { query?: string; context?: 'exercise' | 'recipe' | 'nutrition' | 'education' | 'general'; exerciseKey?: string };
+  ConnectedHealth: undefined;
   VideoCompare: { videos: [import('../api/videos').VideoResult, import('../api/videos').VideoResult]; exerciseKey?: string };
 };
 
@@ -142,6 +144,11 @@ export default function RootNavigator() {
             name="VideoSearch"
             component={VideoSearchScreen}
             options={{ headerShown: true, title: 'Videos' }}
+          />
+          <Stack.Screen
+            name="ConnectedHealth"
+            component={ConnectedHealthScreen}
+            options={{ headerShown: true, title: 'Connected health' }}
           />
           <Stack.Screen
             name="VideoCompare"
