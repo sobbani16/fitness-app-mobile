@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Linking } from 'react-native';
+import { AppState, Linking } from 'react-native';
 import { Action, Card, Copy, Notice } from '../../design/components';
 import { useStepCounter } from '../../hooks/useStepCounter';
 import { syncSteps } from '../../api/dailyStats';
@@ -25,9 +25,13 @@ function ConnectedSteps({ retry }: { retry: () => void }) {
 }
 export default function StepsCard() {
   const [attempt, setAttempt] = useState(0);
-  const [connected, setConnected] = useState(false);
+  // Auto-connect: the OS motion prompt appears at most once; afterwards reads
+  // are silent. Remounting on foreground refreshes the day's historical total.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', s => { if (s === 'active') setAttempt(v => v + 1); });
+    return () => sub.remove();
+  }, []);
   return <Card><Copy accessibilityRole="header" size="title" style={{ fontWeight: '600' }}>Movement</Copy>
-    {connected ? <ConnectedSteps key={attempt} retry={() => setAttempt(value => value + 1)} /> : <><Copy tone="muted">Connect motion access to see steps from this device. Steps do not change the calorie target shown here.</Copy>
-      <Action secondary label="Connect steps" onPress={() => setConnected(true)} /></>}
+    <ConnectedSteps key={attempt} retry={() => setAttempt(value => value + 1)} />
   </Card>;
 }

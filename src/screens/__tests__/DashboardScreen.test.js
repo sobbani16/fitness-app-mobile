@@ -45,11 +45,8 @@ it('keeps cached meals and logging available when targets fail, without claiming
   await act(async () => press('Retry targets'));
   expect(output()).toContain('2,200');
 });
-it('does not request motion or refetch targets when connecting steps', async () => {
+it('connects steps automatically on load without refetching targets', async () => {
   await act(async () => { tree = create(<Screen />); });
-  expect(useStepCounter).not.toHaveBeenCalled();
-  expect(getMacroGoals).toHaveBeenCalledTimes(1);
-  await act(async () => press('Connect steps'));
   expect(useStepCounter).toHaveBeenCalled();
   expect(getMacroGoals).toHaveBeenCalledTimes(1);
   expect(output()).not.toContain('Ask Leo');
