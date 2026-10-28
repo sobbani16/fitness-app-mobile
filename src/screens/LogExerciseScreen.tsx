@@ -124,12 +124,18 @@ export default function LogExerciseScreen() {
         <Card><Field label="Search exercises" value={query} onChangeText={setQuery} />
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{['All', 'Push', 'Pull', 'Legs', 'Favorites'].map(item => <Action key={item} label={item} secondary selected={category === item} onPress={() => setCategory(item)} />)}</View>
           <View style={{ marginTop: 4 }}>
-            {candidates.map(type => { const fav = prefs.favorites.includes(type); return <ListRow key={type}
+            {candidates.map(type => { const fav = prefs.favorites.includes(type); return <View key={type}><ListRow
               title={exerciseName(type)} subtitle={selected === type ? 'Selected' : categories[type] || undefined}
               onPress={() => choose(type)}>
               <IconAction icon={fav ? '♥' : '♡'} label={fav ? `Remove favorite: ${exerciseName(type)}` : `Save favorite: ${exerciseName(type)}`}
                 onPress={() => void savePreferences({ ...prefs, favorites: fav ? prefs.favorites.filter(t => t !== type) : [...prefs.favorites, type] })} />
-            </ListRow>; })}
+            </ListRow>
+            {selected === type && <View style={{ paddingHorizontal: 8, paddingVertical: 8, gap: 8 }}>
+              {targetSets && <Copy tone="muted">{targetSets} planned sets</Copy>}
+              <Action secondary label="Find technique videos" onPress={() => navigation.navigate('VideoSearch', { query: `${exerciseName(selected)} proper form tutorial`, context: 'exercise', exerciseKey: selected })} />
+              <Action label="Start workout" disabled={!prefsReady || saving || !workout.ready} onPress={() => void workout.start(selected)} />
+            </View>}
+            </View>; })}
           </View>
           {!candidates.length && <Copy tone="muted">No matching exercises. Try another category or search.</Copy>}
         </Card>
@@ -138,12 +144,6 @@ export default function LogExerciseScreen() {
           {prefs.templates.map(t => <View key={t.name} style={{ gap: 8 }}><Action secondary label={`${t.name} · ${t.sets} sets of ${t.reps}`} onPress={() => choose(t.exerciseType, t)} />
             <Action secondary label={`Remove ${t.name}`} onPress={() => void savePreferences({ ...prefs, templates: prefs.templates.filter(x => x.name !== t.name) })} /></View>)}
         </Card>}
-        <Card><Copy size="heading">{exerciseName(selected)}</Copy>
-          <Action secondary disabled={!prefsReady} label={prefs.favorites.includes(selected) ? 'Remove from favorites' : 'Save favorite exercise'} onPress={() => void savePreferences({ ...prefs, favorites: prefs.favorites.includes(selected) ? prefs.favorites.filter(t => t !== selected) : [...prefs.favorites, selected] })} />
-          {targetSets && <Copy>{targetSets} planned sets</Copy>}
-          <Action secondary label="Find technique videos" onPress={() => navigation.navigate('VideoSearch', { query: `${exerciseName(selected)} proper form tutorial`, context: 'exercise', exerciseKey: selected })} />
-          <Action label="Start workout" disabled={!prefsReady || saving || !workout.ready} onPress={() => void workout.start(selected)} />
-        </Card>
       </>}
       {historyLoading && <Skeleton label="Loading previous performance" />}
       {historyError !== '' && <Card><Notice title="History unavailable" message={historyError} /><Action label="Retry history" secondary onPress={() => setRefresh(v => v + 1)} /></Card>}
