@@ -74,3 +74,50 @@ export function BarChart({ points, unit }: { points: { label: string; value: num
     <Progress label={`${point.label} ${unit}`} value={point.value} target={maximum} />
   </View>)}</View>;
 }
+
+export function Segmented<T extends string>({ label, options, value, onChange }: {
+  label: string; options: { value: T; label: string; icon?: string }[]; value: T; onChange: (v: T) => void;
+}) {
+  const { colors } = useTheme();
+  return <View style={{ gap: 6 }} accessibilityRole="radiogroup" accessibilityLabel={label}>
+    <Copy>{label}</Copy>
+    <View style={{ flexDirection: 'row', borderRadius: radius.control, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' }}>
+      {options.map(opt => {
+        const selected = opt.value === value;
+        return <Pressable key={opt.value} accessibilityRole="radio" accessibilityState={{ selected }} accessibilityLabel={`${label}: ${opt.label}`}
+          onPress={() => onChange(opt.value)}
+          style={({ pressed }) => ({ flex: 1, minHeight: 40, justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: 4,
+            backgroundColor: selected ? colors.primary : colors.surface, opacity: pressed ? 0.8 : 1 })}>
+          {!!opt.icon && <Copy style={{ color: selected ? colors.onPrimary : colors.text }}>{opt.icon}</Copy>}
+          <Copy style={{ color: selected ? colors.onPrimary : colors.text, fontWeight: selected ? '700' : '500' }}>{opt.label}</Copy>
+        </Pressable>;
+      })}
+    </View>
+  </View>;
+}
+
+export function IconAction({ icon, label, onPress, disabled = false, danger = false }: {
+  icon: string; label: string; onPress: () => void; disabled?: boolean; danger?: boolean;
+}) {
+  const { colors } = useTheme();
+  return <Pressable accessibilityRole="button" accessibilityLabel={label} disabled={disabled} onPress={onPress}
+    style={({ pressed }) => ({ minWidth: 44, minHeight: 44, justifyContent: 'center', alignItems: 'center',
+      borderRadius: radius.control, opacity: disabled ? 0.4 : pressed ? 0.6 : 1 })}>
+    <Copy style={{ fontSize: 20, color: danger ? colors.danger : colors.primary }}>{icon}</Copy>
+  </Pressable>;
+}
+
+export function ListRow({ title, subtitle, onPress, children }: {
+  title: string; subtitle?: string; onPress?: () => void; children?: React.ReactNode;
+}) {
+  const { colors } = useTheme();
+  return <Pressable accessibilityRole={onPress ? 'button' : undefined} accessibilityLabel={onPress ? title : undefined} onPress={onPress}
+    style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, gap: 8,
+      borderBottomWidth: 1, borderBottomColor: colors.border, opacity: pressed ? 0.7 : 1 })}>
+    <View style={{ flex: 1, gap: 2 }}>
+      <Copy numberOfLines={1} style={{ fontWeight: '600' }}>{title}</Copy>
+      {!!subtitle && <Copy size="caption" tone="muted">{subtitle}</Copy>}
+    </View>
+    <View style={{ flexDirection: 'row', alignItems: 'center' }}>{children}</View>
+  </Pressable>;
+}

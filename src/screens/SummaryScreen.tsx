@@ -4,7 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { useProfile } from '../context/ProfileContext';
-import { Action, Card, Copy, Notice, Skeleton } from '../design/components';
+import { Action, Card, Copy, Segmented, Notice, Skeleton } from '../design/components';
 import AppearancePicker from '../design/AppearancePicker';
 import { useTheme } from '../design/theme';
 import DashboardPreferences from '../components/DashboardPreferences';
@@ -39,7 +39,9 @@ export default function SummaryScreen() {
         <Copy>{GOAL_LABELS[profile.goal]} · {ACTIVITY_LABELS[profile.activityLevel]}</Copy>
       </>}
       <Action label="Edit profile" disabled={busy || loading} onPress={() => navigation.navigate('EditProfile')} />
-      {!!profile && <><Copy>Display units</Copy>{(['metric', 'imperial'] as const).map(unit => <Action key={unit} label={unit === 'metric' ? 'Kilograms and centimeters' : 'Pounds and feet'} selected={profile.units === unit} secondary={profile.units !== unit} disabled={busy} onPress={() => void run(() => update({ units: unit }), 'Display units updated. Measurements are unchanged.')} />)}</>}
+      {!!profile && <Segmented<'metric' | 'imperial'> label="Display units" value={profile.units as 'metric' | 'imperial'}
+        options={[{ value: 'metric', label: 'kg · cm' }, { value: 'imperial', label: 'lb · ft' }]}
+        onChange={unit => { if (!busy) void run(() => update({ units: unit }), 'Display units updated. Measurements are unchanged.'); }} />}
     </Card>
     <Card><AppearancePicker /></Card><Card><DashboardPreferences /></Card>
     <Card><Copy size="heading">Reminders</Copy><Action secondary label="Smart reminders" onPress={() => navigation.navigate('SmartReminders')} /><Action secondary label="Reminder history" onPress={() => navigation.navigate('ReminderInbox')} /><Action secondary label="Connected health" onPress={() => navigation.navigate('ConnectedHealth')} /></Card>

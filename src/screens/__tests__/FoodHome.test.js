@@ -25,7 +25,7 @@ it('opens distinct search/manual paths and keeps photo estimates gated', async (
 });
 it('reviews a recent food before logging and saves it as a favorite', async () => {
   await act(async () => { tree = create(<Screen />); });
-  await act(async () => press('Review and repeat Oats'));
+  await act(async () => press('Repeat Oats'));
   expect(mockNavigate).toHaveBeenLastCalledWith('FoodEntry', { mode: 'repeat', meal: mockMeal });
   await act(async () => press('Save favorite: Oats'));
   expect(storage.setFavorite).toHaveBeenCalledWith(mockMeal, true);

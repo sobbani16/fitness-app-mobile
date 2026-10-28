@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { Alert, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import KeyboardAwareScrollView from '../components/KeyboardAwareScrollView';
-import { Action, Card, Copy, Notice } from '../design/components';
+import { Action, Card, Copy, Field, IconAction, ListRow, Notice } from '../design/components';
 import { useTheme } from '../design/theme';
 import { useMeals } from '../context/MealsContext';
 import { LoggedMeal } from '../storage/meals';
@@ -16,6 +16,7 @@ export default function LogMealScreen() {
   const [recent, setRecent] = useState<LoggedMeal[]>([]);
   const [favorites, setFavorites] = useState<LoggedMeal[]>([]);
   const [tab, setTab] = useState<'today' | 'recent' | 'favorites'>('recent');
+  const [query, setQuery] = useState('');
   const [error, setError] = useState(false);
   useFocusEffect(useCallback(() => {
     let live = true;
@@ -30,7 +31,9 @@ export default function LogMealScreen() {
   async function favorite(meal: LoggedMeal, value: boolean) {
     try { setFavorites(await setFavorite(meal, value)); setError(false); } catch { setError(true); }
   }
-  const rows = tab === 'today' ? meals : tab === 'favorites' ? favorites : recent;
+  const all = tab === 'today' ? meals : tab === 'favorites' ? favorites : recent;
+  const needle = query.trim().toLowerCase();
+  const rows = needle ? all.filter(m => m.name.toLowerCase().includes(needle)) : all;
   return <KeyboardAwareScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, gap: 16, width: '100%', maxWidth: 760, alignSelf: 'center' }}>
     <Copy accessibilityRole="header" size="heading" style={{ fontWeight: '700' }}>Make room for a good meal.</Copy>
     <Copy tone="muted">Choose how to log. Review the portion before saving.</Copy>
@@ -45,17 +48,20 @@ export default function LogMealScreen() {
       <Action secondary selected={tab === 'recent'} label="Recent foods" onPress={() => setTab('recent')} />
       <Action secondary selected={tab === 'favorites'} label="Favorite foods" onPress={() => setTab('favorites')} />
     </View>
+    <Field label="Search this list" placeholder="Filter foods…" value={query} onChangeText={setQuery} autoCapitalize="none" returnKeyType="search" />
     <Copy tone="muted" size="caption">Recent foods use the last 30 days saved on this device. Favorites are device-only and included in account export/deletion.</Copy>
     {error && <Notice error title="Couldn’t load or update saved foods" message="Try reopening this screen. You can still search or enter a meal." />}
-    {rows.length === 0 && <Card><Notice title={tab === 'today' ? 'No meals logged today' : tab === 'recent' ? 'Your recent foods will appear here' : 'No favorites yet'} message="Save a meal, then choose Save favorite from Recent foods." /></Card>}
-    {rows.map(meal => { const saved = favorites.some(item => item.id === meal.id); return <Card key={meal.id}>
-      <Copy size="title">{meal.name}</Copy><Copy tone="muted">{meal.calories} kcal · {meal.quantityG ? `${meal.quantityG} g` : 'Portion needs review'}</Copy>
-      <Action label={`Review and repeat ${meal.name}`} onPress={() => navigation.navigate('FoodEntry', { mode: 'repeat', meal })} />
-      {tab === 'today' && <Action secondary label={`Remove ${meal.name}`} onPress={() => Alert.alert('Remove meal?', 'This removes the diary entry, not its favorite.', [
+    {rows.length === 0 && <Card><Notice title={needle ? `No foods match “${query.trim()}”` : tab === 'today' ? 'No meals logged today' : tab === 'recent' ? 'Your recent foods will appear here' : 'No favorites yet'} message={needle ? 'Try a different search term.' : 'Save a meal, then tap the heart on Recent foods.'} /></Card>}
+    {rows.length > 0 && <Card style={{ paddingVertical: 4 }}>{rows.map(meal => { const saved = favorites.some(item => item.id === meal.id); return <ListRow key={meal.id}
+      title={meal.name}
+      subtitle={`${meal.calories} kcal · ${meal.quantityG ? `${meal.quantityG} g` : 'Portion needs review'}`}
+      onPress={() => navigation.navigate('FoodEntry', { mode: 'repeat', meal })}>
+      <IconAction icon="↻" label={`Repeat ${meal.name}`} onPress={() => navigation.navigate('FoodEntry', { mode: 'repeat', meal })} />
+      <IconAction icon={saved ? '♥' : '♡'} label={saved ? `Remove favorite: ${meal.name}` : `Save favorite: ${meal.name}`} onPress={() => { void favorite(meal, !saved); }} />
+      {tab === 'today' && <IconAction icon="🗑" danger label={`Remove ${meal.name}`} onPress={() => Alert.alert('Remove meal?', 'This removes the diary entry, not its favorite.', [
         { text: 'Cancel', style: 'cancel' }, { text: 'Remove', style: 'destructive', onPress: () => { void remove(meal.id).catch(() => setError(true)); } },
       ])} />}
-      <Action secondary label={`${saved ? 'Remove favorite' : 'Save favorite'}: ${meal.name}`} onPress={() => { void favorite(meal, !saved); }} />
-    </Card>; })}
+    </ListRow>; })}</Card>}
     <Action secondary label="Discover recipes" onPress={() => open('recipes')} />
     <Action secondary label="View food history" onPress={() => navigation.navigate('History')} />
   </KeyboardAwareScrollView>;

@@ -22,7 +22,7 @@ it('keeps edit and coaching routes and reports failed preference updates', async
   await act(async () => button('Edit profile').props.onPress()); expect(mockNavigate).toHaveBeenCalledWith('EditProfile');
   await act(async () => button('Find a trainer').props.onPress()); expect(mockNavigate).toHaveBeenCalledWith('TrainerList');
   mockUpdate.mockRejectedValueOnce(new Error('offline'));
-  await act(async () => button('Pounds and feet').props.onPress());
+  await act(async () => tree.root.findAllByProps({ accessibilityLabel: 'Display units: lb · ft' })[0].props.onPress());
   expect(tree.root.findAllByType(Text).map(n => n.props.children).flat(Infinity).join(' ')).toContain('Check your connection');
 });
 it('signs out only after explicit confirmation and successful revocation', async () => {
