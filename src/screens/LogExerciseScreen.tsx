@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import KeyboardAwareScrollView from '../components/KeyboardAwareScrollView';
 import { Action, Card, Copy, Field, IconAction, ListRow, Notice, Skeleton } from '../design/components';
@@ -86,6 +87,22 @@ export default function LogExerciseScreen() {
   useEffect(() => {
     if (!focused) { setCamera(false); void stopDetection(); }
   }, [focused, stopDetection]);
+  // Idle-workout check-in: if a draft is open with no set saved for 30 min,
+  // nudge once. Rescheduled on each logged set; canceled on finish/clear.
+  const IDLE_ID = 'humai-reminder:workout-idle';
+  useEffect(() => {
+    const cancel = () => Notifications.cancelScheduledNotificationAsync(IDLE_ID).catch(() => {});
+    if (!draft || finished) { void cancel(); return; }
+    const lastActivity = Math.max(Date.parse(draft.startedAt), ...(draft.session?.sets || []).map(s => Date.parse(s.timestamp) || 0));
+    const fireInMs = Math.max(1000, lastActivity + 30 * 60000 - Date.now());
+    void cancel();
+    void Notifications.scheduleNotificationAsync({
+      identifier: IDLE_ID,
+      content: { title: 'Workout still in progress', body: 'Log a set, or finish or cancel the workout when you are done.', data: { deepLink: 'LogExercise' } },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: Math.ceil(fireInMs / 1000) },
+    }).catch(() => {});
+    return () => { /* keep scheduled while app runs in background */ };
+  }, [draft, finished, sets.length]);
   // Restore an interrupted set, otherwise reuse the last saved weight. Never overwrite edits with late history.
   useEffect(() => {
     if (!draft) return;
@@ -94,7 +111,10 @@ export default function LogExerciseScreen() {
   }, [draft, prefs.unit]);
   useEffect(() => {
     if (camera && detection.reps > 0) setReps(String(detection.reps));
-  }, [camera, detection.reps]);
+    // Prefill a detected/suggested weight on camera close — user reviews
+    // units and value before saving; nothing writes itself.
+    if (!camera && detection.suggestedWeightKg) setWeight(String(displayWeight(detection.suggestedWeightKg, prefs.unit)));
+  }, [camera, detection.reps, detection.suggestedWeightKg, prefs.unit]);
   const savePreferences = async (next: Preferences) => {
     if (prefsBusy.current || !prefsReady || !ownAccount()) return;
     prefsBusy.current = true;

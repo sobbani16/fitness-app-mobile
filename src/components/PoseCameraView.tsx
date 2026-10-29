@@ -21,6 +21,7 @@ function NativePoseCamera({onError,facing='back'}:Props) {
     if(Array.isArray(points)&&points.length>=29)getRealEngine().pushPoseFrame(mapLandmarks(points));
     else getRealEngine().noteNoPerson();},onError:handleError}),[handleError]);
   const detection=usePoseDetection(callbacks,RunningMode.LIVE_STREAM,'pose_landmarker_lite.task',{numPoses:1,delegate:Delegate.CPU,minPoseDetectionConfidence:0.6,minPosePresenceConfidence:0.6,minTrackingConfidence:0.6,fpsMode:15});
+  useEffect(()=>{getRealEngine().setModelState(detection.frameProcessor?'processor-ok':'no-processor');},[detection.frameProcessor]);
   useEffect(()=>{if(!hasPermission)requestPermission().then(ok=>{if(!ok)setError('Camera permission is required.');}).catch(e=>setError(e.message));},[hasPermission,requestPermission]);
   useEffect(()=>{const sub=AppState.addEventListener('change',s=>setActive(s==='active'));return ()=>sub.remove();},[]);
   useEffect(()=>{if(device)detection.cameraDeviceChangeHandler(device);},[device,detection.cameraDeviceChangeHandler]);

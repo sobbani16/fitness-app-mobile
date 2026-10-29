@@ -32,6 +32,7 @@ export interface PoseDebugInfo {
   rightKneeDeg: number | null;
   minJointConfidence: number | null;
   phase: string;            // rep FSM phase (up/down/unknown)
+  modelState: string;       // 'no-processor' | 'processor-ok'
   lastReject: string | null;
 }
 
@@ -47,6 +48,8 @@ interface RealEngineHandle extends DetectionEngine {
   noteNoPerson(): void;
   /** Live diagnostics snapshot for the debug overlay. */
   getDebug(): PoseDebugInfo;
+  /** Reports whether the native frame processor was created. */
+  setModelState(state: string): void;
 
   /** Current exercise the engine is configured for (null when stopped). */
   getActiveExerciseType(): string | null;
@@ -67,7 +70,7 @@ export function getRealEngine(): RealEngineHandle {
   let counter: RepCounter | null = null;
   let activeExercise: string | null = null;
   let running = false;
-  const debug: PoseDebugInfo = { framesReceived: 0, framesWithPerson: 0, personDetected: false, leftKneeDeg: null, rightKneeDeg: null, minJointConfidence: null, phase: 'idle', lastReject: null };
+  const debug: PoseDebugInfo = { framesReceived: 0, framesWithPerson: 0, personDetected: false, leftKneeDeg: null, rightKneeDeg: null, minJointConfidence: null, phase: 'idle', modelState: 'init', lastReject: null };
 
   function emit(e: DetectionEvent) {
     listeners.forEach((l) => l(e));
@@ -112,6 +115,10 @@ export function getRealEngine(): RealEngineHandle {
 
     noteNoPerson() {
       debug.lastReject = 'no person in frame';
+    },
+
+    setModelState(state: string) {
+      debug.modelState = state;
     },
 
     getDebug() {

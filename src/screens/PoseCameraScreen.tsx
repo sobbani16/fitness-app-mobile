@@ -134,7 +134,7 @@ export default function PoseCameraScreen({ visible, onClose, detection }: Props)
           {debugOn && dbg && (
             <View style={styles.debugBox}>
               <Text style={styles.debugText}>
-                {`Camera: ${dbg.framesReceived > 0 ? 'active' : 'no frames'} (${dbg.framesReceived} raw / ${dbg.framesWithPerson} poses)\nPerson: ${dbg.personDetected ? 'yes' : 'no'}\nL knee: ${dbg.leftKneeDeg ?? '—'}°  R knee: ${dbg.rightKneeDeg ?? '—'}°\nConf: ${dbg.minJointConfidence?.toFixed(2) ?? '—'}  State: ${dbg.phase}\nReps: ${detection.reps}${dbg.lastReject ? `\nLast: ${dbg.lastReject}` : ''}`}
+                {`Camera: ${dbg.framesReceived > 0 ? 'active' : 'no frames'} (${dbg.framesReceived} raw / ${dbg.framesWithPerson} poses)\nModel: ${dbg.modelState}\nPerson: ${dbg.personDetected ? 'yes' : 'no'}\nL knee: ${dbg.leftKneeDeg ?? '—'}°  R knee: ${dbg.rightKneeDeg ?? '—'}°\nConf: ${dbg.minJointConfidence?.toFixed(2) ?? '—'}  State: ${dbg.phase}\nReps: ${detection.reps}${dbg.lastReject ? `\nLast: ${dbg.lastReject}` : ''}`}
               </Text>
             </View>
           )}

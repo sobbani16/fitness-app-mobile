@@ -7,6 +7,8 @@ jest.mock('../PoseCameraScreen', () => () => null);
 jest.mock('../../api/exercises', () => ({ listSessions: jest.fn(async () => []) }));
 jest.mock('../../storage/accountStorage', () => ({ accountStorage: { getItem: jest.fn(async () => null), setItem: jest.fn(async () => {}) } }));
 jest.mock('../../storage/session', () => ({ getSession: () => ({ user: { id: 'alice' } }), accountKey: key => `alice:${key}` }));
+jest.mock('../../services/reminderSync', () => ({ syncReminderSchedules: jest.fn(async () => ({ planned: 0 })) }));
+jest.mock('expo-notifications', () => ({ scheduleNotificationAsync: jest.fn(async () => ''), cancelScheduledNotificationAsync: jest.fn(async () => {}), SchedulableTriggerInputTypes: { TIME_INTERVAL: 'timeInterval' } }));
 const React = require('react');
 const { create, act } = require('react-test-renderer');
 const { TextInput } = require('react-native');
