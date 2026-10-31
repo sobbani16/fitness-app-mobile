@@ -68,7 +68,7 @@ export default function ClientMealPlanScreen() {
           {DAYS.map((d, i) => {
             const confirmed = plan.meals.filter((m: any) => m.dayOfWeek === i).every((m: any) => m.confirmedByUser);
             return (
-              <Pressable key={i} style={[styles.dayBtn, selectedDay === i && styles.dayBtnActive, confirmed && styles.dayBtnConfirmed]} onPress={() => setSelectedDay(i)}>
+              <Pressable key={i} accessibilityRole="button" accessibilityLabel={`${d}${confirmed ? ', confirmed' : ''}`} accessibilityState={{ selected: selectedDay === i }} style={[styles.dayBtn, confirmed && styles.dayBtnConfirmed, selectedDay === i && styles.dayBtnActive]} onPress={() => setSelectedDay(i)}>
                 {confirmed && <Ionicons name="checkmark-circle" size={14} color="#2e7d32" style={{ marginRight: 2 }} />}
                 <Text style={[styles.dayText, selectedDay === i && styles.dayTextActive]}>{d}</Text>
               </Pressable>

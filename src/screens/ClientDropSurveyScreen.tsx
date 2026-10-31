@@ -14,6 +14,8 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { dropTrainer, getDropFormReasons, getAssignedTrainer } from '../api/trainers';
 import { RootStackParamList } from '../navigation/RootNavigator';
+import { useConfirmLeave } from '../hooks/useConfirmLeave';
+import { backOrFallback } from '../navigation/back';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'ClientDropSurvey'>;
 
@@ -36,6 +38,8 @@ export default function ClientDropSurveyScreen() {
   const [lockedUntil, setLockedUntil] = useState<string | null>(null);
   const [daysRemaining, setDaysRemaining] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  useConfirmLeave(!submitted && Boolean(reasons.length || notes || trainerRating !== null), submitting);
 
   useEffect(() => {
     Promise.all([getDropFormReasons(), getAssignedTrainer()])
@@ -79,6 +83,7 @@ export default function ClientDropSurveyScreen() {
                 notes: notes.trim() || undefined,
                 trainerRating: trainerRating ?? undefined,
               });
+              setSubmitted(true);
               Alert.alert(
                 'Done',
                 'You have left your trainer. You can choose a new one at the start of next month.',
@@ -129,6 +134,7 @@ export default function ClientDropSurveyScreen() {
             <TouchableOpacity
               key={r}
               style={[styles.reasonTag, selected && styles.reasonTagSelected]}
+              accessibilityRole="checkbox" accessibilityLabel={label} accessibilityState={{ checked: selected }}
               onPress={() => toggleReason(r)}
             >
               {selected && <Ionicons name="checkmark" size={13} color="#fff" />}
@@ -141,7 +147,7 @@ export default function ClientDropSurveyScreen() {
       <Text style={styles.label}>Rate your trainer</Text>
       <View style={styles.starsRow}>
         {[1, 2, 3, 4, 5].map((n) => (
-          <TouchableOpacity key={n} onPress={() => setTrainerRating(n)} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
+          <TouchableOpacity key={n} accessibilityRole="radio" accessibilityLabel={`Trainer rating ${n} of 5`} accessibilityState={{ checked: trainerRating === n }} onPress={() => setTrainerRating(n)} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
             <Ionicons
               name={trainerRating !== null && n <= trainerRating ? 'star' : 'star-outline'}
               size={36}
@@ -187,7 +193,7 @@ export default function ClientDropSurveyScreen() {
         )}
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.cancelBtn} onPress={() => nav.goBack()}>
+      <TouchableOpacity style={styles.cancelBtn} onPress={() => backOrFallback(nav, 'Summary')}>
         <Text style={styles.cancelText}>Cancel</Text>
       </TouchableOpacity>
     </ScrollView>

@@ -2,6 +2,10 @@
 
 Expo / React Native fitness and nutrition app. Start with the [production feature status and handoff](docs/PRODUCTION_HANDOFF.md) to continue the release work. See the [feature inventory, findings and production checklist](docs/PRODUCTION_READINESS.md) and [live backend endpoint results](docs/ENDPOINT_RESULTS.md). Public production release still has open gates listed there.
 
+The [Humai UX 2.0 M1 audit](docs/UX_2_M1_AUDIT.md) records the current screen inventory, interaction targets, reusable design foundation, prioritized navigation/layout fixes and validation plan. Its native visual baselines remain pending; it is separate from the earlier UX milestone reports.
+
+The [UX 2.0 M2 report](docs/UX_2_M2_NAVIGATION.md) covers navigation fallbacks, draft protection, selected states and layout fixes, with automated results and pending native acceptance checks.
+
 ## Requirements
 
 - Node 22 (`nvm use`, using `.nvmrc`) and npm.

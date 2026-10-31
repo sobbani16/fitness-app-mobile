@@ -26,10 +26,11 @@ test('same day differs across views: green workout + gray nutrition', () => {
   expect(assessDay(d, ctx({ view: 'overall' })).status).toBe('green');
 });
 
-test('extreme restriction is never green for weight loss', () => {
+test('extreme low logging is never green — and never an unsupported red', () => {
   const a = assessDay(day({ mealCount: 1, calories: 400 }), ctx());
-  expect(a.status).toBe('red');
-  expect(a.reasons.join()).toMatch(/below a safe range/);
+  expect(a.status).toBe('yellow');
+  expect(a.status).not.toBe('green');
+  expect(a.reasons.join()).toMatch(/partial logging is more likely|below a safe range/);
 });
 
 test('deficit-range day is green for weight loss', () => {

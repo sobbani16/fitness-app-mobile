@@ -2,14 +2,16 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Image, ScrollView, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
+import { useIsFocused, useRoute } from '@react-navigation/native';
 import { recognizeLabel } from '../services/ocr';
 import { scanMenu, MenuItem } from '../api/labelScanner';
 import { Action, Card, Copy, Field, ListRow, IconAction, Notice, Skeleton } from '../design/components';
 import { useTheme } from '../design/theme';
 import { useMeals } from '../context/MealsContext';
-import { MealType } from '../storage/meals';
-import { applyMenuCorrection, MenuCorrection } from '../services/menuCorrections';
+import { LoggedMeal, MealType } from '../storage/meals';
+import { itemMacros } from '../services/menuLogging';
+import { applyMenuCorrection } from '../services/menuCorrections';
+import { useConfirmLeave } from '../hooks/useConfirmLeave';
 
 function itemCaloriesText(i: MenuItem): string {
   if (i.calorieSource === 'user-entered' && i.calories != null) return `${i.calories} kcal (entered)`;
@@ -17,24 +19,17 @@ function itemCaloriesText(i: MenuItem): string {
   if (i.estimate) return `≈ ${i.estimate.calories.min}–${i.estimate.calories.max} kcal`;
   return 'Not enough info';
 }
-function itemMacros(i: MenuItem, portionG: number) {
-  if (i.estimate) {
-    const midG = (i.estimate.calories.portionGMin + i.estimate.calories.portionGMax) / 2;
-    const scale = midG > 0 ? portionG / midG : 1;
-    const mid = (r: { min: number; max: number }) => Math.round(((r.min + r.max) / 2) * scale * 10) / 10;
-    return { calories: Math.round(mid(i.estimate.calories) * scale), protein_g: mid(i.estimate.proteinG), carbs_g: mid(i.estimate.carbsG), fat_g: mid(i.estimate.fatG) };
-  }
-  return { calories: i.calories ?? 0, protein_g: 0, carbs_g: 0, fat_g: 0 };
-}
 
 export default function MenuScanScreen() {
-  const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const focused = useIsFocused();
   const { colors } = useTheme();
   const [permission, requestPermission] = useCameraPermissions();
   const camera = useRef<CameraView>(null);
   const { add } = useMeals();
+  const saveLock = useRef(false);
+  const pendingMeals = useRef(new Map<string, LoggedMeal>());
+  const savedNames = useRef(new Set<string>());
   const [pages, setPages] = useState<{ uri: string; text: string }[]>([]);
   const [items, setItems] = useState<MenuItem[] | null>(route.params?.seedText ? null : null);
   const [restaurant, setRestaurant] = useState<string | null>(null);
@@ -47,6 +42,8 @@ export default function MenuScanScreen() {
   const [corrCurrency, setCorrCurrency] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
+  const [skipped, setSkipped] = useState<string[]>([]);
+  const confirmLeave = useConfirmLeave(!saved && Boolean(pages.length || items || route.params?.seedText), busy);
   const mealType: MealType = route.params?.mealType || 'lunch';
   const generation = useRef(0);
 
@@ -106,36 +103,47 @@ export default function MenuScanScreen() {
     (!sectionFilter || normSection(i.section) === sectionFilter));
 
   const toggle = (i: MenuItem) => {
+    if (saveLock.current || saved) return;
     const next = new Map(selected);
     if (next.has(i.name)) next.delete(i.name); else next.set(i.name, 200);
     setSelected(next);
   };
   const selectedItems = (items || []).filter(i => selected.has(i.name));
-  const total = selectedItems.reduce((s, i) => {
-    if (i.estimate) { const mid = (i.estimate.calories.min + i.estimate.calories.max) / 2; return s + Math.round(mid); }
-    return s + (i.calories ?? 0);
-  }, 0);
+  const total = selectedItems.filter(i => i.estimate || i.calories != null)
+    .reduce((sum, i) => sum + itemMacros(i, selected.get(i.name) || 200).calories, 0);
 
   async function saveAll() {
-    setBusy(true);
+    if (saveLock.current || saved) return;
+    saveLock.current = true;
+    setBusy(true); setError('');
     try {
-      for (const i of selectedItems) {
+      // Items with no calories and no estimate have no nutrition data —
+      // never log them as a fabricated zero. Skip and tell the user.
+      const loggable = selectedItems.filter(i => i.estimate || i.calories != null);
+      const skipped = selectedItems.filter(i => !(i.estimate || i.calories != null));
+      for (const i of loggable) {
+        if (savedNames.current.has(i.name)) continue;
         const portionG = selected.get(i.name) || 200;
         const macros = itemMacros(i, portionG);
-        await add({
-          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          createdAt: new Date().toISOString(),
+        const pending = pendingMeals.current.get(i.name);
+        const entry = {
+          id: pending?.id || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          createdAt: pending?.createdAt || new Date().toISOString(),
           name: i.name, calories: macros.calories, mealType,
           macros: { protein_g: macros.protein_g, carbs_g: macros.carbs_g, fat_g: macros.fat_g },
           quantityG: portionG,
           source: i.nutritionSource === 'restaurant-reported' ? `restaurant: ${i.name}` : `restaurant estimate: ${i.name}`,
           feedback: 'restaurant-scan',
           description: [i.description, i.explanation].filter(Boolean).join(' — '),
-        });
+        };
+        pendingMeals.current.set(i.name, entry);
+        await add(entry);
+        savedNames.current.add(i.name);
       }
-      setSaved(true);
+      setSaved(skipped.length === 0);
+      setSkipped(skipped.map(i => i.name));
     } catch { setError('Could not save. Try again.'); }
-    finally { setBusy(false); }
+    finally { saveLock.current = false; setBusy(false); }
   }
 
   return <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -158,6 +166,7 @@ export default function MenuScanScreen() {
         </Card>}
       </>}
       {!!error && <Notice error title="Try again" message={error} />}
+      {skipped.length > 0 && <Notice title="Skipped — no nutrition info" message={`Not logged because calories and macros are unknown: ${skipped.join(', ')}. Use "Correct the number" to enter calories, or log the item manually.`} />}
       {items && <>
         <Copy size="heading">{restaurant || 'Menu'} · {items.length} item{items.length === 1 ? '' : 's'}</Copy>
         <Field label="Search dishes" value={query} onChangeText={setQuery} />
@@ -169,12 +178,13 @@ export default function MenuScanScreen() {
             subtitle={`${[i.section, i.price != null ? `${i.currency == null ? '' : i.currency === 'INR' ? '₹' : i.currency === 'EUR' ? '€' : i.currency === 'GBP' ? '£' : '$'}${i.price}${(i as any).priceAmbiguous ? ' (price?)' : ''}` : null, itemCaloriesText(i), i.explanation && i.nutritionSource !== 'restaurant-reported' ? i.nutritionSource === 'estimated' ? `est. from ${i.matchedTo?.name}` : 'not enough info' : null].filter(Boolean).join(' · ')}${i.nutritionSource === 'restaurant-reported' ? ' · restaurant-reported' : ''}`}
             onPress={() => toggle(i)}
           ><IconAction label={selected.has(i.name) ? `Remove ${i.name}` : `Add ${i.name}`} icon={selected.has(i.name) ? '✓' : '+'} onPress={() => toggle(i)} /></ListRow>
-          {(i.priceAmbiguous || correcting === i.name) && <View style={{ paddingHorizontal: 8, gap: 6 }}>
-            <Copy size="caption" tone="muted">Is “{i.price}” a price, calories, or something else?</Copy>
+          {(!saved && !savedNames.current.has(i.name) || correcting === i.name) && <View style={{ paddingHorizontal: 8, gap: 6 }}>
+            <Copy size="caption" tone="muted">{i.priceAmbiguous ? `Is “${i.price}” a price, calories, or something else?` : 'Review the dish’s calories or price.'}</Copy>
             {correcting === i.name ? <>
               <Field label="Number" value={corrValue} keyboardType="decimal-pad" onChangeText={setCorrValue} />
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                 {(['price', 'calories', 'quantity', 'ignore'] as const).map(kind => <Action secondary key={kind} label={`Mark ${i.name} ${kind}`} onPress={() => {
+                  if (saveLock.current) return;
                   const num = corrValue.trim() === '' ? undefined : Number(corrValue);
                   setItems(prev => (prev || []).map(x => x.name === i.name ? applyMenuCorrection(x, { kind, value: num, currency: corrCurrency }) : x));
                   setCorrecting(null);
@@ -195,7 +205,7 @@ export default function MenuScanScreen() {
           <Copy size="caption" tone="muted">Estimates are approximate; actual portions and recipes vary.</Copy>
           <Action label={saved ? 'Saved ✓' : `Log ${selectedItems.length} dish${selectedItems.length === 1 ? '' : 'es'}`} disabled={busy || saved} onPress={() => void saveAll()} />
         </Card>}
-        <Action secondary label="Scan another menu" onPress={() => { setItems(null); setPages([]); setSelected(new Map()); setSaved(false); setError(''); }} />
+        <Action secondary label="Scan another menu" disabled={busy} onPress={() => confirmLeave(() => { setItems(null); setPages([]); setSelected(new Map()); setSaved(false); setError(''); setSkipped([]); pendingMeals.current.clear(); savedNames.current.clear(); })} />
       </>}
     </View>
   </View>;

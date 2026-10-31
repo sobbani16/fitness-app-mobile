@@ -1,6 +1,6 @@
 import { betaFeatures } from '../config/betaFeatures';
 import React from 'react';
-import { View } from 'react-native';
+import { View, useWindowDimensions } from 'react-native';
 import FeedbackButton from '../components/FeedbackButton';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
@@ -37,6 +37,16 @@ const ICONS: Record<string, string> = {
   Clients: 'people',
 };
 
+function HeaderActions({ source }: { source: string }) {
+  const { width } = useWindowDimensions();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: width < 400 ? 6 : 8 }}>
+      {width >= 400 && <FeedbackButton source={source} />}
+      <QuickAdd />
+    </View>
+  );
+}
+
 export default function MainTabs() {
   const { hasRole } = useRoles();
   const { colors } = useTheme();
@@ -44,9 +54,10 @@ export default function MainTabs() {
 
   return (
     <Tab.Navigator
+      backBehavior="history"
       screenOptions={({ route }) => ({
         tabBarActiveTintColor: colors.primary,
-        headerRight: () => <View style={{ flexDirection: 'row', gap: 8 }}><FeedbackButton source={route.name} /><QuickAdd /></View>,
+        headerRight: () => <HeaderActions source={route.name} />,
         headerRightContainerStyle: { paddingRight: 16 },
         headerStyle: { backgroundColor: colors.surface },
         headerTintColor: colors.text,

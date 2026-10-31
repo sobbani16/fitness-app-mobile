@@ -32,6 +32,7 @@ function Finding({finding:f}:{finding:FoodFinding}) {
 }
 export default function FoodIntelligence({result}:{result:FoodIntelligenceResult}) {
  const codes=['ENERGY_KCAL','CARBOHYDRATE_TOTAL','SODIUM','SUGAR_ADDED','FAT_SATURATED','FAT_TRANS','FIBER'];
+ const [showNotes,setShowNotes]=useState(false);
  return <>
   <Copy size="heading" accessibilityRole="header">Your food insights</Copy>
   <Copy>{result.servingSize?`For your ${Number(result.servingSize.value.toFixed(2))} ${result.servingSize.unit} portion`:'Serving quantity needs review'} · {result.dataQuality.replace(/_/g,' ').toLowerCase()}</Copy>
@@ -39,9 +40,12 @@ export default function FoodIntelligence({result}:{result:FoodIntelligenceResult
   {result.requiresPersonalization&&<Copy>Personalization required. Review your individual plan with your care team.</Copy>}
   {!!result.conflicts?.length&&<Copy>Some recommendations conflict. Humai has not selected one over another.</Copy>}
   {result.warnings.map(f=><Finding key={f.id} finding={f} />)}
-  {result.missingData.map((m,i)=><Copy key={i}>{m}</Copy>)}
-  {!result.warnings.length&&<Copy>No approved personalized finding is available. This does not mean the food is suitable for every condition.</Copy>}
-  <Copy tone="muted">Educational information, not a diagnosis or treatment plan. Food logging remains available.</Copy>
+  {!!result.missingData.length&&<>
+   <Action secondary label={showNotes?'Hide data notes':'Why are values approximate?'} selected={showNotes} onPress={()=>setShowNotes(v=>!v)} />
+   {showNotes&&<Card>{result.missingData.map((m,i)=><Copy size="caption" tone="muted" key={i}>{m}</Copy>)}</Card>}
+  </>}
+  {!result.warnings.length&&<Copy>No personalized findings for your conditions — this is not a suitability verdict.</Copy>}
+  <Copy tone="muted" size="caption">Educational information, not a diagnosis. Food logging remains available.</Copy>
  </>;
 }
 type Profile={id:string;preparationType:string;preparationMethod:string|null;source:string};

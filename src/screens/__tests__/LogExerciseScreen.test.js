@@ -4,6 +4,7 @@ jest.mock('@react-navigation/native', () => ({ useIsFocused: () => true, useNavi
 jest.mock('../../hooks/useExerciseSession', () => ({ useExerciseSession: jest.fn() }));
 jest.mock('../../hooks/useExerciseDetection', () => ({ useExerciseDetection: () => ({ status: 'idle', reps: 0, stop: mockStop, start: jest.fn() }) }));
 jest.mock('../PoseCameraScreen', () => () => null);
+jest.mock('../../api/personalPlans', () => ({ listPlans: jest.fn(async () => []), listCatalog: jest.fn(async () => []), getSuggestions: jest.fn(async () => ({ suggestions: [] })) }));
 jest.mock('../../api/exercises', () => ({ listSessions: jest.fn(async () => []) }));
 jest.mock('../../storage/accountStorage', () => ({ accountStorage: { getItem: jest.fn(async () => null), setItem: jest.fn(async () => {}) } }));
 jest.mock('../../storage/session', () => ({ getSession: () => ({ user: { id: 'alice' } }), accountKey: key => `alice:${key}` }));
@@ -50,4 +51,16 @@ it('offers retry for uncertain sets and prevents finishing while one is pending'
   expect(button('Retry saved set')).toBeDefined();
   expect(button('Finish workout').props.disabled).toBe(true);
   expect(button('Log set 2')).toBeUndefined();
+});
+
+it('starts a generated exercise outside the old seven-exercise picker with planned sets and reps', async () => {
+  const plans = require('../../api/personalPlans');
+  const weekday = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][new Date().getDay()];
+  plans.listPlans.mockResolvedValueOnce([{ status: 'active', plan: { days: [{ weekday, exercises: [{ exerciseId: 'goblet-squat', sets: 3, reps: '8-10', restSec: 90 }] }] } }]);
+  await act(async () => { tree = create(<Screen />); });
+  const start = tree.root.findAllByProps({ accessibilityLabel: 'Start Goblet Squat' })[0];
+  expect(start).toBeDefined();
+  await act(async () => start.props.onPress());
+  expect(model.start).toHaveBeenCalledWith('goblet-squat');
+  expect(model.addSet).not.toHaveBeenCalled();
 });

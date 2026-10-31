@@ -1,4 +1,5 @@
-jest.mock('../../storage/dailyStats', () => ({ loadDailyStats: jest.fn(), addWater: jest.fn(), toggleSupplement: jest.fn() }));
+jest.mock('../../storage/session', () => ({ getSession: () => ({ user: { id: 'alice' } }) }));
+jest.mock('../../storage/dailyStats', () => ({ loadDailyStats: jest.fn(), addWater: jest.fn(), toggleSupplement: jest.fn(), subscribeDailyStats: jest.fn(() => () => {}) }));
 jest.mock('../../api/dailyStats', () => ({ syncWater: jest.fn() }));
 jest.mock('../../api/supplements', () => ({ getSupplementLogs: jest.fn(), logSupplement: jest.fn(), deleteSupplementLog: jest.fn() }));
 const React = require('react');

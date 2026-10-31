@@ -48,10 +48,13 @@ function nutritionReasons(ctx: AssessmentContext, d: ProgressDay): { score: DayS
 
   const kcal = d.calories;
   const protein = d.protein;
-  // Extreme restriction is never green — even for weight-loss goals.
+  // A very low logged total is never green — but it is usually an incomplete
+  // log rather than proven under-eating, so it earns yellow, not a red the
+  // records cannot support.
   const bmrFloor = t.low * 0.75;
   if (kcal < bmrFloor) {
-    return { score: 'red' as DayStatus, reasons: [`Logged ${Math.round(kcal)} kcal — well below a safe range for any goal`], missing, nextStep: 'This looks like under-eating or incomplete logging. Check entries and eat adequately.' };
+    missing.push('complete-day confirmation');
+    return { score: 'yellow' as DayStatus, reasons: [`Only ${Math.round(kcal)} kcal logged — far below a safe range if this was everything, but partial logging is more likely`], missing, nextStep: 'Check that the day’s meals are fully logged. Very low intake is never a goal.' };
   }
   const goal = ctx.goal;
   if ((goal === 'weight_loss' || goal === 'body_recomposition') && kcal <= t.high) {

@@ -1,18 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   StyleSheet,
   Pressable,
   ActivityIndicator,
-  Modal,
   Alert,
-  TouchableOpacity,
   Linking,
 } from 'react-native';
-import WeeklyPreferences from '../components/WeeklyPreferences';
+import WeeklyPreferences, { Chip } from '../components/WeeklyPreferences';
 import { Ionicons } from '@expo/vector-icons';
+import { Action, Card, Copy, Sheet, Skeleton } from '../design/components';
+import { useTheme } from '../design/theme';
 import {
   getCurrentPlan,
   generatePlan as apiGeneratePlan,
@@ -29,7 +28,6 @@ import {
 } from '../api/weeklyPlan';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const MEAL_COLORS: Record<string, string> = { breakfast: '#e8f5e9', lunch: '#e3f2fd', dinner: '#fce4ec', snack: '#fff8e1' };
 
 function isDayConfirmed(meals: WeeklyMeal[], day: number) {
   const dayMeals = meals.filter((m) => m.dayOfWeek === day);
@@ -37,6 +35,7 @@ function isDayConfirmed(meals: WeeklyMeal[], day: number) {
 }
 
 export default function WeeklyPlanScreen() {
+  const { colors } = useTheme();
   const [plan, setPlan] = useState<WeeklyPlan | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -157,18 +156,18 @@ export default function WeeklyPlanScreen() {
     }
   };
 
-  if (loading) return <View style={styles.center}><ActivityIndicator size="large" /></View>;
+  if (loading) return <View style={styles.center}><Skeleton label="Loading weekly plan" /></View>;
 
   if (!plan) {
     return (
       <ScrollView contentContainerStyle={styles.container}>
         <WeeklyPreferences disabled={generating} />
-        <Text style={styles.emptyTitle}>No meal plan yet</Text>
-        <Text style={styles.emptyDesc}>Generate a 7-day plan from sourced ingredients using your saved nutrition targets and preferences.</Text>
-        <Pressable style={styles.generateBtn} onPress={generatePlan} disabled={generating}>
-          <Text style={styles.generateBtnText}>{generating ? 'Generating...' : 'Generate Weekly Plan'}</Text>
-        </Pressable>
-        {error && <Text style={styles.error}>{error}</Text>}
+        <Card>
+          <Copy accessibilityRole="header" size="title" style={{ fontWeight: '600' }}>No meal plan yet</Copy>
+          <Copy tone="muted">Generate a 7-day plan from sourced ingredients using your saved nutrition targets and preferences.</Copy>
+          <Action label={generating ? 'Generating…' : 'Generate weekly plan'} onPress={generatePlan} disabled={generating} />
+          {!!error && <Copy tone="danger" size="caption">{error}</Copy>}
+        </Card>
       </ScrollView>
     );
   }
@@ -182,76 +181,82 @@ export default function WeeklyPlanScreen() {
   const sortedItems = plan.shoppingList
     ? [...plan.shoppingList.items].sort((a, b) => (a.checked === b.checked ? a.foodName.localeCompare(b.foodName) : a.checked ? 1 : -1))
     : [];
+  const aiPlan = plan.generationDetails?.source === 'ai_generated';
+  const aiIngredientsFor = (m: WeeklyMeal) => plan.generationDetails?.ai?.ingredients
+    .find(x => x.dayOfWeek === m.dayOfWeek && x.mealType === m.mealType)?.ingredients ?? [];
+  const aiWarningsFor = (m: WeeklyMeal) => plan.generationDetails?.conditions?.mealWarnings
+    .find(x => x.dayOfWeek === m.dayOfWeek && x.mealType === m.mealType)?.warnings ?? [];
+  const dayWarnings = (d?: { warnings: string[]; deviations: Record<string, number> }) =>
+    (d?.warnings ?? []).map(k => d!.deviations[k] !== undefined ? `${k}: ${d!.deviations[k]}%` : k).join(', ');
 
   return (
     <>
       <ScrollView contentContainerStyle={styles.container}>
         <WeeklyPreferences disabled={generating} />
-        {error && <Text style={styles.error}>{error}</Text>}
-        {plan.explanation && (
-          <View style={styles.explanationCard}>
-            <Text style={styles.explanationText}>{plan.explanation}</Text>
-          </View>
+        {!!error && <Copy tone="danger" size="caption">{error}</Copy>}
+        {!!plan.explanation && (
+          <Card><Copy size="caption" tone="muted">{plan.explanation}</Copy></Card>
         )}
 
         <View style={styles.tabRow}>
-          <Pressable style={[styles.tabBtn, tab === 'meals' && styles.tabActive]} onPress={() => setTab('meals')}>
-            <Text style={[styles.tabText, tab === 'meals' && styles.tabTextActive]}>Meals</Text>
-          </Pressable>
-          <Pressable style={[styles.tabBtn, tab === 'shopping' && styles.tabActive]} onPress={() => setTab('shopping')}>
-            <Text style={[styles.tabText, tab === 'shopping' && styles.tabTextActive]}>Shopping List</Text>
-          </Pressable>
+          <View style={{ flex: 1 }}><Action secondary selected={tab === 'meals'} label="Meals" onPress={() => setTab('meals')} /></View>
+          <View style={{ flex: 1 }}><Action secondary selected={tab === 'shopping'} label="Shopping list" onPress={() => setTab('shopping')} /></View>
         </View>
 
         {tab === 'meals' && (
           <>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
               <View style={styles.dayRow}>
                 {DAYS.map((d, i) => {
                   const confirmed = isDayConfirmed(plan.meals, i);
-                  return (
-                    <Pressable key={i} style={[styles.dayBtn, selectedDay === i && styles.dayBtnActive, confirmed && styles.dayBtnConfirmed]} onPress={() => setSelectedDay(i)}>
-                      {confirmed && <Ionicons name="checkmark-circle" size={14} color="#2e7d32" style={{ marginRight: 2 }} />}
-                      <Text style={[styles.dayText, selectedDay === i && styles.dayTextActive]}>{d}</Text>
-                    </Pressable>
-                  );
+                  return <Chip key={i} label={`${d}${confirmed ? ' ✓' : ''}`} selected={selectedDay === i}
+                    onPress={() => setSelectedDay(i)} />;
                 })}
               </View>
             </ScrollView>
 
-            <View style={styles.daySummary}>
-              <Text style={styles.daySummaryText}>{Math.round(dayCalories)} / {plan.caloriesTarget} kcal · {Math.round(dayProtein)} / {plan.proteinTarget}g protein</Text>
-              <Text>Estimated totals per person</Text>
-              {!!plan.generationDetails?.days[selectedDay]?.warnings.length && <Text style={styles.error}>Review target gaps: {plan.generationDetails.days[selectedDay].warnings.map(k => `${k}: ${plan.generationDetails!.days[selectedDay].deviations[k]}%`).join(", ")}</Text>}
-            </View>
+            <Card>
+              <Copy style={{ fontWeight: '600' }}>{Math.round(dayCalories)} / {plan.caloriesTarget} kcal · {Math.round(dayProtein)} / {plan.proteinTarget}g protein</Copy>
+              <Copy size="caption" tone="muted">Estimated totals per person</Copy>
+              {!!plan.generationDetails?.days[selectedDay]?.warnings.length && <Copy tone="danger" size="caption">Review: {dayWarnings(plan.generationDetails.days[selectedDay])}</Copy>}
+              {(plan.generationDetails?.conditions?.unverified ?? []).map((n, i) => <Copy key={i} size="caption" style={{ color: colors.warning }}>{n}</Copy>)}
+            </Card>
 
-            {dayMeals.length === 0 && <Text style={styles.muted}>No meals planned for this day.</Text>}
+            {dayMeals.length === 0 && <Copy tone="muted" style={{ textAlign: 'center' }}>No meals planned for this day.</Copy>}
             {dayMeals.map((m) => (
-              <Pressable key={m.id} onPress={() => openSwapSheet(m)} style={[styles.mealCard, { backgroundColor: MEAL_COLORS[m.mealType] || '#f7f7f9' }, dayConfirmed && styles.mealCardLocked]}>
-                <View style={styles.mealHeader}>
-                  <Text style={styles.mealType}>{m.mealType.charAt(0).toUpperCase() + m.mealType.slice(1)}</Text>
-                  <Text style={styles.mealCals}>{m.calories} kcal</Text>
-                </View>
-                <Text style={styles.mealName}>{m.foodName}</Text>
-                <Text style={styles.mealMacros}>{m.portionG}g · {m.proteinG}g P · {m.carbsG}g C · {m.fatG}g F</Text>
-                {m.prepNote && <Text style={styles.prepNote}>{m.prepNote}</Text>}
-                <Text style={styles.muted}>{m.recipe?.nutritionSource ? 'Nutrition calculated from USDA ingredients' : 'Legacy estimate — source not verified'}</Text>
-                {m.recipe?.nutritionSource?.ingredients.map(ingredient => (
-                  <Text key={ingredient.fdcId} accessibilityRole="link" style={styles.swapHint} onPress={() => Linking.openURL(`https://fdc.nal.usda.gov/food-details/${ingredient.fdcId}/nutrients`).catch(() => Alert.alert('Could not open source'))}>{ingredient.description} · USDA {ingredient.fdcId}</Text>
-                ))}
-                <Text style={styles.swapHint}>Tap to swap</Text>
+              <Pressable key={m.id} onPress={() => openSwapSheet(m)} accessibilityRole="button"
+                accessibilityLabel={`${m.mealType}: ${m.foodName}. Tap for alternatives.`}
+                style={({ pressed }) => ({ opacity: pressed ? 0.7 : dayConfirmed ? 0.85 : 1 })}>
+                <Card>
+                  <View style={styles.mealHeader}>
+                    <Copy size="caption" tone="muted" style={{ fontWeight: '700', textTransform: 'uppercase' }}>{m.mealType}</Copy>
+                    <Copy size="caption" style={{ fontWeight: '700', color: colors.primary }}>{m.calories} kcal</Copy>
+                  </View>
+                  <View style={styles.mealHeader}>
+                    <Copy style={{ fontWeight: '600', flex: 1 }}>{m.foodName}</Copy>
+                    {!dayConfirmed && <Ionicons name="swap-horizontal" size={16} color={colors.primary} />}
+                  </View>
+                  <Copy size="caption" tone="muted">{m.portionG}g · {m.proteinG}g P · {m.carbsG}g C · {m.fatG}g F</Copy>
+                  {!!m.prepNote && <Copy size="caption" style={{ color: colors.primary }}>{m.prepNote}</Copy>}
+                  {aiIngredientsFor(m).length > 0 && <Copy size="caption" tone="muted">{aiIngredientsFor(m).map(i => `${i.name} ${i.grams}g`).join(' · ')}</Copy>}
+                  {aiWarningsFor(m).map((w, i) => <Copy key={i} size="caption" style={{ color: colors.warning }}>{w}</Copy>)}
+                  <Copy size="caption" tone="muted">{m.recipe?.nutritionSource ? 'Nutrition calculated from USDA ingredients' : aiPlan ? 'AI estimate — not verified nutrition data' : 'Estimate — source not verified'}</Copy>
+                  {m.recipe?.nutritionSource?.ingredients.map(ingredient => (
+                    <Copy key={ingredient.fdcId} accessibilityRole="link" size="caption" style={{ color: colors.primary, fontWeight: '500' }} onPress={() => Linking.openURL(`https://fdc.nal.usda.gov/food-details/${ingredient.fdcId}/nutrients`).catch(() => Alert.alert('Could not open source'))}>{ingredient.description} · USDA {ingredient.fdcId}</Copy>
+                  ))}
+                </Card>
               </Pressable>
             ))}
 
             {dayConfirmed ? (
-              <View style={styles.lockedBanner}>
-                <Ionicons name="lock-closed" size={16} color="#2e7d32" />
-                <Text style={styles.lockedText}>This day is confirmed. Contact your trainer to make changes.</Text>
-              </View>
+              <Card>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Ionicons name="lock-closed" size={16} color={colors.primary} />
+                  <Copy size="caption" style={{ color: colors.primary, flex: 1 }}>This day is confirmed. Contact your trainer to make changes.</Copy>
+                </View>
+              </Card>
             ) : (
-              <Pressable style={styles.confirmBtn} onPress={() => handleConfirmDay(selectedDay)} disabled={confirmingDay === selectedDay}>
-                <Text style={styles.confirmBtnText}>{confirmingDay === selectedDay ? 'Confirming...' : 'Good with this day'}</Text>
-              </Pressable>
+              <Action label={confirmingDay === selectedDay ? 'Confirming…' : 'Good with this day'} onPress={() => handleConfirmDay(selectedDay)} disabled={confirmingDay === selectedDay} />
             )}
           </>
         )}
@@ -259,130 +264,66 @@ export default function WeeklyPlanScreen() {
         {tab === 'shopping' && (
           <>
             {(!plan.shoppingList || plan.shoppingList.items.length === 0) && (
-              <View style={styles.emptyList}>
-                <Text style={styles.muted}>No shopping list generated.</Text>
-                {allDaysConfirmed ? (
-                  <Pressable style={styles.generateListBtn} onPress={handleGenerateShoppingList} disabled={generatingList}>
-                    <Text style={styles.generateListText}>{generatingList ? 'Generating...' : 'Generate Shopping List'}</Text>
-                  </Pressable>
-                ) : (
-                  <Text style={styles.muted}>Confirm all 7 days to generate the list.</Text>
-                )}
-              </View>
+              <Card>
+                <Copy tone="muted">No shopping list generated.</Copy>
+                {allDaysConfirmed
+                  ? <Action label={generatingList ? 'Generating…' : 'Generate shopping list'} onPress={handleGenerateShoppingList} disabled={generatingList} />
+                  : <Copy size="caption" tone="muted">Confirm all 7 days to generate the list.</Copy>}
+              </Card>
             )}
 
             {sortedItems.map((item) => (
-              <TouchableOpacity key={item.id} style={[styles.shopItem, item.checked && styles.shopItemChecked]} onPress={() => handleToggleItem(item)} disabled={togglingItem === item.id}>
-                <Ionicons name={item.checked ? 'checkbox' : 'square-outline'} size={22} color={item.checked ? '#2e7d32' : '#888'} />
-                <View style={styles.shopItemBody}>
-                  <Text style={[styles.shopName, item.checked && styles.shopNameChecked]}>{item.foodName}</Text>
-                  {item.category && <Text style={styles.shopCategory}>{item.category}</Text>}
+              <Pressable key={item.id} accessibilityRole="checkbox" accessibilityLabel={item.foodName}
+                accessibilityState={{ checked: item.checked, disabled: togglingItem === item.id }}
+                style={({ pressed }) => [styles.shopItem, { borderBottomColor: colors.border }, (item.checked || pressed) && { opacity: 0.6 }]}
+                onPress={() => handleToggleItem(item)} disabled={togglingItem === item.id}>
+                <Ionicons name={item.checked ? 'checkbox' : 'square-outline'} size={22} color={item.checked ? colors.primary : colors.muted} />
+                <View style={{ flex: 1 }}>
+                  <Copy style={{ fontWeight: '600', textDecorationLine: item.checked ? 'line-through' : 'none' }}>{item.foodName}</Copy>
+                  {!!item.category && <Copy size="caption" tone="muted">{item.category}</Copy>}
                 </View>
-                <Text style={styles.shopQty}>{item.quantityDisplay}</Text>
-              </TouchableOpacity>
+                <Copy style={{ fontWeight: '700', color: colors.primary }}>{item.quantityDisplay}</Copy>
+              </Pressable>
             ))}
           </>
         )}
 
-        <Pressable style={styles.regenBtn} onPress={generatePlan} disabled={generating}>
-          <Text style={styles.regenText}>{generating ? 'Generating...' : 'Regenerate Plan'}</Text>
-        </Pressable>
+        <Action secondary label={generating ? 'Generating…' : 'Regenerate plan'} onPress={generatePlan} disabled={generating} />
       </ScrollView>
 
-      <Modal visible={swapVisible} animationType="slide" transparent onRequestClose={() => setSwapVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Swap {selectedMeal?.mealType}</Text>
-              <Pressable onPress={() => setSwapVisible(false)}>
-                <Ionicons name="close" size={24} color="#666" />
-              </Pressable>
-            </View>
-            <Text style={styles.modalSub}>Pick an alternative with a similar calorie target</Text>
-
-            {swapOptions.length === 0 ? (
-              <ActivityIndicator style={{ marginVertical: 20 }} />
-            ) : (
-              <ScrollView style={{ maxHeight: 400 }}>
-                {swapOptions.map((recipe) => (
-                  <Pressable key={recipe.id} style={styles.swapOption} onPress={() => handleSwap(recipe)} disabled={swapping}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.swapOptionName}>{recipe.recipeName}</Text>
-                      <Text style={styles.swapOptionMacros}>{recipe.calories} kcal · {recipe.proteinG}g P · {recipe.carbsG}g C · {recipe.fatG}g F</Text>
-                      {recipe.ingredients && recipe.ingredients.length > 0 && (
-                        <Text style={styles.swapOptionIngredients} numberOfLines={1}>
-                          {recipe.ingredients.map((i) => i.ingredientName).join(', ')}
-                        </Text>
-                      )}
-                    </View>
-                    {swapping ? <ActivityIndicator size="small" /> : <Ionicons name="chevron-forward" size={18} color="#1e6fb8" />}
-                  </Pressable>
-                ))}
-              </ScrollView>
-            )}
-          </View>
-        </View>
-      </Modal>
+      <Sheet visible={swapVisible} title={`Swap ${selectedMeal?.mealType || 'meal'}`} onClose={() => setSwapVisible(false)}>
+        <Copy size="caption" tone="muted">Pick an alternative with a similar calorie target</Copy>
+        {swapOptions.length === 0 ? (
+          <ActivityIndicator color={colors.primary} />
+        ) : (
+          swapOptions.map((recipe) => (
+            <Pressable key={recipe.id} accessibilityRole="button" accessibilityLabel={`Swap to ${recipe.recipeName}`}
+              style={({ pressed }) => [styles.swapOption, { borderBottomColor: colors.border }, pressed && { opacity: 0.6 }]}
+              onPress={() => handleSwap(recipe)} disabled={swapping}>
+              <View style={{ flex: 1 }}>
+                <Copy style={{ fontWeight: '600' }}>{recipe.recipeName}</Copy>
+                <Copy size="caption" tone="muted">{recipe.calories} kcal · {recipe.proteinG}g P · {recipe.carbsG}g C · {recipe.fatG}g F</Copy>
+                {!!recipe.ingredients?.length && (
+                  <Copy size="caption" tone="muted" numberOfLines={1}>
+                    {recipe.ingredients.map((i) => i.ingredientName).join(', ')}
+                  </Copy>
+                )}
+              </View>
+              {swapping ? <ActivityIndicator size="small" color={colors.primary} /> : <Ionicons name="chevron-forward" size={18} color={colors.primary} />}
+            </Pressable>
+          ))
+        )}
+      </Sheet>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 20, gap: 10, paddingBottom: 40 },
+  container: { padding: 20, gap: 12, paddingBottom: 40, width: '100%', maxWidth: 760, alignSelf: 'center' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30 },
-  emptyTitle: { fontSize: 20, fontWeight: '700', marginBottom: 8 },
-  emptyDesc: { fontSize: 14, color: '#666', textAlign: 'center', marginBottom: 20, lineHeight: 20 },
-  generateBtn: { backgroundColor: '#1e6fb8', borderRadius: 12, paddingHorizontal: 28, paddingVertical: 14 },
-  generateBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
-  error: { color: '#c0392b', marginTop: 12, fontSize: 13 },
-  muted: { color: '#888', textAlign: 'center', marginTop: 10 },
-  explanationCard: { backgroundColor: '#eef4fb', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: '#c5ddf5' },
-  explanationText: { fontSize: 13, color: '#1a4a7a', lineHeight: 19 },
-  tabRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
-  tabBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, backgroundColor: '#e5e5ea', alignItems: 'center' },
-  tabActive: { backgroundColor: '#1e6fb8' },
-  tabText: { fontSize: 14, fontWeight: '600', color: '#666' },
-  tabTextActive: { color: '#fff' },
+  tabRow: { flexDirection: 'row', gap: 8 },
   dayRow: { flexDirection: 'row', gap: 6 },
-  dayBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#e5e5ea' },
-  dayBtnActive: { backgroundColor: '#1e6fb8' },
-  dayText: { fontSize: 13, fontWeight: '600', color: '#666' },
-  dayTextActive: { color: '#fff' },
-  daySummary: { backgroundColor: '#f0f4f8', borderRadius: 8, padding: 8, alignItems: 'center', marginBottom: 4 },
-  daySummaryText: { fontSize: 13, fontWeight: '600', color: '#444' },
-  mealCard: { borderRadius: 10, padding: 12, gap: 2, borderWidth: 1, borderColor: '#e5e5ea' },
-  mealHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  mealType: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', color: '#888' },
-  mealCals: { fontSize: 12, fontWeight: '700', color: '#1e6fb8' },
-  mealName: { fontSize: 15, fontWeight: '600', color: '#222' },
-  mealMacros: { fontSize: 12, color: '#666' },
-  prepNote: { fontSize: 11, color: '#1a4a7a', fontStyle: 'italic', marginTop: 2 },
-  shopName: { fontSize: 14, fontWeight: '600', color: '#222' },
-  shopCategory: { fontSize: 11, color: '#888' },
-  shopQty: { fontSize: 14, fontWeight: '700', color: '#1e6fb8' },
-  regenBtn: { marginTop: 16, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: '#1e6fb8', alignItems: 'center' },
-  regenText: { color: '#1e6fb8', fontWeight: '600', fontSize: 14 },
-  dayBtnConfirmed: { backgroundColor: '#e8f5e9', borderWidth: 1, borderColor: '#2e7d32', flexDirection: 'row', alignItems: 'center' },
-  mealCardLocked: { opacity: 0.85 },
-  swapHint: { fontSize: 11, color: '#1e6fb8', marginTop: 4, fontWeight: '500' },
-  lockedBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#e8f5e9', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: '#2e7d32' },
-  lockedText: { fontSize: 13, color: '#2e7d32', flex: 1 },
-  confirmBtn: { backgroundColor: '#2e7d32', borderRadius: 10, paddingVertical: 12, alignItems: 'center', marginTop: 6 },
-  confirmBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-  emptyList: { alignItems: 'center', gap: 10, marginVertical: 20 },
-  generateListBtn: { backgroundColor: '#1e6fb8', borderRadius: 10, paddingHorizontal: 24, paddingVertical: 12 },
-  generateListText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  shopItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#e5e5ea' },
-  shopItemChecked: { opacity: 0.6 },
-  shopItemBody: { flex: 1 },
-  shopNameChecked: { textDecorationLine: 'line-through', color: '#888' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 40, maxHeight: '80%' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  modalTitle: { fontSize: 18, fontWeight: '700' },
-  modalSub: { fontSize: 13, color: '#666', marginBottom: 12 },
-  swapOption: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#e5e5ea' },
-  swapOptionName: { fontSize: 15, fontWeight: '600', color: '#222' },
-  swapOptionMacros: { fontSize: 12, color: '#666', marginTop: 2 },
-  swapOptionIngredients: { fontSize: 11, color: '#888', marginTop: 2 },
+  mealHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  shopItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
+  swapOption: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
 });

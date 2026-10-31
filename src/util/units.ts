@@ -52,3 +52,32 @@ export function formatHeight(heightCm: number, units: UnitSystem): string {
   }
   return `${heightCm} cm`;
 }
+
+// Water volume display units. Canonical storage stays milliliters — these are display-only.
+export type VolumeUnit = 'cup_imp' | 'cup_us' | 'floz_imp' | 'floz_us' | 'l' | 'ml' | 'pt_imp' | 'pt_us';
+
+export const VOLUME_UNITS: { key: VolumeUnit; name: string; symbol: string; mlPerUnit: number }[] = [
+  { key: 'cup_imp', name: 'cups (Imperial)', symbol: 'cups', mlPerUnit: 284.131 },
+  { key: 'cup_us', name: 'cups (US)', symbol: 'cups', mlPerUnit: 236.588 },
+  { key: 'floz_imp', name: 'fl oz (Imperial)', symbol: 'fl oz', mlPerUnit: 28.4131 },
+  { key: 'floz_us', name: 'fl oz (US)', symbol: 'fl oz', mlPerUnit: 29.5735 },
+  { key: 'l', name: 'L', symbol: 'L', mlPerUnit: 1000 },
+  { key: 'ml', name: 'mL', symbol: 'mL', mlPerUnit: 1 },
+  { key: 'pt_imp', name: 'pt (Imperial)', symbol: 'pt', mlPerUnit: 568.261 },
+  { key: 'pt_us', name: 'pt (US)', symbol: 'pt', mlPerUnit: 473.176 },
+];
+
+const volumeDef = (unit: VolumeUnit) => VOLUME_UNITS.find(u => u.key === unit) ?? VOLUME_UNITS[5];
+
+const trim = (v: number, decimals: number) =>
+  Number(v.toFixed(decimals)).toLocaleString(undefined, { maximumFractionDigits: decimals });
+
+export function formatVolume(ml: number, unit: VolumeUnit = 'ml'): string {
+  const u = volumeDef(unit);
+  const v = ml / u.mlPerUnit;
+  if (unit === 'ml') return `${Math.round(v).toLocaleString()} mL`;
+  if (unit === 'l') return `${trim(v, v >= 10 ? 1 : 2)} L`;
+  if (unit === 'floz_us' || unit === 'floz_imp') return `${Math.round(v)} fl oz`;
+  return `${trim(v, 1)} ${u.symbol}`;
+}
+

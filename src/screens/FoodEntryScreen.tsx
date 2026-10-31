@@ -14,6 +14,8 @@ import {
   Image,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { Ionicons } from '@expo/vector-icons';
+import { Sheet } from '../design/components';
 import KeyboardAwareScrollView from '../components/KeyboardAwareScrollView';
 import RecipeSearch from '../components/RecipeSearch';
 import RecipeByIngredients from '../components/RecipeByIngredients';
@@ -44,6 +46,8 @@ interface PreviewForm {
   recipeId?: string;
   ingredientId?: string;
   selectedServing?: string;
+  servingUnitId?: string;  // 'g' | 'oz' | a serving id from the catalog
+  servingQty?: string;     // controlled text: number of units (e.g. 2 slices)
   servings?: IngredientResult['servings'];
   nutritionSnapshot?: Record<string, unknown>;
   verification?: string;
@@ -73,6 +77,19 @@ function macroStringsForPortion(per100: Macros, grams: number) {
     fiber: m.fiber_g == null ? '' : String(m.fiber_g),
   };
 }
+
+const OZ_G = 28.3495;
+const WEIGHT_UNITS = [
+  { id: 'g', label: 'Grams', grams: 1 },
+  { id: 'oz', label: 'Ounces', grams: OZ_G },
+];
+interface ServingUnit { id: string; label: string; grams: number; estimated?: boolean }
+// Household units (e.g. "1 slice") first, then plain weight — like MyFitnessPal.
+function servingUnits(p: PreviewForm): ServingUnit[] {
+  return [...(p.servings ?? []).map(s => ({ id: s.id, label: s.label, grams: s.grams, estimated: s.estimated })), ...WEIGHT_UNITS];
+}
+const activeUnit = (p: PreviewForm): ServingUnit =>
+  servingUnits(p).find(u => u.id === p.servingUnitId) ?? WEIGHT_UNITS[0];
 
 export default function FoodEntryScreen() {
   const [entryCompleted] = useState(() => startEntryTimer('food_entry_saved'));
@@ -109,6 +126,8 @@ export default function FoodEntryScreen() {
   useEffect(() => () => { request.current++; }, []);
   const [error, setError] = useState<string | null>(null);
   const [expandedMeal, setExpandedMeal] = useState<string | null>(null);
+  const [scaleOpen, setScaleOpen] = useState(false);
+  const [unitSheetOpen, setUnitSheetOpen] = useState(false);
   usePreventRemove(Boolean(preview || description || photoUri || pendingMeal.current), ({ data }) => {
     if (saving) return;
     Alert.alert('Leave this entry?', pendingMeal.current ? 'A save may already be pending. Check your diary before logging this meal again.' : 'Your unsaved entry will be discarded.', [
@@ -116,35 +135,59 @@ export default function FoodEntryScreen() {
     ]);
   });
 
+  // Recompute calories/macros whenever the portion changes. `grams` is the
+  // canonical amount; `patch` carries the serving-unit UI state alongside it.
+  const applyPortion = (grams: number | null, patch: Partial<PreviewForm> = {}) => {
+    if (!preview) return;
+    const next: PreviewForm = { ...preview, ...patch, portionGrams: grams == null ? '' : String(Math.round(grams * 10) / 10) };
+    if (preview.source !== 'Manual entry' && grams != null && Number.isFinite(grams) && grams > 0) {
+      next.calories = String(caloriesForPortion(preview.caloriesPer100g, grams));
+      Object.assign(next, macroStringsForPortion(preview.macrosPer100g, grams));
+    }
+    setPreview(next);
+  };
+
   // When the scale locks a stable weight, autofill the portion field and
   // recompute calories based on caloriesPer100g.
   const onWeightLocked = (grams: number) => {
     setReviewed(false);
     if (!preview) return;
-    if (preview.source === 'Manual entry') { setPreview({ ...preview, portionGrams: String(grams) }); return; }
-    const portionStr = String(grams);
-    const kcal = caloriesForPortion(preview.caloriesPer100g, grams);
-    setPreview({
-      ...preview,
-      portionGrams: portionStr,
-      calories: String(kcal),
-      ...macroStringsForPortion(preview.macrosPer100g, grams),
-    });
+    const unit = activeUnit(preview);
+    const qty = unit.grams === 1 ? String(grams) : String(Math.round((grams / unit.grams) * 100) / 100);
+    applyPortion(grams, { servingQty: qty });
   };
+
+  // The scale card may be closed inside its sheet — autofill still applies
+  // because the lock watcher lives here, not in the card.
+  useEffect(() => {
+    if (scale.stableGrams !== null) onWeightLocked(scale.stableGrams);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scale.stableGrams]);
 
   // Recompute calories automatically whenever the user edits portion.
   // Does not force-overwrite a manually-edited calorie value — if the user
   // edits calories directly, we respect that until portion changes.
-  const onPortionChange = (t: string) => {
+  const onServingQtyChange = (t: string) => {
     setReviewed(false);
     if (!preview) return;
-    const grams = Number(t);
-    const next: PreviewForm = { ...preview, portionGrams: t, selectedServing: undefined };
-    if (preview.source !== 'Manual entry' && Number.isFinite(grams) && grams > 0) {
-      next.calories = String(caloriesForPortion(preview.caloriesPer100g, grams));
-      Object.assign(next, macroStringsForPortion(preview.macrosPer100g, grams));
-    }
-    setPreview(next);
+    const qty = Number(t);
+    const grams = t.trim() && Number.isFinite(qty) && qty > 0 ? qty * activeUnit(preview).grams : null;
+    applyPortion(grams, { servingQty: t });
+  };
+
+  const onUnitPicked = (unit: ServingUnit) => {
+    setReviewed(false);
+    if (!preview) return;
+    // Convert the quantity so the actual portion weight is preserved —
+    // 56 g becomes "2" when switching to a 28 g serving, and back again.
+    const grams = Number(preview.portionGrams);
+    const count = Number.isFinite(grams) && grams > 0 ? Math.round((grams / unit.grams) * 100) / 100 : 1;
+    applyPortion(count * unit.grams, {
+      servingUnitId: unit.id,
+      servingQty: String(count),
+      selectedServing: unit.id === 'g' || unit.id === 'oz' ? undefined : unit.label,
+    });
+    setUnitSheetOpen(false);
   };
 
   const editNutrient = (field: 'calories' | 'protein' | 'carbs' | 'fat' | 'fiber', value: string) => {
@@ -219,11 +262,12 @@ export default function FoodEntryScreen() {
   };
 
   // Fill the preview card from a selected USDA ingredient (per-100g nutrition).
-  // Defaults the portion to 100g; the user can adjust portion/macros below.
+  // Defaults to the food's own serving (e.g. "1 slice") when known, else 100 g.
   const onIngredientSelected = (ing: IngredientResult) => {
     invalidate();
     setError(null);
-    const grams = 100;
+    const first = ing.servings?.find(s => s.grams > 0);
+    const grams = first?.grams ?? 100;
     setPreview({
       name: ing.name,
       ingredientId: ing.id, servings: ing.servings, verification: verificationLabel(ing),
@@ -231,6 +275,9 @@ export default function FoodEntryScreen() {
       needsReview: true,
       uncertainty: [ing.provenance?.verification_explanation, ing.provenance?.estimate_warning, ing.provenance?.total_carb_estimation, ing.provenance?.basis?.includes('mL') ? 'Source basis may be per 100 mL. This is an estimated profile; weigh your portion and check its label.' : ''].filter(Boolean).join(' '),
       portionGrams: String(grams),
+      servingUnitId: first?.id,
+      servingQty: first ? '1' : undefined,
+      selectedServing: first?.label,
       calories: Number.isFinite(ing.caloriesPer100g) && ing.caloriesPer100g >= 0 ? String(caloriesForPortion(ing.caloriesPer100g, grams)) : '',
       ...macroStringsForPortion(ing.macrosPer100g, grams),
       caloriesPer100g: ing.caloriesPer100g,
@@ -332,17 +379,17 @@ export default function FoodEntryScreen() {
 
   return (
     <KeyboardAwareScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={styles.container}>
-        <Text style={styles.title}>Log a meal</Text>
-        <Text style={styles.muted}>
+        <Text style={styles.title}>{mode === 'recipes' ? 'Discover recipes' : 'Log a meal'}</Text>
+        {mode !== 'recipes' && <Text style={styles.muted}>
           Today: {meals.length} meal{meals.length === 1 ? '' : 's'} · {totalCalories} kcal
-        </Text>
+        </Text>}
 
-        <Pressable
+        {mode !== 'recipes' && <Pressable
           style={styles.scanLabelBtn}
           onPress={() => navigation.navigate('LabelScanner', { mealType })}
         >
           <Text style={styles.scanLabelBtnText}>📷 Scan Nutrition Label</Text>
-        </Pressable>
+        </Pressable>}
 
         {mode === 'photo' && <>
         <Text style={styles.label}>Photo (optional)</Text>
@@ -380,7 +427,7 @@ export default function FoodEntryScreen() {
         {mode === 'recipes' && <>
         <Text style={styles.label}>Search a recipe</Text>
         <RecipeSearch onSelect={onRecipeSelected} />
-        <Text style={styles.muted}>Pick a recipe to auto-fill calories and macros, or describe it below.</Text>
+        <Text style={styles.muted}>Pick a recipe to auto-fill calories and macros, then review the serving before saving.</Text>
 
         <RecipeByIngredients onSelect={onRecipeSelected} />
 
@@ -432,11 +479,16 @@ export default function FoodEntryScreen() {
         {preview && (
           <>
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>Estimated nutrition — edit before saving</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text style={styles.cardTitle}>Estimated nutrition — edit before saving</Text>
+                <Pressable accessibilityRole="button" accessibilityLabel="Bluetooth scale" accessibilityHint="Connect a Bluetooth kitchen scale"
+                  onPress={() => setScaleOpen(true)} hitSlop={8} style={({ pressed }) => ({ padding: 6, opacity: pressed ? 0.6 : 1 })}>
+                  <Ionicons name="bluetooth" size={20} color={scale.status === 'connected' ? colors.primary : '#2563eb'} />
+                </Pressable>
+              </View>
               {preview.source === 'Manual entry' && <Text style={styles.muted}>Enter values for your whole portion. Changing its weight does not change manually entered nutrition.</Text>}
               <Text style={styles.muted}>{preview.source.startsWith('ingredient:') ? 'Food database nutrition — review preparation and portion' : preview.source.startsWith('recipe:') ? 'Recipe nutrition — review the serving and ingredients' : preview.source === 'Manual entry' ? 'Your entered nutrition' : preview.source === 'Repeated meal' ? 'Copied from a saved meal — review before logging' : 'AI estimate — not measured nutrition'}</Text>
               {preview.verification && <Text style={styles.muted}>{preview.verification}</Text>}
-              {preview.servings?.map(serving => <Button key={serving.id} title={`${serving.label} · ${serving.grams} g${serving.estimated ? ' · estimated serving' : ''}`} onPress={() => { onPortionChange(String(serving.grams)); setPreview(current => current ? { ...current, selectedServing: serving.label } : current); }} />)}
               {preview.lowConfidence && <Text style={styles.err}>Uncertain estimate — check the food and portion carefully.</Text>}
               {!!preview.uncertainty && <Text style={styles.muted}>{preview.uncertainty}</Text>}
 
@@ -447,14 +499,23 @@ export default function FoodEntryScreen() {
                 onChangeText={(t) => { setReviewed(false); setPreview({ ...preview, name: t }); }}
               />
 
-              <Text style={styles.label}>Portion (grams)</Text>
+              <Text style={styles.label}>Serving size</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel={`Serving size: ${activeUnit(preview).label}`} accessibilityHint="Choose the unit for this portion"
+                onPress={() => setUnitSheetOpen(true)}
+                style={({ pressed }) => [styles.input, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', opacity: pressed ? 0.7 : 1 }]}>
+                <Text style={{ color: colors.text, fontSize: 16 }}>{activeUnit(preview).label}{activeUnit(preview).id === 'oz' ? ` (${OZ_G} g)` : activeUnit(preview).id !== 'g' ? ` (${activeUnit(preview).grams} g)` : ''}</Text>
+                <Ionicons name="chevron-down" size={16} color={colors.muted} />
+              </Pressable>
+
+              <Text style={styles.label}>{activeUnit(preview).id === 'g' ? 'Portion (grams)' : activeUnit(preview).id === 'oz' ? 'Portion (ounces)' : 'Number of servings'}</Text>
               <TextInput placeholderTextColor={colors.muted}
                 style={styles.input}
-                accessibilityLabel="Portion grams" value={preview.portionGrams}
-                onChangeText={onPortionChange}
-                keyboardType="number-pad"
-                placeholder="e.g. 250"
+                accessibilityLabel={activeUnit(preview).id === 'g' ? 'Portion grams' : activeUnit(preview).id === 'oz' ? 'Portion ounces' : 'Number of servings'} value={preview.servingQty ?? preview.portionGrams}
+                onChangeText={onServingQtyChange}
+                keyboardType="decimal-pad"
+                placeholder={activeUnit(preview).id === 'g' ? 'e.g. 250' : 'e.g. 1.5'}
               />
+              {activeUnit(preview).id !== 'g' && !!preview.portionGrams && <Text style={styles.muted}>= {preview.portionGrams} g total</Text>}
 
               <Text style={styles.label}>Calories</Text>
               <TextInput placeholderTextColor={colors.muted}
@@ -509,7 +570,25 @@ export default function FoodEntryScreen() {
             </View>
 
             <View style={{ height: 10 }} />
-            <ScaleConnectCard scale={scale} onWeightLocked={onWeightLocked} />
+            {scaleOpen && <Sheet visible title="Bluetooth scale" onClose={() => setScaleOpen(false)}>
+              <Text style={styles.muted}>Connect your scale, place the food on it — the stable weight fills the portion field automatically.</Text>
+              <ScaleConnectCard scale={scale} />
+            </Sheet>}
+            {unitSheetOpen && <Sheet visible title="Serving size" onClose={() => setUnitSheetOpen(false)}>
+              <Text style={styles.muted}>How do you measure this food? Household servings are estimated weights.</Text>
+              {servingUnits(preview).map(unit => {
+                const active = unit.id === activeUnit(preview).id;
+                return <Pressable key={unit.id} accessibilityRole="button" accessibilityLabel={`${unit.label}${unit.id === 'g' || unit.id === 'oz' ? '' : `, ${unit.grams} grams`}`} accessibilityState={{ selected: active }}
+                  onPress={() => onUnitPicked(unit)}
+                  style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 48, paddingHorizontal: 14, borderRadius: 12,
+                    borderWidth: 1, borderColor: active ? colors.primary : colors.border, backgroundColor: active ? colors.accent : 'transparent', opacity: pressed ? 0.7 : 1 })}>
+                  <Text style={{ fontWeight: active ? '700' : '500', color: active ? colors.primary : colors.text }}>
+                    {unit.label}{unit.id === 'g' || unit.id === 'oz' ? '' : ` · ${unit.grams} g`}{unit.estimated ? ' · estimated' : ''}
+                  </Text>
+                  {active && <Ionicons name="checkmark" size={18} color={colors.primary} />}
+                </Pressable>;
+              })}
+            </Sheet>}
           </>
         )}
 

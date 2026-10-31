@@ -101,7 +101,7 @@
         "expo-build-properties",
         {
           "ios": {
-            "deploymentTarget": "15.5"
+            "deploymentTarget": "16.0"
           }
         }
       ],
@@ -113,7 +113,13 @@
           "recordAudioAndroid": false
         }
       ],
-      "expo-mail-composer"
+      "expo-mail-composer",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow Fitness AI to record short voice clips so you can log meals, water and workouts hands-free."
+        }
+      ]
     ],
     "extra": {
       "eas": {

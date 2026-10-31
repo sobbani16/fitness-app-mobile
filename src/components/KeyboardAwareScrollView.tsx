@@ -20,14 +20,16 @@ import {
  *
  * Uses no native modules, so it is safe in Expo Go and won't affect builds.
  */
-export default function KeyboardAwareScrollView({
+const KeyboardAwareScrollView = React.forwardRef<ScrollView, ScrollViewProps>(function KeyboardAwareScrollView({
   children,
+  style,
   contentContainerStyle,
   ...rest
-}: ScrollViewProps) {
+}, ref) {
   const scroll = (
     <ScrollView
-      style={styles.flex}
+      ref={ref}
+      style={[styles.flex, style]}
       contentContainerStyle={contentContainerStyle}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
@@ -49,7 +51,9 @@ export default function KeyboardAwareScrollView({
   }
 
   return scroll;
-}
+});
+
+export default KeyboardAwareScrollView;
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },

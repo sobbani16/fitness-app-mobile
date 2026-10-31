@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { addWater } from '../api/dailyStats';
-import { navigate } from '../navigation/navigationRef';
+import { navigateToTab } from '../navigation/navigationRef';
 import { PlannedNotification } from './reminderPlan';
 
 const CHANNEL_ID = 'reminders';
@@ -26,6 +26,18 @@ const ACTIONS: Record<string, { identifier: string; buttonTitle: string; options
 };
 
 let initialized = false;
+let lastNavigationResponse: string | null = null;
+
+function openNotification(response: Notifications.NotificationResponse) {
+  const action = response.actionIdentifier;
+  if (action !== Notifications.DEFAULT_ACTION_IDENTIFIER && action !== 'act') return;
+  const key = `${response.notification.request.identifier}:${response.notification.date}:${action}`;
+  if (lastNavigationResponse === key) return;
+  lastNavigationResponse = key;
+  navigateToTab(response.notification.request.content.data?.deepLink);
+  // Do not reopen an already-consumed destination on every subsequent app launch.
+  void Notifications.clearLastNotificationResponseAsync().catch(() => {});
+}
 
 export async function setupNotifications() {
   if (initialized) return;
@@ -43,6 +55,9 @@ export async function setupNotifications() {
     await Notifications.setNotificationCategoryAsync(CATEGORY_PREFIX + category, actions as Notifications.NotificationAction[]);
   }
   Notifications.addNotificationResponseReceivedListener(response => { void handleResponse(response); });
+  // Recover a cold-start tap after auth/profile gates mount navigation. Never replay a logging action.
+  const last = await Notifications.getLastNotificationResponseAsync().catch(() => null);
+  if (last) openNotification(last);
 }
 
 export async function requestNotificationPermission(): Promise<boolean> {
@@ -100,7 +115,6 @@ async function snooze(content: Notifications.NotificationContent, minutes: numbe
 }
 
 async function handleResponse(response: Notifications.NotificationResponse) {
-  const data = response.notification.request.content.data as { category?: string; deepLink?: string } | undefined;
   const action = response.actionIdentifier;
   try {
     if (action === 'add-water') {
@@ -112,7 +126,7 @@ async function handleResponse(response: Notifications.NotificationResponse) {
       return;
     }
     if (action === 'skip') return; // today's other slots are user-configured repeats; leave them
-    if (data?.deepLink) navigate('Main', { screen: data.deepLink }); // 'act' or default tap deep-links into the tab
+    openNotification(response);
   } catch {
     // Offline or transient failure: the user can act again from the app.
   }

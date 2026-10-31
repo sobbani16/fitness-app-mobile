@@ -2,6 +2,17 @@ import { accountKey } from './session';
 import { accountStorage as AsyncStorage } from './accountStorage';
 
 const KEY_PREFIX = 'fitness.dailyStats.v1.';
+const listeners = new Set<(stats: DailyStats, key: string) => void>();
+
+/** Keep mounted Today and Quick Add consumers in sync for this account/day. */
+export function subscribeDailyStats(listener: (stats: DailyStats) => void) {
+  const accountPrefix = accountKey(KEY_PREFIX);
+  const receive = (stats: DailyStats, key: string) => {
+    if (key === `${accountPrefix}${isoDate()}`) listener(stats);
+  };
+  listeners.add(receive);
+  return () => { listeners.delete(receive); };
+}
 
 /** Default supplements tracked on the dashboard. */
 export const DEFAULT_SUPPLEMENTS = [
@@ -52,22 +63,37 @@ export async function loadDailyStats(d: Date = new Date()): Promise<DailyStats> 
 }
 
 export async function saveDailyStats(stats: DailyStats, d: Date = new Date()): Promise<void> {
-  await AsyncStorage.setItem(keyFor(d), JSON.stringify(stats));
+  const key = keyFor(d);
+  await AsyncStorage.setItem(key, JSON.stringify(stats));
+  listeners.forEach(listener => listener(stats, key));
 }
 
-export async function addWater(deltaMl: number, d: Date = new Date()): Promise<DailyStats> {
-  const stats = await loadDailyStats(d);
-  const next: DailyStats = { ...stats, waterMl: Math.max(0, stats.waterMl + deltaMl) };
-  await saveDailyStats(next, d);
-  return next;
+// Mutations are read-modify-write; serialize them so separate hook instances
+// (Dashboard card, Quick Add sheet) cannot lose a concurrent update.
+let mutations: Promise<unknown> = Promise.resolve();
+function mutate<T>(action: () => Promise<T>): Promise<T> {
+  const result = mutations.then(action, action);
+  mutations = result.catch(() => {});
+  return result;
 }
 
-export async function toggleSupplement(name: string, d: Date = new Date()): Promise<DailyStats> {
-  const stats = await loadDailyStats(d);
-  const next: DailyStats = {
-    ...stats,
-    supplements: { ...stats.supplements, [name]: !stats.supplements[name] },
-  };
-  await saveDailyStats(next, d);
-  return next;
+export function addWater(deltaMl: number, d: Date = new Date()): Promise<DailyStats> {
+  return mutate(async () => {
+    const stats = await loadDailyStats(d);
+    const next: DailyStats = { ...stats, waterMl: Math.max(0, stats.waterMl + deltaMl) };
+    await saveDailyStats(next, d);
+    return next;
+  });
+}
+
+export function toggleSupplement(name: string, d: Date = new Date()): Promise<DailyStats> {
+  return mutate(async () => {
+    const stats = await loadDailyStats(d);
+    const next: DailyStats = {
+      ...stats,
+      supplements: { ...stats.supplements, [name]: !stats.supplements[name] },
+    };
+    await saveDailyStats(next, d);
+    return next;
+  });
 }

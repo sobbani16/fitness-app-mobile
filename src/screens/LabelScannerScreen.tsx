@@ -1,6 +1,7 @@
 import { trackEvent } from '../analytics/events';
 import React, { useEffect, useRef, useState } from 'react';
-import { Image, Linking, View } from 'react-native';
+import { Image, Linking, Pressable, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
 import { recognizeLabel } from '../services/ocr';
@@ -9,6 +10,7 @@ import { Action, Card, Copy, Field, Notice, Skeleton } from '../design/component
 import { useTheme } from '../design/theme';
 import KeyboardAwareScrollView from '../components/KeyboardAwareScrollView';
 import { getSession } from '../storage/session';
+import { useConfirmLeave } from '../hooks/useConfirmLeave';
 export default function LabelScannerScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
@@ -29,6 +31,9 @@ export default function LabelScannerScreen() {
   const [error, setError] = useState('');
   const [rejected, setRejected] = useState<{ guess?: string } | null>(null);
   const [showRaw, setShowRaw] = useState(false);
+  const [handedOff, setHandedOff] = useState(false);
+  useConfirmLeave(!handedOff && Boolean(photo || text.trim() || Object.values(saved).some(images => images.length)), busy && focused);
+  useEffect(() => { if (focused) setHandedOff(false); }, [focused]);
   useEffect(() => () => { generation.current++; }, []);
   useEffect(() => { if (!focused) generation.current++; }, [focused]);
   // Every panel key → ordered image list, with the active draft appended last.
@@ -51,6 +56,7 @@ export default function LabelScannerScreen() {
     const ingredientText = join('ingredients').replace(/^ingredients\s*:\s*/gim, '');
     const result = extracted ? { ...(extracted as object), ...(ingredientText ? { ingredients: ingredientText } : {}) } : ingredientText ? { ingredients: ingredientText } : null;
     const labelPhotos = Object.fromEntries(Object.entries(collected).map(([k, list]) => [k, list.map(i => i.uri).filter(Boolean)]));
+    setHandedOff(true);
     (route.params?.compareWith ? navigation.push : navigation.navigate)('PortionAdjust', { compareWith: route.params?.compareWith, extracted: result, merged: mergedResult, photoUri: (collected.nutrition || []).find(i => i.uri)?.uri || null, labelPhotos, allergenText: join('allergens'), claimText: join('claims'), ocrRawText: nutrition, mealType: route.params?.mealType || 'lunch' });
   }
   async function capture() {
@@ -71,7 +77,7 @@ export default function LabelScannerScreen() {
       const verdict = await classifyDocument(ocrText).catch(() => null);
       if (request !== generation.current) return;
       if (verdict && verdict.type === 'UNSUPPORTED') { setRejected({ guess: verdict.guess }); setPhoto(null); return; }
-      if (verdict && verdict.type === 'RESTAURANT_MENU') { navigation.replace('MenuScan', { seedText: ocrText, mealType: route.params?.mealType }); return; }
+      if (verdict && verdict.type === 'RESTAURANT_MENU') { navigation.navigate('MenuScan', { seedText: ocrText, mealType: route.params?.mealType }); return; }
       if (verdict && verdict.type === 'UNCERTAIN' && (verdict.guess === 'RESTAURANT_MENU' || (verdict.confidence ?? 0) < 0.4)) {
         // Low-confidence: keep the image but ask the user to confirm instead of guessing.
         setPhoto(image.uri); setText(ocrText); setError('Not sure this is a nutrition label. You can still correct the text below, or retake.');
@@ -102,11 +108,38 @@ export default function LabelScannerScreen() {
     } catch { if (request === generation.current) setError('Nutrition extraction is unavailable. Your text is kept; retry or enter nutrition manually.'); }
     finally { lock.current = false; setBusy(false); }
   }
+  const activeMode = manual ? 'text' : 'camera';
+  const modes: { key: string; icon: keyof typeof Ionicons.glyphMap; label: string; a11y: string }[] = [
+    { key: 'camera', icon: 'camera-outline', label: 'Camera', a11y: 'Scan with camera' },
+    { key: 'text', icon: 'create-outline', label: 'Type text', a11y: 'Type label text' },
+    { key: 'menu', icon: 'restaurant-outline', label: 'Menu', a11y: 'Scan Restaurant Menu' },
+    { key: 'manual', icon: 'keypad-outline', label: 'Manual', a11y: 'Enter nutrition manually' },
+  ];
+  function onModeTab(key: string) {
+    if (key === activeMode) return;
+    if (key === 'menu') { navigation.navigate('MenuScan', { mealType: route.params?.mealType }); return; }
+    if (key === 'manual') { review(); return; }
+    commitDraft(); // keep the current draft in its panel before switching
+    if (key === 'text') setManual(true);
+  }
   return <KeyboardAwareScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, gap: 16 }}>
     <Copy accessibilityRole="header" size="heading">Scan a nutrition label</Copy>
-    <Copy tone="muted">Capture one nutrition column clearly. Text recognition runs on your device; extracting nutrition sends the reviewed text to the server and may use AI.</Copy>
-    <Copy>Capture each side separately. Only the nutrition panel is sent for nutrition extraction; review the other panels as exact label text.</Copy>
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{(['nutrition', 'ingredients', 'allergens', 'claims'] as const).map(value => <Action secondary key={value} label={`Panel: ${value}${(saved[value]?.length || 0) + (panel === value && (text.trim() || photo) ? 1 : 0) ? ` (${(saved[value]?.length || 0) + (panel === value && (text.trim() || photo) ? 1 : 0)})` : ''}`} disabled={busy} selected={panel === value} onPress={() => {
+    <View style={{ flexDirection: 'row', gap: 6 }}>
+      {modes.map(m => {
+        const active = m.key === activeMode;
+        return <Pressable key={m.key} accessibilityRole="button" accessibilityLabel={m.a11y} accessibilityState={{ selected: active }}
+          disabled={busy} onPress={() => onModeTab(m.key)}
+          style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 48,
+            paddingHorizontal: active ? 14 : 0, flex: active ? 1 : 0, minWidth: 48, borderRadius: 14,
+            borderWidth: 1, borderColor: active ? colors.primary : colors.border,
+            backgroundColor: active ? colors.primary : colors.surface, opacity: busy ? 0.5 : pressed ? 0.7 : 1 })}>
+          <Ionicons name={m.icon} size={20} color={active ? colors.onPrimary : colors.muted} />
+          {active && <Copy style={{ color: colors.onPrimary, fontWeight: '700' }}>{m.label}</Copy>}
+        </Pressable>;
+      })}
+    </View>
+    <Copy tone="muted">Text is read on your device. Extraction sends your reviewed text to the server and may use AI — other panels stay as label text.</Copy>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{(['nutrition', 'ingredients', 'allergens', 'claims'] as const).map(value => <Action secondary key={value} label={`${value}${(saved[value]?.length || 0) + (panel === value && (text.trim() || photo) ? 1 : 0) ? ` (${(saved[value]?.length || 0) + (panel === value && (text.trim() || photo) ? 1 : 0)})` : ''}`} disabled={busy} selected={panel === value} onPress={() => {
       if (value === panel) return;
       commitDraft(value);
     }} />)}</View>
@@ -151,10 +184,6 @@ export default function LabelScannerScreen() {
       <Action label={permission?.canAskAgain === false ? 'Open camera settings' : 'Allow camera'} onPress={() => {
         void (permission?.canAskAgain === false ? Linking.openSettings() : requestPermission()).catch(() => setError('Could not open camera access. Use device settings or manual entry.'));
       }} /></Card>}
-    <Action secondary label="Scan Restaurant Menu" disabled={busy} onPress={() => navigation.navigate('MenuScan', { mealType: route.params?.mealType })} />
-    <Action secondary label="Type label text" disabled={busy} onPress={() => setManual(true)} />
-    <Action secondary label="Enter nutrition manually" disabled={busy} onPress={() => review()} />
-    <Action secondary label="Cancel scan" disabled={busy} onPress={() => navigation.goBack()} />
     <View style={{ height: 16 }} />
   </KeyboardAwareScrollView>;
 }

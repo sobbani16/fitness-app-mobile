@@ -17,11 +17,13 @@ export function Action({ label, onPress, secondary = false, disabled = false, se
   label: string; onPress: () => void; secondary?: boolean; disabled?: boolean; selected?: boolean; hint?: string;
 }) {
   const { colors } = useTheme();
+  const filled = selected === true || !secondary;
   return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityHint={hint}
     accessibilityState={{ disabled, ...(selected === undefined ? {} : { selected }) }} disabled={disabled} onPress={onPress}
     style={({ pressed }) => ({ minHeight: 48, borderRadius: radius.control, padding: 12, justifyContent: 'center', alignItems: 'center',
-      backgroundColor: secondary ? colors.accent : colors.primary, opacity: disabled ? 0.55 : pressed ? 0.8 : 1 })}>
-    <Copy style={{ color: secondary ? colors.text : colors.onPrimary, fontWeight: '600', textAlign: 'center' }}>{label}</Copy>
+      borderWidth: 2, borderColor: selected ? colors.text : 'transparent',
+      backgroundColor: filled ? colors.primary : colors.accent, opacity: disabled ? 0.55 : pressed ? 0.8 : 1 })}>
+    <Copy style={{ color: filled ? colors.onPrimary : colors.text, fontWeight: '600', textAlign: 'center', flexShrink: 1 }}>{label}</Copy>
   </Pressable>;
 }
 export function Field({ label, style, ...props }: TextInputProps & { label: string }) {
@@ -30,14 +32,15 @@ export function Field({ label, style, ...props }: TextInputProps & { label: stri
     placeholderTextColor={colors.muted} style={[{ minHeight: 48, borderWidth: 1, borderColor: colors.border, borderRadius: radius.control,
       padding: 12, color: colors.text, backgroundColor: colors.surface, fontSize: 16 }, style]} /></View>;
 }
-export function Progress({ value, target, label }: { value: number | null; target: number | null; label: string }) {
+export function Progress({ value, target, label, tone = 'primary' }: { value: number | null; target: number | null; label: string; tone?: 'primary' | 'warning' | 'danger' | 'muted' }) {
   const { colors } = useTheme();
+  const fill = { primary: colors.primary, warning: colors.warning, danger: colors.danger, muted: colors.muted }[tone];
   const known = value !== null && Number.isFinite(value) && target !== null && Number.isFinite(target) && target > 0;
   const percent = known ? Math.min(100, Math.max(0, value / target * 100)) : 0;
   return <View accessible accessibilityRole="progressbar" accessibilityLabel={label}
     accessibilityValue={known ? { min: 0, max: 100, now: Math.round(percent), text: `${Math.round(value!)} of ${Math.round(target!)}` } : { text: 'Not available' }}
     style={{ height: 6, borderRadius: 3, backgroundColor: colors.track, overflow: 'hidden' }}>
-    <View style={{ width: `${percent}%`, height: 6, backgroundColor: colors.primary }} />
+    <View style={{ width: `${percent}%`, height: 6, backgroundColor: fill }} />
   </View>;
 }
 export function Notice({ title, message, error = false }: { title: string; message: string; error?: boolean }) {
@@ -51,11 +54,11 @@ export function Skeleton({ label = 'Loading' }: { label?: string }) {
     <View style={{ height: 24, width: '65%', borderRadius: 8, backgroundColor: colors.track }} /><Copy tone="muted" size="caption">{label}…</Copy>
   </View>;
 }
-export function Sheet({ visible, title, onClose, children }: { visible: boolean; title: string; onClose: () => void; children: React.ReactNode }) {
+export function Sheet({ visible, title, onClose, onDismiss, children }: { visible: boolean; title: string; onClose: () => void; onDismiss?: () => void; children: React.ReactNode }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const heading = useRef<Text>(null);
-  return <Modal visible={visible} transparent animationType="none" onRequestClose={onClose} onShow={() => { const node = findNodeHandle(heading.current); if (node) AccessibilityInfo.setAccessibilityFocus(node); }}>
+  return <Modal visible={visible} transparent animationType="none" onDismiss={onDismiss} onRequestClose={onClose} onShow={() => { const node = findNodeHandle(heading.current); if (node) AccessibilityInfo.setAccessibilityFocus(node); }}>
     <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: '#00000066' }}>
       <Pressable accessibilityLabel="Close sheet" accessibilityRole="button" onPress={onClose} style={StyleSheet.absoluteFill} />
       <View accessibilityViewIsModal onAccessibilityEscape={onClose} style={{ maxHeight: '90%', backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24,
@@ -84,12 +87,13 @@ export function Segmented<T extends string>({ label, options, value, onChange }:
     <View style={{ flexDirection: 'row', borderRadius: radius.control, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' }}>
       {options.map(opt => {
         const selected = opt.value === value;
-        return <Pressable key={opt.value} accessibilityRole="radio" accessibilityState={{ selected }} accessibilityLabel={`${label}: ${opt.label}`}
+        return <Pressable key={opt.value} accessibilityRole="radio" accessibilityState={{ checked: selected, selected }} accessibilityLabel={`${label}: ${opt.label}`}
           onPress={() => onChange(opt.value)}
-          style={({ pressed }) => ({ flex: 1, minHeight: 40, justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: 4,
+          style={({ pressed }) => ({ flex: 1, minWidth: 0, minHeight: 48, padding: 6, justifyContent: 'center', alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 4,
+            borderWidth: 2, borderColor: selected ? colors.text : 'transparent',
             backgroundColor: selected ? colors.primary : colors.surface, opacity: pressed ? 0.8 : 1 })}>
           {!!opt.icon && <Copy style={{ color: selected ? colors.onPrimary : colors.text }}>{opt.icon}</Copy>}
-          <Copy style={{ color: selected ? colors.onPrimary : colors.text, fontWeight: selected ? '700' : '500' }}>{opt.label}</Copy>
+          <Copy style={{ color: selected ? colors.onPrimary : colors.text, fontWeight: '600', textAlign: 'center', flexShrink: 1 }}>{opt.label}</Copy>
         </Pressable>;
       })}
     </View>
@@ -100,22 +104,22 @@ export function IconAction({ icon, label, onPress, disabled = false, danger = fa
   icon: string; label: string; onPress: () => void; disabled?: boolean; danger?: boolean;
 }) {
   const { colors } = useTheme();
-  return <Pressable accessibilityRole="button" accessibilityLabel={label} disabled={disabled} onPress={onPress}
-    style={({ pressed }) => ({ minWidth: 44, minHeight: 44, justifyContent: 'center', alignItems: 'center',
+  return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled }} disabled={disabled} onPress={event => { event?.stopPropagation(); onPress(); }}
+    style={({ pressed }) => ({ minWidth: 48, minHeight: 48, justifyContent: 'center', alignItems: 'center',
       borderRadius: radius.control, opacity: disabled ? 0.4 : pressed ? 0.6 : 1 })}>
     <Copy style={{ fontSize: 20, color: danger ? colors.danger : colors.primary }}>{icon}</Copy>
   </Pressable>;
 }
 
-export function ListRow({ title, subtitle, onPress, children }: {
-  title: string; subtitle?: string; onPress?: () => void; children?: React.ReactNode;
+export function ListRow({ title, subtitle, onPress, selected, children }: {
+  title: string; subtitle?: string; onPress?: () => void; selected?: boolean; children?: React.ReactNode;
 }) {
   const { colors } = useTheme();
-  return <Pressable accessibilityRole={onPress ? 'button' : undefined} accessibilityLabel={onPress ? title : undefined} onPress={onPress}
+  return <Pressable accessibilityRole={onPress ? 'button' : undefined} accessibilityLabel={onPress ? title : undefined} accessibilityState={selected === undefined ? undefined : { selected }} onPress={onPress}
     style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, gap: 8,
       borderBottomWidth: 1, borderBottomColor: colors.border, opacity: pressed ? 0.7 : 1 })}>
-    <View style={{ flex: 1, gap: 2 }}>
-      <Copy numberOfLines={1} style={{ fontWeight: '600' }}>{title}</Copy>
+    <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+      <Copy style={{ fontWeight: '600' }}>{title}</Copy>
       {!!subtitle && <Copy size="caption" tone="muted">{subtitle}</Copy>}
     </View>
     <View style={{ flexDirection: 'row', alignItems: 'center' }}>{children}</View>

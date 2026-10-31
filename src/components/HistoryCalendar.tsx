@@ -24,10 +24,12 @@ export default function HistoryCalendar({ days, selected, onSelect, assessments 
         const meals = day.mealCount > 0, work = (day.workouts ?? 0) > 0;
         const st: DayStatus = assessments?.get(day.date) ?? (meals && work ? 'green' : meals || work ? 'yellow' : 'red');
         const tint = st === 'green' ? `${colors.primary}2E` : st === 'yellow' ? `${colors.warning}33` : st === 'red' ? `${colors.danger}22` : colors.track;
-        const status = `${day.mealCount} meal records${work ? ', workout logged' : ''}${st === 'gray' ? ', insufficient data' : ''}`;
+        const glyph = st === 'green' ? '✓' : st === 'yellow' ? '!' : st === 'red' ? '✕' : '·';
+        const stateLabel = st === 'green' ? 'on track' : st === 'yellow' ? 'review' : st === 'red' ? 'outside plan' : 'insufficient data';
+        const status = `${stateLabel}, ${day.mealCount} meal records${work ? ', workout logged' : ''}`;
         return <Pressable key={day.date} accessibilityRole="button" accessibilityLabel={`${day.date}: ${status}`} accessibilityState={{ selected: selected === day.date }} onPress={() => onSelect(day.date)}
           style={{ width: compact ? '14.2857%' : '100%', minHeight: 48, padding: 6, borderWidth: 1, borderColor: selected === day.date ? colors.primary : colors.border, borderRadius: 8, backgroundColor: selected === day.date ? colors.accent : tint }}>
-          <Copy style={{ textAlign: compact ? 'center' : 'left' }}>{compact ? Number(day.date.slice(8)) : day.date}</Copy>
+          <Copy style={{ textAlign: compact ? 'center' : 'left' }}>{compact ? Number(day.date.slice(8)) : day.date} <Copy accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ fontWeight: '700' }}>{glyph}</Copy></Copy>
           <Copy size="caption" tone="muted" style={{ textAlign: compact ? 'center' : 'left' }}>{meals ? `${day.mealCount} ${compact ? 'logs' : 'meals'}` : 'No log'}</Copy>
         </Pressable>; })}
     </View>

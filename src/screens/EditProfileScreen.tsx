@@ -6,6 +6,7 @@ import ProfileForm, { ProfileFormData } from '../components/ProfileForm';
 import { Action, Skeleton } from '../design/components';
 import { useTheme } from '../design/theme';
 import { useProfile } from '../context/ProfileContext';
+import { backOrFallback } from '../navigation/back';
 export default function EditProfileScreen() {
   const navigation = useNavigation();
   const { colors } = useTheme();
@@ -20,11 +21,11 @@ export default function EditProfileScreen() {
   const submit = async (data: ProfileFormData) => {
     if (busy.current) return;
     busy.current = true; setSaving(true);
-    try { await setProfile({ ...data, createdAt: profile?.createdAt ?? new Date().toISOString() }); saved.current = true; setDirty(false); navigation.goBack(); }
+    try { await setProfile({ ...data, createdAt: profile?.createdAt ?? new Date().toISOString() }); saved.current = true; setDirty(false); backOrFallback(navigation, 'Summary'); }
     finally { busy.current = false; setSaving(false); }
   };
-  return <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['bottom']}>
-    <View style={{ padding: 12 }}><Action label="Cancel" secondary disabled={saving} onPress={() => navigation.goBack()} /></View>
+  return <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
+    <View style={{ padding: 12 }}><Action label="Cancel" secondary disabled={saving} onPress={() => backOrFallback(navigation, 'Summary')} /></View>
     {loading ? <Skeleton label="Loading profile" /> : <ProfileForm initial={profile} title="Edit profile" subtitle="Update your details and preferences. Targets remain estimates." submitLabel="Save changes" saving={saving} onSubmit={submit} onDirtyChange={setDirty} />}
   </SafeAreaView>;
 }

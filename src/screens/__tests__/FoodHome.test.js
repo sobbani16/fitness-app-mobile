@@ -1,7 +1,8 @@
 jest.mock('@react-native-async-storage/async-storage', () => require('@react-native-async-storage/async-storage/jest/async-storage-mock'));
+jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ bottom: 0 }) }));
 const mockNavigate = jest.fn();
 jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: mockNavigate }), useFocusEffect: callback => require('react').useEffect(callback, [callback]) }));
-jest.mock('../../components/KeyboardAwareScrollView', () => ({ children }) => children);
+jest.mock('../../components/KeyboardAwareScrollView', () => 'ScrollContainer');
 const mockMeal = { id: 'one', name: 'Oats', calories: 200, quantityG: 100, createdAt: new Date().toISOString(), macros: { protein_g: 10, carbs_g: 30, fat_g: 4 } };
 const mockMeals = [mockMeal];
 jest.mock('../../context/MealsContext', () => ({ useMeals: () => ({ meals: mockMeals, remove: jest.fn() }) }));
@@ -29,6 +30,29 @@ it('reviews a recent food before logging and saves it as a favorite', async () =
   expect(mockNavigate).toHaveBeenLastCalledWith('FoodEntry', { mode: 'repeat', meal: mockMeal });
   await act(async () => press('Save favorite: Oats'));
   expect(storage.setFavorite).toHaveBeenCalledWith(mockMeal, true);
+  await act(async () => press('Saved lists'));
   await act(async () => press('Favorite foods'));
   expect(tree.root.findAllByProps({ accessibilityLabel: 'Remove favorite: Oats' }).length).toBeGreaterThan(0);
+});
+
+it('retains each list search and scroll position with a stable container contract', async () => {
+  await act(async () => { tree = create(<Screen />); });
+  const field = () => tree.root.findAllByProps({ accessibilityLabel: 'Search this list' })[0];
+  const scroll = () => tree.root.findByType('ScrollContainer');
+  const originalWidth = scroll().props.contentContainerStyle.width;
+  await act(async () => field().props.onChangeText('oat'));
+  await act(async () => scroll().props.onScroll({ nativeEvent: { contentOffset: { y: 120 } } }));
+  await act(async () => press('Saved lists'));
+  await act(async () => press('Favorite foods'));
+  expect(field().props.value).toBe('');
+  expect(scroll().props.contentContainerStyle.width).toBe(originalWidth);
+  await act(async () => press('Saved lists'));
+  expect(tree.root.findAllByProps({ accessibilityLabel: 'Favorite foods' })[0].props.accessibilityState.selected).toBe(true);
+  await act(async () => press('Favorite foods'));
+  await act(async () => field().props.onChangeText('rice'));
+  await act(async () => press('Saved lists'));
+  await act(async () => press('Recent foods'));
+  expect(field().props.value).toBe('oat');
+  expect(scroll().props.contentOffset.y).toBe(120);
+  expect(scroll().props.contentContainerStyle.width).toBe(originalWidth);
 });

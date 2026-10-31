@@ -51,7 +51,12 @@ export interface ShoppingItem {
 }
 
 export interface WeeklyPlan {
-  generationDetails?: { householdSize: number; days: Array<{ dayOfWeek: number; warnings: string[]; deviations: Record<string, number> }> };
+  generationDetails?: { householdSize: number; source?: 'usda_catalog' | 'ai_generated';
+    ai?: { dropped: Array<{ dayOfWeek: number; mealType: string; foodName: string; violations: string[] }>; notes: string[];
+      ingredients: Array<{ dayOfWeek: number; mealType: string; ingredients: Array<{ name: string; grams: number }> }> };
+    conditions?: { ingredientRulesApplied: number; nutrientRulesApplied: number;
+      mealWarnings: Array<{ dayOfWeek: number; mealType: string; foodName: string; warnings: string[] }>; unverified: string[] };
+    days: Array<{ dayOfWeek: number; warnings: string[]; deviations: Record<string, number> }> };
   id: string;
   userId: string;
   weekStartDate: string;

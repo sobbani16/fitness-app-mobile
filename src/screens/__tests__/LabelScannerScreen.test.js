@@ -1,6 +1,6 @@
 jest.mock('@react-native-async-storage/async-storage', () => require('@react-native-async-storage/async-storage/jest/async-storage-mock'));
 const mockNavigate = jest.fn(), mockPermission = jest.fn();
-jest.mock('@react-navigation/native', () => ({ useIsFocused: () => true, useNavigation: () => ({ navigate: mockNavigate, goBack: jest.fn() }), useRoute: () => ({ params: { mealType: 'lunch' } }) }));
+jest.mock('@react-navigation/native', () => ({ usePreventRemove: jest.fn(), useIsFocused: () => true, useNavigation: () => ({ navigate: mockNavigate, goBack: jest.fn() }), useRoute: () => ({ params: { mealType: 'lunch' } }) }));
 jest.mock('expo-camera', () => ({ CameraView: () => null, useCameraPermissions: () => [{ granted: false, canAskAgain: false }, mockPermission] }));
 jest.mock('../../components/KeyboardAwareScrollView', () => ({ children }) => children);
 jest.mock('../../storage/session', () => ({ getSession: () => ({ user: { id: 'alice' } }) }));
@@ -38,7 +38,7 @@ it('keeps photo-panel text separate and extracts nutrition from only its panel',
   await act(async () => { tree = create(<Screen />); });
   await act(async () => control('Type label text').props.onPress());
   await act(async () => control('Label text — review and correct').props.onChangeText('Calories 200'));
-  await act(async () => control('Panel: claims').props.onPress());
+  await act(async () => control('claims').props.onPress());
   await act(async () => control('Type label text').props.onPress());
   await act(async () => control('Label text — review and correct').props.onChangeText('Sugar free'));
   await act(async () => control('Extract nutrition for review').props.onPress());

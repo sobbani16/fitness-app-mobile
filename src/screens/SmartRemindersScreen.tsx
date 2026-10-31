@@ -12,6 +12,7 @@ import { syncReminderSchedules } from '../services/reminderSync';
 import { planNotifications } from '../services/reminderPlan';
 import { getLastWaterAt } from '../api/dailyStats';
 import { loadMealsFor } from '../storage/meals';
+import { useConfirmLeave } from '../hooks/useConfirmLeave';
 
 const CATEGORY_LABELS: Record<string, string> = {
   'meal:breakfast': 'Breakfast', 'meal:lunch': 'Lunch', 'meal:dinner': 'Dinner', 'meal:snack': 'Snack',
@@ -39,17 +40,24 @@ export default function SmartRemindersScreen() {
   const [categories, setCategories] = useState<api.ReminderCategorySetting[]>([]);
   const [suggestions, setSuggestions] = useState<api.ReminderSuggestion[]>([]);
   const [timesText, setTimesText] = useState<Record<string, string>>({});
+  const [quietDraft, setQuietDraft] = useState<Partial<Pick<api.ReminderPreferences, 'quietStart' | 'quietEnd'>>>({});
+  const [pendingWrites, setPendingWrites] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [diag, setDiag] = useState<{ permission: string; scheduled: { id: string; when: string }[]; planned: number; backend: api.ReminderDiagnostics | null } | null>(null);
   const [testState, setTestState] = useState('');
   const lastTestAt = useRef(0);
+  const dirty = categories.some(c => JSON.stringify((timesText[c.category] || '').split(',').map(t => t.trim()).filter(Boolean)) !== JSON.stringify(c.times || []))
+    || Object.entries(quietDraft).some(([key, value]) => (value || '') !== (prefs?.[key as 'quietStart' | 'quietEnd'] || ''));
+  const confirmLeave = useConfirmLeave(dirty, pendingWrites > 0);
 
   const load = useCallback(async () => {
+    setLoading(true); setError('');
     try {
       const [p, c, s] = await Promise.all([api.getReminderPreferences(), api.getReminderCategories(), api.getSuggestions()]);
       setPrefs(p); setCategories(c); setSuggestions(s);
+      setQuietDraft({});
       setTimesText(Object.fromEntries(c.map(x => [x.category, (x.times || []).join(', ')])));
       setError('');
     } catch { setError('Could not load reminder settings. Check your connection.'); }
@@ -60,15 +68,24 @@ export default function SmartRemindersScreen() {
   useFocusEffect(useCallback(() => { void api.getSuggestions().then(setSuggestions).catch(() => {}); }, []));
 
   async function savePrefs(patch: Partial<api.ReminderPreferences>) {
-    try { setPrefs(await api.updateReminderPreferences(patch)); setError(''); await syncReminderSchedules(); }
+    setPendingWrites(n => n + 1);
+    try {
+      setPrefs(await api.updateReminderPreferences(patch));
+      setQuietDraft(current => Object.fromEntries(Object.entries(current).filter(([key, value]) =>
+        !(key in patch) || (value || '') !== (patch[key as 'quietStart' | 'quietEnd'] || ''))));
+      setError(''); await syncReminderSchedules();
+    }
     catch (e: any) { setError(e?.response?.data?.error || 'Could not save.'); }
+    finally { setPendingWrites(n => n - 1); }
   }
   async function saveCategory(category: string, patch: Partial<api.ReminderCategorySetting>) {
+    setPendingWrites(n => n + 1);
     try {
       const updated = await api.updateReminderCategory(category, patch);
       setCategories(list => list.map(c => (c.category === category ? updated : c)));
       setError(''); await syncReminderSchedules();
     } catch (e: any) { setError(e?.response?.data?.error || 'Could not save.'); }
+    finally { setPendingWrites(n => n - 1); }
   }
   async function loadDiagnostics() {
     try {
@@ -136,7 +153,10 @@ export default function SmartRemindersScreen() {
     if (value) setMessage('Reminders on. Pick the categories you want below — nothing sends automatically.');
   }
 
-  if (loading || !prefs) return <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: 20 }}><Skeleton label="Loading reminders" /></ScrollView>;
+  if (!prefs) return <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, gap: 16 }}>
+    {loading ? <Skeleton label="Loading reminders" /> : <><Notice error title="Reminders unavailable" message={error || 'Could not load reminder settings.'} />
+      <Action label="Retry reminder settings" onPress={() => void load()} /></>}
+  </ScrollView>;
 
   return <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 40 }}>
     <Copy size="title" accessibilityRole="header">Smart reminders</Copy>
@@ -165,17 +185,17 @@ export default function SmartRemindersScreen() {
         <Copy>{s.title}</Copy>
         <Copy size="caption" tone="muted">{s.body}</Copy>
         <View style={{ flexDirection: 'row', gap: 8 }}>
-          <Action label="Use this" onPress={() => void api.acceptSuggestion(s.id).then(load).then(syncReminderSchedules).catch(e => setError(e?.response?.data?.error || 'Could not apply.'))} />
-          <Action secondary label="Not now" onPress={() => void api.declineSuggestion(s.id).then(load)} />
-          <Action secondary label="Stop suggesting" onPress={() => void api.declineSuggestion(s.id, true).then(load)} />
+          <Action label="Use this" onPress={() => confirmLeave(() => { void api.acceptSuggestion(s.id).then(load).then(syncReminderSchedules).catch(e => setError(e?.response?.data?.error || 'Could not apply.')); })} />
+          <Action secondary label="Not now" onPress={() => confirmLeave(() => { void api.declineSuggestion(s.id).then(load).catch(() => setError('Could not update suggestion.')); })} />
+          <Action secondary label="Stop suggesting" onPress={() => confirmLeave(() => { void api.declineSuggestion(s.id, true).then(load).catch(() => setError('Could not update suggestion.')); })} />
         </View>
       </View>)}
     </Card>}
 
     <Card>
       <Copy size="heading">Quiet hours & limits</Copy>
-      <Field label="Quiet from (HH:MM, optional)" value={prefs.quietStart || ''} placeholder="22:00" onChangeText={v => setPrefs({ ...prefs, quietStart: v })} onBlur={() => void savePrefs({ quietStart: prefs.quietStart || null })} />
-      <Field label="Quiet until (HH:MM, optional)" value={prefs.quietEnd || ''} placeholder="07:00" onChangeText={v => setPrefs({ ...prefs, quietEnd: v })} onBlur={() => void savePrefs({ quietEnd: prefs.quietEnd || null })} />
+      <Field label="Quiet from (HH:MM, optional)" value={quietDraft.quietStart ?? prefs.quietStart ?? ''} placeholder="22:00" onChangeText={v => setQuietDraft(current => ({ ...current, quietStart: v }))} onBlur={() => { if (quietDraft.quietStart !== undefined) void savePrefs({ quietStart: quietDraft.quietStart || null }); }} />
+      <Field label="Quiet until (HH:MM, optional)" value={quietDraft.quietEnd ?? prefs.quietEnd ?? ''} placeholder="07:00" onChangeText={v => setQuietDraft(current => ({ ...current, quietEnd: v }))} onBlur={() => { if (quietDraft.quietEnd !== undefined) void savePrefs({ quietEnd: quietDraft.quietEnd || null }); }} />
       <Copy>Default snooze</Copy>
       {[15, 30, 60].map(m => <Action secondary key={m} label={`${m} min`} selected={prefs.snoozeMinutes === m} onPress={() => void savePrefs({ snoozeMinutes: m })} />)}
       <Copy>Daily nonessential limit: {prefs.dailyCap}</Copy>
@@ -243,7 +263,7 @@ export default function SmartRemindersScreen() {
       <Action secondary label="Save test reminder to inbox" onPress={() => void api.sendTestReminder().then(() => setMessage('Test reminder saved to your inbox.')).catch(() => setError('Could not save test reminder.'))} />
       <Action secondary label="Notification history" onPress={() => navigation.navigate('ReminderInbox')} />
       <Action secondary label="Reset learned patterns" onPress={() => void api.resetLearning().then(() => setMessage('Learned patterns cleared. Your own schedules are unchanged.')).catch(() => setError('Could not reset.'))} />
-      <Action secondary label="Turn off adaptive reminders" onPress={() => void api.revokeAdaptive().then(load).then(() => setMessage('Adaptive reminders off. Manual schedules still work.')).catch(() => setError('Could not update.'))} />
+      <Action secondary label="Turn off adaptive reminders" onPress={() => confirmLeave(() => { void api.revokeAdaptive().then(load).then(() => setMessage('Adaptive reminders off. Manual schedules still work.')).catch(() => setError('Could not update.')); })} />
     </Card>
   </ScrollView>;
 }

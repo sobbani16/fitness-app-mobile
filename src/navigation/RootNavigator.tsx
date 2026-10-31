@@ -1,7 +1,13 @@
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { betaFeatures } from '../config/betaFeatures';
-import React from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, ActivityIndicator, Pressable, BackHandler } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import type { NavigatorScreenParams } from '@react-navigation/native';
+import type { MainTabsParamList } from './MainTabs';
+import { backOrFallback, fallbackTab, handleRootHardwareBack } from './back';
+import { navigationRef } from './navigationRef';
+import { useTheme } from '../design/theme';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
@@ -16,6 +22,8 @@ import ClientDropSurveyScreen from '../screens/ClientDropSurveyScreen';
 import ClientMealPlanScreen from '../screens/ClientMealPlanScreen';
 import LabelScannerScreen from '../screens/LabelScannerScreen';
 import MenuScanScreen from '../screens/MenuScanScreen';
+import WorkoutPlanScreen from '../screens/WorkoutPlanScreen';
+import MuscleExplorerScreen from '../screens/MuscleExplorerScreen';
 import PortionAdjustScreen from '../screens/PortionAdjustScreen';
 import FoodEntryScreen from '../screens/FoodEntryScreen';
 import SmartRemindersScreen from '../screens/SmartRemindersScreen';
@@ -34,7 +42,7 @@ export type RootStackParamList = {
   LeoHelp: { labelAnalysis?: import('../api/labelScanner').LabelAnalysis } | undefined;
   Feedback: { source?: string };
   Onboarding: undefined;
-  Main: undefined;
+  Main: NavigatorScreenParams<MainTabsParamList> | undefined;
   FoodEntry: { mode: 'search' | 'manual' | 'photo' | 'recipes' | 'repeat'; meal?: LoggedMeal };
   EditProfile: undefined;
   HealthScoreDetail: undefined;
@@ -53,6 +61,8 @@ export type RootStackParamList = {
   ReminderInbox: undefined;
   VideoSearch: { query?: string; context?: 'exercise' | 'recipe' | 'nutrition' | 'education' | 'general'; exerciseKey?: string };
   ConnectedHealth: undefined;
+  WorkoutPlan: undefined;
+  MuscleExplorer: { selectMuscle?: string };
   VideoCompare: { videos: [import('../api/videos').VideoResult, import('../api/videos').VideoResult]; exerciseKey?: string };
 };
 
@@ -60,7 +70,16 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
   const reducedMotion = useReducedMotion();
+  const { colors } = useTheme();
   const { profile, loading } = useProfile();
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (!navigationRef.isReady()) return false;
+      const state = navigationRef.getRootState();
+      return handleRootHardwareBack(navigationRef, state?.routes[state.index]?.name);
+    });
+    return () => subscription.remove();
+  }, []);
 
   if (loading) {
     return (
@@ -71,12 +90,23 @@ export default function RootNavigator() {
   }
 
   return (
-    <Stack.Navigator screenOptions={({ route }) => ({ animation: reducedMotion ? 'none' : 'default', headerShown: false, headerRight: () => <FeedbackButton source={route.name} /> })}>
+    <Stack.Navigator screenOptions={({ route, navigation }) => ({
+      animation: reducedMotion ? 'none' : 'default', headerShown: false,
+      headerRight: () => <FeedbackButton source={route.name} />,
+      // Keep native Back/gestures when history exists; provide an escape for direct entry.
+      headerLeft: navigation.canGoBack() ? undefined : () => <Pressable accessibilityRole="button" accessibilityLabel="Back"
+        style={{ minWidth: 48, minHeight: 48, justifyContent: 'center' }}
+        onPress={() => backOrFallback(navigation, fallbackTab(route.name))}>
+        <Ionicons name="chevron-back" size={24} color={colors.primary} />
+      </Pressable>,
+    })}>
       {profile ? (
         <>
           <Stack.Screen name="Main" component={MainTabs} />
           <Stack.Screen name="LeoHelp" component={ChatScreen} options={{ headerShown: true, title: 'Leo guide' }} />
           <Stack.Screen name="FoodEntry" component={FoodEntryScreen} options={{ headerShown: true, title: 'Log food' }} />
+          <Stack.Screen name="WorkoutPlan" component={WorkoutPlanScreen} options={{ headerShown: true, title: 'Workout plan' }} />
+          <Stack.Screen name="MuscleExplorer" component={MuscleExplorerScreen} options={{ headerShown: true, title: 'Muscles' }} />
           <Stack.Screen
             name="EditProfile"
             component={EditProfileScreen}

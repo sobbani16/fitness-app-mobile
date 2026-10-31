@@ -32,6 +32,7 @@ export interface MacroGoals {
   fatTarget: number;
   fiberTarget: number;
   waterMlTarget: number;
+  waterMlTargetBasis?: 'default' | 'custom' | 'history';
 }
 
 export interface TrendPoint {

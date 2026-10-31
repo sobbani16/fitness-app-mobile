@@ -1,0 +1,40 @@
+jest.mock('@react-native-async-storage/async-storage', () => require('@react-native-async-storage/async-storage/jest/async-storage-mock'));
+jest.mock('@react-navigation/native', () => ({ useIsFocused: () => true, useNavigation: () => ({}), useRoute: () => ({ params: { seedText: 'Menu' } }) }));
+jest.mock('../../hooks/useConfirmLeave', () => ({ useConfirmLeave: () => callback => callback() }));
+jest.mock('expo-camera', () => ({ CameraView: 'CameraView', useCameraPermissions: () => [{ granted: true }, jest.fn()] }));
+jest.mock('expo-image-picker', () => ({}));
+jest.mock('../../services/ocr', () => ({ recognizeLabel: jest.fn() }));
+jest.mock('../../api/labelScanner', () => ({ scanMenu: jest.fn() }));
+const mockAdd = jest.fn();
+jest.mock('../../context/MealsContext', () => ({ useMeals: () => ({ add: mockAdd }) }));
+const React = require('react'), { act, create } = require('react-test-renderer');
+const { scanMenu } = require('../../api/labelScanner');
+const Screen = require('../MenuScanScreen').default;
+let tree;
+const press = label => tree.root.findAllByProps({ accessibilityLabel: label })[0].props.onPress();
+beforeEach(() => {
+  mockAdd.mockReset().mockResolvedValue(undefined);
+  scanMenu.mockResolvedValue({ restaurant: 'Test', items: ['Dish A', 'Dish B'].map(name => ({ name, calories: 400, nutritionSource: 'restaurant-reported' })) });
+});
+afterEach(async () => { if (tree) await act(async () => tree.unmount()); });
+test('partial-save retry does not duplicate dishes and retains operation IDs', async () => {
+  mockAdd.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('disk full')).mockResolvedValue(undefined);
+  await act(async () => { tree = create(<Screen />); });
+  await act(async () => press('Add Dish A'));
+  await act(async () => press('Add Dish B'));
+  await act(async () => press('Log 2 dishes'));
+  expect(mockAdd).toHaveBeenCalledTimes(2);
+  const retryId = mockAdd.mock.calls[1][0].id;
+  await act(async () => { press('Log 2 dishes'); press('Log 2 dishes'); });
+  expect(mockAdd).toHaveBeenCalledTimes(3);
+  expect(mockAdd.mock.calls[2][0]).toMatchObject({ id: retryId, name: 'Dish B' });
+});
+test('unknown nutrition remains editable and never gets logged as zero', async () => {
+  scanMenu.mockResolvedValue({ restaurant: 'Test', items: [{ name: 'Unknown', calories: null }] });
+  await act(async () => { tree = create(<Screen />); });
+  await act(async () => press('Add Unknown'));
+  await act(async () => press('Log 1 dish'));
+  expect(mockAdd).not.toHaveBeenCalled();
+  expect(tree.root.findAllByProps({ accessibilityLabel: 'Correct the number for Unknown' }).length).toBeGreaterThan(0);
+  expect(tree.root.findAllByProps({ accessibilityLabel: 'Saved ✓' }).length).toBe(0);
+});

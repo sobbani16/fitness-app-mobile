@@ -3,17 +3,32 @@ import {
   DailyStats,
   addWater as addWaterStore,
   loadDailyStats,
+  subscribeDailyStats,
   toggleSupplement as toggleSupplementStore,
 } from '../storage/dailyStats';
 import { syncWater } from '../api/dailyStats';
+import { getSession } from '../storage/session';
 import { Supplement, logSupplement, deleteSupplementLog, getSupplementLogs } from '../api/supplements';
+
+// Daily totals replace server state; preserve write order across hook instances.
+let waterSyncQueue: Promise<unknown> = Promise.resolve();
+function syncWaterInOrder(total: number) {
+  const account = getSession()?.user.id;
+  const send = () => {
+    if (getSession()?.user.id !== account) throw new Error('Account changed');
+    return syncWater(total);
+  };
+  const result = waterSyncQueue.then(send, send);
+  waterSyncQueue = result.catch(() => {});
+  return result;
+}
 
 interface UseDailyStats {
   stats: DailyStats | null;
   loading: boolean;
   waterSyncError: string | null;
   retryWaterSync: () => Promise<void>;
-  addWater: (deltaMl: number) => Promise<void>;
+  addWater: (deltaMl: number) => Promise<DailyStats | undefined>;
   toggleSupplement: (s: Supplement, quantity: number) => Promise<void>;
   updateSupplementLog: (s: Supplement, quantity: number) => Promise<void>;
   refresh: () => Promise<void>;
@@ -48,13 +63,14 @@ export function useDailyStats(includeSupplements = true): UseDailyStats {
   useEffect(() => {
     refresh();
   }, [refresh]);
+  useEffect(() => subscribeDailyStats(setStats), []);
 
   const retryWaterSync = useCallback(async () => {
     if (waterBusy.current) return;
     waterBusy.current = true;
     try {
       const current = await loadDailyStats();
-      await syncWater(current.waterMl);
+      await syncWaterInOrder(current.waterMl);
       setWaterSyncError(null);
     } catch {
       setWaterSyncError('Saved on this device. Water has not synced. Retry when connected.');
@@ -69,11 +85,12 @@ export function useDailyStats(includeSupplements = true): UseDailyStats {
       const next = await addWaterStore(deltaMl);
       setStats(next);
       try {
-        await syncWater(next.waterMl);
+        await syncWaterInOrder(next.waterMl);
         setWaterSyncError(null);
       } catch {
         setWaterSyncError('Saved on this device. Water has not synced. Retry when connected.');
       }
+      return next;
     } finally { waterBusy.current = false; }
   }, []);
 

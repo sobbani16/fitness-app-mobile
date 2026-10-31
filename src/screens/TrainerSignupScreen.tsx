@@ -14,6 +14,8 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { signupAsTrainer } from '../api/trainers';
 import { RootStackParamList } from '../navigation/RootNavigator';
+import { useConfirmLeave } from '../hooks/useConfirmLeave';
+import { backOrFallback } from '../navigation/back';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'TrainerSignup'>;
 
@@ -45,6 +47,8 @@ export default function TrainerSignupScreen() {
   const [tier, setTier] = useState<'standard' | 'pro' | 'elite'>('standard');
   const [location, setLocation] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  useConfirmLeave(!submitted && Boolean(bio || certifications || selectedSpecialties.length || yearsExperience || location || tier !== 'standard'), submitting);
 
   const toggleSpecialty = (s: string) => {
     setSelectedSpecialties((prev) =>
@@ -71,10 +75,11 @@ export default function TrainerSignupScreen() {
         tier,
         location: location.trim() || undefined,
       });
+      setSubmitted(true);
       Alert.alert(
         'Application Submitted!',
         'Your trainer profile is pending admin verification. You will be notified when approved.',
-        [{ text: 'OK', onPress: () => nav.goBack() }]
+        [{ text: 'OK', onPress: () => backOrFallback(nav, 'Summary') }]
       );
     } catch (e: any) {
       Alert.alert('Error', e.response?.data?.error ?? e.message);
@@ -138,6 +143,7 @@ export default function TrainerSignupScreen() {
             <TouchableOpacity
               key={s}
               style={[styles.tag, selected && styles.tagSelected]}
+              accessibilityRole="checkbox" accessibilityLabel={s} accessibilityState={{ checked: selected }}
               onPress={() => toggleSpecialty(s)}
             >
               <Text style={[styles.tagText, selected && styles.tagTextSelected]}>{s}</Text>
@@ -155,7 +161,8 @@ export default function TrainerSignupScreen() {
         return (
           <TouchableOpacity
             key={t.key}
-            style={[styles.tierCard, isSelected && { borderColor: color, borderWidth: 2 }]}
+            style={[styles.tierCard, { borderWidth: 2 }, isSelected && { borderColor: color }]}
+            accessibilityRole="radio" accessibilityState={{ checked: isSelected, selected: isSelected }}
             onPress={() => setTier(t.key)}
             activeOpacity={0.85}
           >

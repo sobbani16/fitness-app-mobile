@@ -44,6 +44,10 @@ export default function SummaryScreen() {
         onChange={unit => { if (!busy) void run(() => update({ units: unit }), 'Display units updated. Measurements are unchanged.'); }} />}
     </Card>
     <Card><AppearancePicker /></Card><Card><DashboardPreferences /></Card>
+    <Card><Copy size="heading">Workout & plan</Copy>
+      <Copy tone="muted">Your plan days drive reminders and Today. Workout weight units (lb/kg) are chosen on the Workout screen while logging.</Copy>
+      <Action secondary label="My workout plan" onPress={() => navigation.navigate('WorkoutPlan')} />
+    </Card>
     <Card><Copy size="heading">Reminders</Copy><Action secondary label="Smart reminders" onPress={() => navigation.navigate('SmartReminders')} /><Action secondary label="Reminder history" onPress={() => navigation.navigate('ReminderInbox')} /><Action secondary label="Connected health" onPress={() => navigation.navigate('ConnectedHealth')} /></Card>
     <Card><Copy size="heading">Coaching</Copy><Action secondary label="Find a trainer" onPress={() => navigation.navigate('TrainerList')} /><Action secondary label="Become a trainer" onPress={() => navigation.navigate('TrainerSignup')} /></Card>
     <Card><Copy size="heading">Privacy & support</Copy><Action secondary label="Open Leo guide" onPress={() => navigation.navigate('LeoHelp')} /><Action secondary label="Give feedback" onPress={() => navigation.navigate('Feedback', { source: 'Summary' })} /><AccountPrivacy /></Card>

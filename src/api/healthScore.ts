@@ -14,15 +14,19 @@ export interface ScoreInsight {
 }
 
 export interface ScoreComponent {
-  score: number;
+  /** null means the component had no records — never a fabricated score. */
+  score: number | null;
   weight: number;
+  available?: boolean;
 }
 
 export interface HealthScoreResponse {
-  id: string;
+  id: string | null;
   date: string;
-  score: number;
+  /** null when no component had data for the day. */
+  score: number | null;
   status: string;
+  coverage?: { available: number; total: number };
   components: {
     macro: ScoreComponent;
     condition: ScoreComponent;

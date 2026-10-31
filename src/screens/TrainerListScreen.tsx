@@ -147,6 +147,7 @@ export default function TrainerListScreen() {
           <TouchableOpacity
             key={String(t.key)}
             style={[styles.filterTab, tier === t.key && styles.filterTabActive]}
+            accessibilityRole="button" accessibilityState={{ selected: tier === t.key }}
             onPress={() => setTier(t.key)}
           >
             <Text style={[styles.filterTabText, tier === t.key && styles.filterTabTextActive]}>

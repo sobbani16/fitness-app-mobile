@@ -16,10 +16,13 @@ export default function ReminderInboxScreen() {
   const [instances, setInstances] = useState<ReminderInstance[] | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    setLoading(true); setError('');
     try { setInstances(await getReminderInstances(40)); setError(''); }
     catch { setError('Could not load reminder history.'); }
+    finally { setLoading(false); }
   }, []);
   useFocusEffect(useCallback(() => { void load(); }, [load]));
 
@@ -34,10 +37,13 @@ export default function ReminderInboxScreen() {
     finally { setBusy(false); }
   }
 
-  if (!instances) return <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: 20 }}><Skeleton label="Loading reminders" /></ScrollView>;
+  if (!instances) return <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, gap: 16 }}>
+    {loading ? <Skeleton label="Loading reminders" /> : <><Notice error title="Reminder history unavailable" message={error} />
+      <Action label="Retry reminder history" onPress={() => void load()} /></>}
+  </ScrollView>;
 
   return <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, gap: 12, paddingBottom: 40 }}
-    refreshControl={<RefreshControl refreshing={busy} onRefresh={() => void load()} tintColor={colors.primary} />}>
+    refreshControl={<RefreshControl refreshing={loading} onRefresh={() => void load()} tintColor={colors.primary} />}>
     <Copy size="title" accessibilityRole="header">Reminder history</Copy>
     {!!error && <Notice title="Please try again" message={error} error />}
     {instances.length === 0 && <Card><Copy tone="muted">No reminders yet. They appear here after they fire or are scheduled.</Copy></Card>}

@@ -14,6 +14,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { dropClient, getDropFormReasons } from '../api/trainers';
 import { RootStackParamList } from '../navigation/RootNavigator';
+import { useConfirmLeave } from '../hooks/useConfirmLeave';
 
 type RoutePropType = RouteProp<RootStackParamList, 'TrainerDropForm'>;
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'TrainerDropForm'>;
@@ -38,6 +39,8 @@ export default function TrainerDropFormScreen() {
   const [candidateGoals, setCandidateGoals] = useState('');
   const [adherenceRating, setAdherenceRating] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  useConfirmLeave(!submitted && Boolean(reasons.length || notes || candidateGoals || adherenceRating !== null), submitting);
 
   useEffect(() => {
     getDropFormReasons()
@@ -70,6 +73,7 @@ export default function TrainerDropFormScreen() {
                 candidateGoals: candidateGoals.trim() || undefined,
                 adherenceRating: adherenceRating ?? undefined,
               });
+              setSubmitted(true);
               Alert.alert('Done', 'The client has been removed from your roster.', [
                 { text: 'OK', onPress: () => nav.popToTop() },
               ]);
@@ -102,6 +106,7 @@ export default function TrainerDropFormScreen() {
             <TouchableOpacity
               key={r}
               style={[styles.reasonTag, selected && styles.reasonTagSelected]}
+              accessibilityRole="checkbox" accessibilityLabel={label} accessibilityState={{ checked: selected }}
               onPress={() => toggleReason(r)}
             >
               {selected && <Ionicons name="checkmark" size={13} color="#fff" />}
@@ -128,6 +133,7 @@ export default function TrainerDropFormScreen() {
           <TouchableOpacity
             key={n}
             style={[styles.ratingBtn, adherenceRating === n && styles.ratingBtnActive]}
+            accessibilityRole="radio" accessibilityLabel={`Adherence rating ${n} of 5`} accessibilityState={{ checked: adherenceRating === n }}
             onPress={() => setAdherenceRating(n)}
           >
             <Text style={[styles.ratingBtnText, adherenceRating === n && styles.ratingBtnTextActive]}>

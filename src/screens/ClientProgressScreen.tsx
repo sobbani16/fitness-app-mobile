@@ -271,6 +271,7 @@ export default function ClientProgressScreen() {
           <TouchableOpacity
             key={p.key}
             style={[styles.periodTab, period === p.key && styles.periodTabActive]}
+            accessibilityRole="button" accessibilityState={{ selected: period === p.key }}
             onPress={() => setPeriod(p.key)}
           >
             <Text style={[styles.periodTabText, period === p.key && styles.periodTabTextActive]}>
