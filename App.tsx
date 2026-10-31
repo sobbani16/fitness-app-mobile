@@ -11,6 +11,7 @@ import React, { useEffect, useState } from 'react';
 import { navigationRef, clearPendingNavigation, flushPendingNavigation } from './src/navigation/navigationRef';
 import { setupNotifications } from './src/services/notifications';
 import { syncReminderSchedules } from './src/services/reminderSync';
+import { registerForPush } from './src/services/push';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import RootNavigator from './src/navigation/RootNavigator';
 import { ProfileProvider } from './src/context/ProfileContext';
@@ -44,6 +45,7 @@ function ThemedNavigation() {
   useEffect(() => {
     void setupNotifications();
     void syncReminderSchedules();
+    void registerForPush();
     const sub = AppState.addEventListener('change', state => { if (state === 'active') void syncReminderSchedules(); });
     return () => { sub.remove(); clearPendingNavigation(); };
   }, []);

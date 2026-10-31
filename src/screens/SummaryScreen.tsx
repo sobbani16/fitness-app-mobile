@@ -14,10 +14,12 @@ import { formatHeight, formatWeight } from '../util/units';
 import { api } from '../api/client';
 import { getSession, saveSession } from '../storage/session';
 import { useFeatureFlags } from '../context/FeatureFlagsContext';
+import { useRoles } from '../context/RolesContext';
 export default function SummaryScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { colors } = useTheme();
   const { isEnabled } = useFeatureFlags();
+  const { hasRole } = useRoles();
   const { profile, loading, update } = useProfile();
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [message, setMessage] = useState('');
   const lock = useRef(false);
@@ -51,7 +53,7 @@ export default function SummaryScreen() {
       <Action secondary label="My workout plan" onPress={() => navigation.navigate('WorkoutPlan')} />
     </Card>
     <Card><Copy size="heading">Reminders</Copy><Action secondary label="Smart reminders" onPress={() => navigation.navigate('SmartReminders')} /><Action secondary label="Reminder history" onPress={() => navigation.navigate('ReminderInbox')} />{(isEnabled('appleHealthSync') || isEnabled('androidHealthSync')) && <Action secondary label="Connected health" onPress={() => navigation.navigate('ConnectedHealth')} />}</Card>
-    {isEnabled('trainerDashboard') && <Card><Copy size="heading">Coaching</Copy><Action secondary label="Find a trainer" onPress={() => navigation.navigate('TrainerList')} /><Action secondary label="Become a trainer" onPress={() => navigation.navigate('TrainerSignup')} /></Card>}
+    {isEnabled('trainerDashboard') && <Card><Copy size="heading">Coaching</Copy><Action secondary label="Find a trainer" onPress={() => navigation.navigate('TrainerList')} />{!hasRole('TRAINER') && <Action secondary label="Become a trainer" onPress={() => navigation.navigate('TrainerSignup')} />}{isEnabled('trainerCoaching') && <Action secondary label="Coaching requests" onPress={() => navigation.navigate('CoachingRequests')} />}{hasRole('TRAINER') && isEnabled('trainerAdvancedFeaturesEnabled') && <Action secondary label="Coaching hub" onPress={() => navigation.navigate('CoachingHub')} />}{hasRole('TRAINER') && isEnabled('trainerCoaching') && <Action secondary label="Trainer profile" onPress={() => navigation.navigate('EditTrainerProfile')} />}{isEnabled('trainerMessagingEnabled') && <Action secondary label="Messages" onPress={() => navigation.navigate('Conversations')} />}{isEnabled('trainerWorkoutPlansEnabled') && !hasRole('TRAINER') && <Action secondary label="My workout plans" onPress={() => navigation.navigate('ClientPlans')} />}{isEnabled('trainerSchedulingEnabled') && !hasRole('TRAINER') && <Action secondary label="My sessions" onPress={() => navigation.navigate('MyBookings')} />}</Card>}
     <Card><Copy size="heading">Privacy & support</Copy>{isEnabled('aiCoach') && <Action secondary label="Open Leo guide" onPress={() => navigation.navigate('LeoHelp')} />}<Action secondary label="Give feedback" onPress={() => navigation.navigate('Feedback', { source: 'Summary' })} /><AccountPrivacy /></Card>
     <Card><Copy size="heading">Sign-in</Copy><Copy tone="muted">Signing out does not delete your account. Account deletion is under Privacy & support.</Copy><Action label={busy ? 'Please wait…' : 'Sign out'} secondary disabled={busy} onPress={signOut} /></Card>
   </ScrollView>;

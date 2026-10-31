@@ -20,6 +20,23 @@ import ClientProgressScreen from '../screens/ClientProgressScreen';
 import TrainerDropFormScreen from '../screens/TrainerDropFormScreen';
 import ClientDropSurveyScreen from '../screens/ClientDropSurveyScreen';
 import ClientMealPlanScreen from '../screens/ClientMealPlanScreen';
+import CoachingRequestsScreen from '../screens/CoachingRequestsScreen';
+import ConsentSharingScreen from '../screens/ConsentSharingScreen';
+import EditTrainerProfileScreen from '../screens/EditTrainerProfileScreen';
+import CoachingHubScreen from '../screens/CoachingHubScreen';
+import TrainerPlanListScreen from '../screens/TrainerPlanListScreen';
+import TrainerPlanEditorScreen from '../screens/TrainerPlanEditorScreen';
+import ClientPlansScreen from '../screens/ClientPlansScreen';
+import ClientPlanDetailScreen from '../screens/ClientPlanDetailScreen';
+import TrainerNutritionScreen from '../screens/TrainerNutritionScreen';
+import ClientGuidanceScreen from '../screens/ClientGuidanceScreen';
+import ConversationsScreen from '../screens/ConversationsScreen';
+import CoachChatScreen from '../screens/CoachChatScreen';
+import TrainerScheduleScreen from '../screens/TrainerScheduleScreen';
+import BookSessionScreen from '../screens/BookSessionScreen';
+import MyBookingsScreen from '../screens/MyBookingsScreen';
+import TrainerPackagesScreen from '../screens/TrainerPackagesScreen';
+import EntitlementsScreen from '../screens/EntitlementsScreen';
 import LabelScannerScreen from '../screens/LabelScannerScreen';
 import MenuScanScreen from '../screens/MenuScanScreen';
 import WorkoutPlanScreen from '../screens/WorkoutPlanScreen';
@@ -50,6 +67,23 @@ export type RootStackParamList = {
   TrainerList: undefined;
   TrainerDetail: { trainerId: string };
   TrainerSignup: undefined;
+  CoachingRequests: undefined;
+  ConsentSharing: { relationId: string };
+  EditTrainerProfile: undefined;
+  CoachingHub: undefined;
+  TrainerPlanList: undefined;
+  TrainerPlanEditor: { planId?: string } | undefined;
+  ClientPlans: undefined;
+  ClientPlanDetail: { assignmentId: string };
+  TrainerNutrition: undefined;
+  ClientGuidance: { assignmentId?: string } | undefined;
+  Conversations: undefined;
+  CoachChat: { conversationId: string; name?: string };
+  TrainerSchedule: undefined;
+  BookSession: { relationId: string; trainerId: string; trainerName?: string; sessionTypes?: unknown[] };
+  MyBookings: undefined;
+  TrainerPackages: undefined;
+  Entitlements: undefined;
   ClientProgress: { clientId: string };
   TrainerDropForm: { clientId: string };
   ClientDropSurvey: undefined;
@@ -77,13 +111,30 @@ const GatedMenuScan = gateScreen('menuScanning', MenuScanScreen, 'Menu scanning'
 const GatedConnectedHealth = gateScreen(['appleHealthSync', 'androidHealthSync'], ConnectedHealthScreen, 'Connected health');
 const GatedVideoSearch = gateScreen('videoSearch', VideoSearchScreen, 'Video search');
 const GatedVideoCompare = gateScreen('videoSearch', VideoCompareScreen, 'Video compare');
-const GatedTrainerList = gateScreen('trainerDashboard', TrainerListScreen, 'Trainers');
-const GatedTrainerDetail = gateScreen('trainerDashboard', TrainerDetailScreen, 'Trainers');
-const GatedTrainerSignup = gateScreen('trainerDashboard', TrainerSignupScreen, 'Trainers');
-const GatedClientProgress = gateScreen('trainerDashboard', ClientProgressScreen, 'Trainers');
+const GatedTrainerList = gateScreen('trainerDiscovery', TrainerListScreen, 'Trainers');
+const GatedTrainerDetail = gateScreen('trainerDiscovery', TrainerDetailScreen, 'Trainers');
+const GatedTrainerSignup = gateScreen('trainerRegistration', TrainerSignupScreen, 'Trainers');
+const GatedClientProgress = gateScreen('trainerInsights', ClientProgressScreen, 'Trainers');
 const GatedTrainerDropForm = gateScreen('trainerDashboard', TrainerDropFormScreen, 'Trainers');
 const GatedClientMealPlan = gateScreen('trainerDashboard', ClientMealPlanScreen, 'Trainers');
 const GatedClientDropSurvey = gateScreen('trainerDashboard', ClientDropSurveyScreen, 'Trainers');
+const GatedCoachingRequests = gateScreen('trainerCoaching', CoachingRequestsScreen, 'Coaching');
+const GatedConsentSharing = gateScreen('trainerCoaching', ConsentSharingScreen, 'Sharing & consent');
+const GatedEditTrainerProfile = gateScreen('trainerCoaching', EditTrainerProfileScreen, 'Trainer profile');
+const GatedCoachingHub = gateScreen('trainerAdvancedFeaturesEnabled', CoachingHubScreen, 'Coaching');
+const GatedTrainerPlanList = gateScreen('trainerWorkoutPlansEnabled', TrainerPlanListScreen, 'Workout plans');
+const GatedTrainerPlanEditor = gateScreen('trainerWorkoutPlansEnabled', TrainerPlanEditorScreen, 'Workout plans');
+const GatedClientPlans = gateScreen('trainerWorkoutPlansEnabled', ClientPlansScreen, 'My plans');
+const GatedClientPlanDetail = gateScreen('trainerWorkoutPlansEnabled', ClientPlanDetailScreen, 'My plans');
+const GatedTrainerNutrition = gateScreen('trainerNutritionGuidanceEnabled', TrainerNutritionScreen, 'Nutrition guidance');
+const GatedClientGuidance = gateScreen('trainerNutritionGuidanceEnabled', ClientGuidanceScreen, 'Nutrition guidance');
+const GatedConversations = gateScreen('trainerMessagingEnabled', ConversationsScreen, 'Messages');
+const GatedCoachChat = gateScreen('trainerMessagingEnabled', CoachChatScreen, 'Messages');
+const GatedTrainerSchedule = gateScreen('trainerSchedulingEnabled', TrainerScheduleScreen, 'Schedule');
+const GatedBookSession = gateScreen('trainerSchedulingEnabled', BookSessionScreen, 'Book a session');
+const GatedMyBookings = gateScreen('trainerSchedulingEnabled', MyBookingsScreen, 'My sessions');
+const GatedTrainerPackages = gateScreen('trainerPaidCoachingEnabled', TrainerPackagesScreen, 'Packages');
+const GatedEntitlements = gateScreen('trainerPaidCoachingEnabled', EntitlementsScreen, 'My coaching');
 
 export default function RootNavigator() {
   const reducedMotion = useReducedMotion();
@@ -159,6 +210,23 @@ export default function RootNavigator() {
             component={GatedClientProgress}
             options={{ headerShown: true, title: 'Client Progress' }}
           />
+          <Stack.Screen name="CoachingRequests" component={GatedCoachingRequests} options={{ headerShown: true, title: 'Coaching requests' }} />
+          <Stack.Screen name="ConsentSharing" component={GatedConsentSharing} options={{ headerShown: true, title: 'Sharing & consent' }} />
+          <Stack.Screen name="EditTrainerProfile" component={GatedEditTrainerProfile} options={{ headerShown: true, title: 'Trainer profile' }} />
+          <Stack.Screen name="CoachingHub" component={GatedCoachingHub} options={{ headerShown: true, title: 'Coaching' }} />
+          <Stack.Screen name="TrainerPlanList" component={GatedTrainerPlanList} options={{ headerShown: true, title: 'Workout plans' }} />
+          <Stack.Screen name="TrainerPlanEditor" component={GatedTrainerPlanEditor} options={{ headerShown: true, title: 'Plan editor' }} />
+          <Stack.Screen name="ClientPlans" component={GatedClientPlans} options={{ headerShown: true, title: 'My plans' }} />
+          <Stack.Screen name="ClientPlanDetail" component={GatedClientPlanDetail} options={{ headerShown: true, title: 'Plan details' }} />
+          <Stack.Screen name="TrainerNutrition" component={GatedTrainerNutrition} options={{ headerShown: true, title: 'Nutrition guidance' }} />
+          <Stack.Screen name="ClientGuidance" component={GatedClientGuidance} options={{ headerShown: true, title: 'Nutrition guidance' }} />
+          <Stack.Screen name="Conversations" component={GatedConversations} options={{ headerShown: true, title: 'Messages' }} />
+          <Stack.Screen name="CoachChat" component={GatedCoachChat} options={{ headerShown: true, title: 'Chat' }} />
+          <Stack.Screen name="TrainerSchedule" component={GatedTrainerSchedule} options={{ headerShown: true, title: 'Schedule' }} />
+          <Stack.Screen name="BookSession" component={GatedBookSession} options={{ headerShown: true, title: 'Book a session' }} />
+          <Stack.Screen name="MyBookings" component={GatedMyBookings} options={{ headerShown: true, title: 'My sessions' }} />
+          <Stack.Screen name="TrainerPackages" component={GatedTrainerPackages} options={{ headerShown: true, title: 'Packages' }} />
+          <Stack.Screen name="Entitlements" component={GatedEntitlements} options={{ headerShown: true, title: 'My coaching' }} />
           <Stack.Screen
             name="TrainerDropForm"
             component={GatedTrainerDropForm}

@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import { getPlanningPreferences, savePlanningPreferences, PlanningPreferences } from '../api/weeklyPlan';
 import { Action, Card, Copy, Field } from '../design/components';
-import { useTheme } from '../design/theme';
+import Chip from './Chip';
 
 const diets = ['vegetarian','vegan','dairy-free','egg-free','soy-free','gluten-free','nut-free','peanut-free','fish-free','shellfish-free'];
 const cuisines = ['indian','italian','mexican','chinese','japanese','thai','mediterranean','middle eastern','american','continental','korean','vietnamese','greek','french','african','caribbean'];
@@ -10,20 +10,7 @@ const equipment = ['stovetop','microwave','oven','blender','refrigerator'];
 const budgets = ['low','medium','high'] as const;
 const prepStyles = ['daily_cooking','weekly_prep','twice_weekly_prep'] as const;
 
-export function Chip({ label, selected, disabled, onPress, checkbox = false }: {
-  label: string; selected: boolean; disabled?: boolean; onPress: () => void; checkbox?: boolean;
-}) {
-  const { colors } = useTheme();
-  return <Pressable accessibilityRole={checkbox ? 'checkbox' : 'button'} accessibilityLabel={label}
-    accessibilityState={{ checked: checkbox ? selected : undefined, selected: checkbox ? undefined : selected, disabled }}
-    disabled={disabled} onPress={onPress}
-    style={({ pressed }) => ({ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1,
-      borderColor: selected ? colors.primary : colors.border, backgroundColor: selected ? colors.primary : colors.surface,
-      opacity: disabled ? 0.5 : pressed ? 0.7 : 1 })}>
-    <Copy size="caption" style={{ color: selected ? colors.onPrimary : colors.text, fontWeight: selected ? '700' : '500' }}>
-      {checkbox ? `${selected ? '✓' : '○'} ` : ''}{label}</Copy>
-  </Pressable>;
-}
+export { Chip };
 
 export default function WeeklyPreferences({ disabled = false }: { disabled?: boolean }) {
   const [prefs, setPrefs] = useState<PlanningPreferences | null>(null);

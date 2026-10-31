@@ -1,179 +1,206 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  StyleSheet,
-  TouchableOpacity,
-  ActivityIndicator,
-  Image,
-  RefreshControl,
-} from 'react-native';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { FlatList, Pressable, RefreshControl, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { listTrainers, TrainerProfile } from '../api/trainers';
+import { listTrainers, CoachingMode, TrainerProfile } from '../api/trainers';
+import { SPECIALTIES } from '../config/specialties';
+import { LANGUAGES } from '../config/languages';
 import { RootStackParamList } from '../navigation/RootNavigator';
+import { Action, Card, Copy, Field, Notice, Segmented, Sheet, Skeleton } from '../design/components';
+import { useTheme } from '../design/theme';
+import Avatar from '../components/Avatar';
+import Chip from '../components/Chip';
+import StarRating from '../components/StarRating';
+import EmptyState from '../components/ui-states/EmptyState';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'TrainerList'>;
 
-const TIERS = [
-  { key: undefined, label: 'All' },
-  { key: 'standard', label: 'Standard' },
-  { key: 'pro', label: 'Pro' },
-  { key: 'elite', label: 'Elite' },
-] as const;
+type TierFilter = 'all' | 'standard' | 'pro' | 'elite';
+type ModeFilter = 'any' | CoachingMode;
 
-const TIER_COLORS: Record<string, string> = {
-  standard: '#5c8a5c',
-  pro: '#1e6fb8',
-  elite: '#b8860b',
-};
+const PAGE_SIZE = 20;
 
-function StarRating({ rating }: { rating: number | null }) {
-  const stars = rating ? Math.round(rating) : 0;
+function TierBadge({ tier }: { tier: string }) {
+  const { colors } = useTheme();
+  const tone = tier === 'elite' ? colors.warning : tier === 'pro' ? colors.primary : colors.muted;
   return (
-    <View style={styles.stars}>
-      {[1, 2, 3, 4, 5].map((i) => (
-        <Ionicons
-          key={i}
-          name={i <= stars ? 'star' : 'star-outline'}
-          size={12}
-          color="#f5a623"
-        />
-      ))}
-      {rating !== null && (
-        <Text style={styles.ratingText}>{rating.toFixed(1)}</Text>
-      )}
+    <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, backgroundColor: tone }}>
+      <Copy size="caption" style={{ color: colors.surface, fontWeight: '700', fontSize: 11 }}>{tier.toUpperCase()}</Copy>
     </View>
   );
 }
 
 function TrainerCard({ trainer, onPress }: { trainer: TrainerProfile; onPress: () => void }) {
-  const tierColor = TIER_COLORS[trainer.tier] ?? '#555';
+  const { colors } = useTheme();
   const isFull = trainer.spotsLeft === 0;
+  const name = trainer.displayName ?? trainer.userId;
 
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85}>
-      <View style={styles.cardLeft}>
-        {trainer.profilePicture ? (
-          <Image source={{ uri: trainer.profilePicture }} style={styles.avatar} />
-        ) : (
-          <View style={[styles.avatar, styles.avatarPlaceholder]}>
-            <Ionicons name="person" size={28} color="#aaa" />
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`Trainer ${name}, ${trainer.tier} tier`}
+      style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}>
+      <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 }}>
+        <Avatar uri={trainer.profilePicture} name={trainer.displayName} size={56} />
+        <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <TierBadge tier={trainer.tier} />
+            {isFull && (
+              <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, borderWidth: 1, borderColor: colors.danger }}>
+                <Copy size="caption" tone="danger" style={{ fontWeight: '700', fontSize: 11 }}>FULL</Copy>
+              </View>
+            )}
           </View>
-        )}
-      </View>
-      <View style={styles.cardBody}>
-        <View style={styles.cardTopRow}>
-          <View style={[styles.tierBadge, { backgroundColor: tierColor }]}>
-            <Text style={styles.tierText}>{trainer.tier.toUpperCase()}</Text>
-          </View>
-          {isFull && (
-            <View style={styles.fullBadge}>
-              <Text style={styles.fullText}>FULL</Text>
+          <Copy style={{ fontWeight: '700' }} numberOfLines={1}>{name}</Copy>
+          <StarRating rating={trainer.rating} size={12} />
+          <Copy size="caption" tone="muted">
+            {trainer.yearsExperience} yr{trainer.yearsExperience !== 1 ? 's' : ''} experience
+            {trainer.location ? ` · ${trainer.location}` : ''}
+            {trainer.coachingMode ? ` · ${trainer.coachingMode === 'in_person' ? 'In person' : trainer.coachingMode === 'both' ? 'Online & in person' : 'Online'}` : ''}
+          </Copy>
+          {trainer.specialties.length > 0 && (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 2 }}>
+              {trainer.specialties.slice(0, 4).map((s) => <Chip key={s} small label={s} />)}
+              {trainer.specialties.length > 4 && <Copy size="caption" tone="muted">+{trainer.specialties.length - 4}</Copy>}
             </View>
           )}
-        </View>
-        <Text style={styles.trainerName} numberOfLines={1}>
-          {trainer.userId}
-        </Text>
-        <StarRating rating={trainer.rating} />
-        <Text style={styles.experience}>
-          {trainer.yearsExperience} yr{trainer.yearsExperience !== 1 ? 's' : ''} experience
-          {trainer.location ? ` · ${trainer.location}` : ''}
-        </Text>
-        {trainer.specialties.length > 0 && (
-          <Text style={styles.specialties} numberOfLines={1}>
-            {trainer.specialties.join(' · ')}
-          </Text>
-        )}
-        <View style={styles.cardFooter}>
           {!isFull && (
-            <Text style={styles.spots}>
+            <Copy size="caption" tone="primary" style={{ fontWeight: '600' }}>
               {trainer.spotsLeft} spot{trainer.spotsLeft !== 1 ? 's' : ''} left
-            </Text>
+            </Copy>
           )}
         </View>
-      </View>
-      <Ionicons name="chevron-forward" size={18} color="#ccc" style={styles.chevron} />
-    </TouchableOpacity>
+        <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+      </Card>
+    </Pressable>
   );
 }
 
 export default function TrainerListScreen() {
   const nav = useNavigation<NavProp>();
+  const { colors } = useTheme();
   const [trainers, setTrainers] = useState<TrainerProfile[]>([]);
-  const [tier, setTier] = useState<string | undefined>(undefined);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [tier, setTier] = useState<TierFilter>('all');
+  const [specialty, setSpecialty] = useState<string | null>(null);
+  const [language, setLanguage] = useState<string | null>(null);
+  const [mode, setMode] = useState<ModeFilter>('any');
+  const [query, setQuery] = useState('');
+  const [appliedQuery, setAppliedQuery] = useState('');
+  const [filterOpen, setFilterOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const requestId = useRef(0);
 
-  const load = useCallback(async (selectedTier?: string) => {
+  // Debounce the search box so each keystroke doesn't fire a request.
+  useEffect(() => {
+    const timer = setTimeout(() => setAppliedQuery(query.trim()), 400);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  const load = useCallback(async (opts: { cursor?: string; append?: boolean } = {}) => {
+    const id = ++requestId.current;
     setError(null);
     try {
-      const data = await listTrainers(selectedTier);
-      setTrainers(data.trainers);
+      const data = await listTrainers({
+        q: appliedQuery || undefined,
+        specialty: specialty ?? undefined,
+        mode: mode === 'any' ? undefined : mode,
+        language: language ?? undefined,
+        tier: tier === 'all' ? undefined : tier,
+        cursor: opts.cursor,
+        take: PAGE_SIZE,
+      });
+      if (id !== requestId.current) return; // a newer request superseded this one
+      setTrainers((prev) => (opts.append ? [...prev, ...data.trainers] : data.trainers));
+      setNextCursor(data.nextCursor);
     } catch (e: any) {
+      if (id !== requestId.current) return;
       setError(e.response?.data?.error ?? e.message);
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (id === requestId.current) {
+        setLoading(false);
+        setRefreshing(false);
+        setLoadingMore(false);
+      }
     }
-  }, []);
+  }, [appliedQuery, specialty, mode, language, tier]);
 
   useEffect(() => {
-    load(tier);
-  }, [tier, load]);
+    setLoading(true);
+    load();
+  }, [load]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    load(tier);
+    load();
   };
 
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#1e6fb8" />
-      </View>
-    );
-  }
+  const onEndReached = () => {
+    if (!nextCursor || loading || loadingMore || refreshing) return;
+    setLoadingMore(true);
+    load({ cursor: nextCursor, append: true });
+  };
+
+  const clearFilters = () => {
+    setSpecialty(null);
+    setLanguage(null);
+    setMode('any');
+  };
+
+  const activeFilters = (specialty ? 1 : 0) + (language ? 1 : 0) + (mode !== 'any' ? 1 : 0);
 
   return (
-    <View style={styles.container}>
-      {/* Tier filter tabs */}
-      <View style={styles.filterRow}>
-        {TIERS.map((t) => (
-          <TouchableOpacity
-            key={String(t.key)}
-            style={[styles.filterTab, tier === t.key && styles.filterTabActive]}
-            accessibilityRole="button" accessibilityState={{ selected: tier === t.key }}
-            onPress={() => setTier(t.key)}
-          >
-            <Text style={[styles.filterTabText, tier === t.key && styles.filterTabTextActive]}>
-              {t.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8, gap: 12 }}>
+        <Field label="Search trainers" value={query} onChangeText={setQuery}
+          placeholder="Name, specialty, keyword…" autoCapitalize="none" autoCorrect={false}
+          returnKeyType="search" accessibilityLabel="Search trainers" />
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+          <View style={{ flex: 1 }}>
+            <Segmented<TierFilter> label="Filter by tier" value={tier} onChange={setTier}
+              options={[
+                { value: 'all', label: 'All' },
+                { value: 'standard', label: 'Std' },
+                { value: 'pro', label: 'Pro' },
+                { value: 'elite', label: 'Elite' },
+              ]} />
+          </View>
+        </View>
+        <Action secondary onPress={() => setFilterOpen(true)}
+          label={activeFilters ? `Filters (${activeFilters})` : 'Filters'} />
       </View>
 
-      {error ? (
-        <View style={styles.center}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity onPress={() => load(tier)} style={styles.retryBtn}>
-            <Text style={styles.retryText}>Retry</Text>
-          </TouchableOpacity>
+      {loading ? (
+        <View style={{ padding: 20, gap: 16 }}>
+          <Skeleton label="Loading trainers" />
+          <Skeleton label="Loading trainer profiles" />
+        </View>
+      ) : error ? (
+        <View style={{ flex: 1, justifyContent: 'center', padding: 24, gap: 12 }}>
+          <Notice error title="Could not load trainers" message={error} />
+          <Action label="Retry" onPress={() => load()} />
         </View>
       ) : (
         <FlatList
           data={trainers}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          contentContainerStyle={{ padding: 20, paddingTop: 4, paddingBottom: 40, gap: 12, flexGrow: 1 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+          onEndReached={onEndReached}
+          onEndReachedThreshold={0.4}
+          ListFooterComponent={loadingMore ? <Skeleton label="Loading more trainers" /> : null}
           ListEmptyComponent={
-            <View style={styles.center}>
-              <Ionicons name="people-outline" size={48} color="#ccc" />
-              <Text style={styles.emptyText}>No trainers available</Text>
+            <View style={{ flex: 1, justifyContent: 'center' }}>
+              <EmptyState
+                title="No trainers found"
+                description={appliedQuery || activeFilters || tier !== 'all'
+                  ? 'No trainers match your search. Try different keywords or filters.'
+                  : 'No trainers are accepting clients right now.'}
+                primaryCTA={appliedQuery || activeFilters || tier !== 'all' ? 'Clear filters' : undefined}
+                onAction={() => { setQuery(''); clearFilters(); setTier('all'); }}
+              />
             </View>
           }
           renderItem={({ item }) => (
@@ -184,87 +211,36 @@ export default function TrainerListScreen() {
           )}
         />
       )}
+
+      <Sheet visible={filterOpen} title="Filter trainers" onClose={() => setFilterOpen(false)}>
+        <View style={{ gap: 8 }}>
+          <Copy style={{ fontWeight: '700' }}>Specialty</Copy>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {SPECIALTIES.map((s) => (
+              <Chip key={s} label={s} selected={specialty === s} accessibilityRole="checkbox"
+                onPress={() => setSpecialty(specialty === s ? null : s)} />
+            ))}
+          </View>
+        </View>
+        <View style={{ gap: 8 }}>
+          <Copy style={{ fontWeight: '700' }}>Language</Copy>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {LANGUAGES.map((l) => (
+              <Chip key={l.code} label={l.label} selected={language === l.code} accessibilityRole="checkbox"
+                onPress={() => setLanguage(language === l.code ? null : l.code)} />
+            ))}
+          </View>
+        </View>
+        <Segmented<ModeFilter> label="Coaching mode" value={mode} onChange={setMode}
+          options={[
+            { value: 'any', label: 'Any' },
+            { value: 'online', label: 'Online' },
+            { value: 'in_person', label: 'In person' },
+            { value: 'both', label: 'Both' },
+          ]} />
+        {activeFilters > 0 && <Action secondary label="Clear all filters" onPress={clearFilters} />}
+        <Action label="Show results" onPress={() => setFilterOpen(false)} />
+      </Sheet>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f7f7f9' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
-  list: { padding: 16, paddingBottom: 32 },
-
-  filterRow: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e5ea',
-    gap: 8,
-  },
-  filterTab: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: '#f0f0f5',
-  },
-  filterTabActive: {
-    backgroundColor: '#1e6fb8',
-  },
-  filterTabText: { fontSize: 13, fontWeight: '600', color: '#555' },
-  filterTabTextActive: { color: '#fff' },
-
-  card: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    marginBottom: 12,
-    padding: 14,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#e5e5ea',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  cardLeft: { marginRight: 12 },
-  avatar: { width: 56, height: 56, borderRadius: 28 },
-  avatarPlaceholder: { backgroundColor: '#f0f0f5', justifyContent: 'center', alignItems: 'center' },
-  cardBody: { flex: 1 },
-  cardTopRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
-
-  tierBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  tierText: { fontSize: 10, fontWeight: '700', color: '#fff' },
-
-  fullBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 10,
-    backgroundColor: '#ffecec',
-    borderWidth: 1,
-    borderColor: '#ffaaaa',
-  },
-  fullText: { fontSize: 10, fontWeight: '700', color: '#c0392b' },
-
-  trainerName: { fontSize: 15, fontWeight: '700', color: '#1a1a2e', marginBottom: 2 },
-  stars: { flexDirection: 'row', alignItems: 'center', marginBottom: 3, gap: 1 },
-  ratingText: { fontSize: 11, color: '#888', marginLeft: 4 },
-  experience: { fontSize: 12, color: '#666', marginBottom: 2 },
-  specialties: { fontSize: 11, color: '#999', marginBottom: 4 },
-
-  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  spots: { fontSize: 12, color: '#2e7d32', fontWeight: '600' },
-
-  chevron: { marginLeft: 4 },
-
-  errorText: { color: '#c0392b', textAlign: 'center', marginBottom: 12 },
-  retryBtn: { paddingHorizontal: 20, paddingVertical: 8, backgroundColor: '#1e6fb8', borderRadius: 8 },
-  retryText: { color: '#fff', fontWeight: '600' },
-  emptyText: { color: '#999', marginTop: 12, fontSize: 15 },
-});

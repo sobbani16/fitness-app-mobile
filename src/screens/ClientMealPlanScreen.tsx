@@ -1,36 +1,34 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Pressable, ActivityIndicator, Alert } from 'react-native';
+import { Alert, ScrollView, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { RouteProp, useRoute } from '@react-navigation/native';
-import { api } from '../api/client';
-import { getDeviceId } from '../storage/device';
+import { getCurrentPlan, unconfirmDay, WeeklyPlan } from '../api/weeklyPlan';
 import { RootStackParamList } from '../navigation/RootNavigator';
+import { Action, Card, Copy, Skeleton } from '../design/components';
+import { useTheme } from '../design/theme';
+import Chip from '../components/Chip';
+import EmptyState from '../components/ui-states/EmptyState';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const MEAL_COLORS: Record<string, string> = { breakfast: '#e8f5e9', lunch: '#e3f2fd', dinner: '#fce4ec', snack: '#fff8e1' };
 
 type ScreenRouteProp = RouteProp<RootStackParamList, 'ClientMealPlan'>;
 
 export default function ClientMealPlanScreen() {
   const route = useRoute<ScreenRouteProp>();
+  const { colors } = useTheme();
   const { clientId } = route.params;
 
-  const [plan, setPlan] = useState<any | null>(null);
+  const [plan, setPlan] = useState<WeeklyPlan | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState(0);
   const [unconfirming, setUnconfirming] = useState<number | null>(null);
 
   const loadPlan = async () => {
     try {
-      const userId = await getDeviceId();
-      const res = await api.get('/weekly-plan/current', { params: { clientId } });
-      setPlan(res.data);
+      const data = await getCurrentPlan(clientId);
+      setPlan(data);
     } catch (e: any) {
-      if (e.response?.status === 404) {
-        setPlan(null);
-      } else {
-        Alert.alert('Error', e.response?.data?.error || e.message);
-      }
+      Alert.alert('Error', e.response?.data?.error || e.message);
     } finally {
       setLoading(false);
     }
@@ -42,8 +40,7 @@ export default function ClientMealPlanScreen() {
     if (!plan) return;
     setUnconfirming(day);
     try {
-      const userId = await getDeviceId();
-      await api.post(`/weekly-plan/days/${day}/unconfirm`, { planId: plan.id }, { headers: { 'x-user-id': userId } });
+      await unconfirmDay(plan.id, day);
       await loadPlan();
     } catch (e: any) {
       Alert.alert('Could not unlock day', e.response?.data?.error || e.message);
@@ -52,76 +49,69 @@ export default function ClientMealPlanScreen() {
     }
   };
 
-  if (loading) return <View style={styles.center}><ActivityIndicator size="large" /></View>;
-  if (!plan) return <View style={styles.center}><Text style={styles.empty}>No meal plan for this client.</Text></View>;
+  if (loading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background, padding: 20, gap: 16 }}>
+        <Skeleton label="Loading client meal plan" />
+      </View>
+    );
+  }
 
-  const dayMeals = plan.meals.filter((m: any) => m.dayOfWeek === selectedDay);
-  const dayConfirmed = dayMeals.length > 0 && dayMeals.every((m: any) => m.confirmedByUser);
+  if (!plan) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', padding: 24 }}>
+        <EmptyState title="No meal plan" description="This client has no meal plan for the current week." />
+      </View>
+    );
+  }
+
+  const dayMeals = plan.meals.filter((m) => m.dayOfWeek === selectedDay);
+  const dayConfirmed = dayMeals.length > 0 && dayMeals.every((m) => m.confirmedByUser);
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Client Meal Plan</Text>
-      <Text style={styles.subtitle}>Client: {clientId}</Text>
+    <ScrollView style={{ flex: 1, backgroundColor: colors.background }}
+      contentContainerStyle={{ padding: 20, gap: 12, paddingBottom: 40 }}>
+      <Copy size="title" accessibilityRole="header" style={{ fontWeight: '700' }}>Client Meal Plan</Copy>
+      <Copy size="caption" tone="muted">Client: {clientId}</Copy>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
-        <View style={styles.dayRow}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <View style={{ flexDirection: 'row', gap: 6 }}>
           {DAYS.map((d, i) => {
-            const confirmed = plan.meals.filter((m: any) => m.dayOfWeek === i).every((m: any) => m.confirmedByUser);
+            const confirmed = plan.meals.filter((m) => m.dayOfWeek === i).every((m) => m.confirmedByUser);
             return (
-              <Pressable key={i} accessibilityRole="button" accessibilityLabel={`${d}${confirmed ? ', confirmed' : ''}`} accessibilityState={{ selected: selectedDay === i }} style={[styles.dayBtn, confirmed && styles.dayBtnConfirmed, selectedDay === i && styles.dayBtnActive]} onPress={() => setSelectedDay(i)}>
-                {confirmed && <Ionicons name="checkmark-circle" size={14} color="#2e7d32" style={{ marginRight: 2 }} />}
-                <Text style={[styles.dayText, selectedDay === i && styles.dayTextActive]}>{d}</Text>
-              </Pressable>
+              <Chip key={i} label={`${d}${confirmed ? ' ✓' : ''}`} selected={selectedDay === i}
+                accessibilityLabel={`${d}${confirmed ? ', confirmed' : ''}`}
+                onPress={() => setSelectedDay(i)} />
             );
           })}
         </View>
       </ScrollView>
 
-      {dayMeals.map((m: any) => (
-        <View key={m.id} style={[styles.mealCard, { backgroundColor: MEAL_COLORS[m.mealType] || '#f7f7f9' }]}>
-          <View style={styles.mealHeader}>
-            <Text style={styles.mealType}>{m.mealType.charAt(0).toUpperCase() + m.mealType.slice(1)}</Text>
-            <Text style={styles.mealCals}>{m.calories} kcal</Text>
+      {dayMeals.length === 0 && <Copy tone="muted" style={{ textAlign: 'center' }}>No meals planned for this day.</Copy>}
+      {dayMeals.map((m) => (
+        <Card key={m.id} style={{ padding: 14, gap: 4 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Copy size="caption" tone="muted" style={{ fontWeight: '700', textTransform: 'uppercase' }}>
+              {m.mealType.charAt(0).toUpperCase() + m.mealType.slice(1)}
+            </Copy>
+            <Copy size="caption" style={{ color: colors.primary, fontWeight: '700' }}>{m.calories} kcal</Copy>
           </View>
-          <Text style={styles.mealName}>{m.foodName}</Text>
-          <Text style={styles.mealMacros}>{m.portionG}g · {m.proteinG}g P · {m.carbsG}g C · {m.fatG}g F</Text>
-        </View>
+          <Copy style={{ fontWeight: '600' }}>{m.foodName}</Copy>
+          <Copy size="caption" tone="muted">{m.portionG}g · {m.proteinG}g P · {m.carbsG}g C · {m.fatG}g F</Copy>
+        </Card>
       ))}
 
       {dayConfirmed ? (
-        <Pressable style={styles.unconfirmBtn} onPress={() => handleUnconfirm(selectedDay)} disabled={unconfirming === selectedDay}>
-          <Text style={styles.unconfirmText}>{unconfirming === selectedDay ? 'Unlocking...' : 'Unlock this day for client'}</Text>
-        </Pressable>
+        <Action label={unconfirming === selectedDay ? 'Unlocking…' : 'Unlock this day for client'}
+          onPress={() => handleUnconfirm(selectedDay)} disabled={unconfirming === selectedDay} />
       ) : (
-        <View style={styles.unlockedBanner}>
-          <Ionicons name="checkmark-circle" size={16} color="#1e6fb8" />
-          <Text style={styles.unlockedText}>This day is not confirmed. Client can edit it.</Text>
-        </View>
+        <Card>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
+            <Copy size="caption" style={{ color: colors.primary, flex: 1 }}>This day is not confirmed. Client can edit it.</Copy>
+          </View>
+        </Card>
       )}
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { padding: 20, gap: 10, paddingBottom: 40 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30 },
-  title: { fontSize: 22, fontWeight: '700' },
-  subtitle: { fontSize: 13, color: '#666', marginBottom: 10 },
-  empty: { fontSize: 15, color: '#888', textAlign: 'center' },
-  dayRow: { flexDirection: 'row', gap: 6 },
-  dayBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#e5e5ea' },
-  dayBtnActive: { backgroundColor: '#1e6fb8' },
-  dayBtnConfirmed: { backgroundColor: '#e8f5e9', borderWidth: 1, borderColor: '#2e7d32', flexDirection: 'row', alignItems: 'center' },
-  dayText: { fontSize: 13, fontWeight: '600', color: '#666' },
-  dayTextActive: { color: '#fff' },
-  mealCard: { borderRadius: 10, padding: 12, gap: 2, borderWidth: 1, borderColor: '#e5e5ea', marginBottom: 8 },
-  mealHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  mealType: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', color: '#888' },
-  mealCals: { fontSize: 12, fontWeight: '700', color: '#1e6fb8' },
-  mealName: { fontSize: 15, fontWeight: '600', color: '#222' },
-  mealMacros: { fontSize: 12, color: '#666' },
-  unconfirmBtn: { backgroundColor: '#1e6fb8', borderRadius: 10, paddingVertical: 12, alignItems: 'center', marginTop: 6 },
-  unconfirmText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-  unlockedBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#e8f0fb', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: '#1e6fb8' },
-  unlockedText: { fontSize: 13, color: '#1e6fb8', flex: 1 },
-});

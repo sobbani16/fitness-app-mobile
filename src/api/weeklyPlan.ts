@@ -80,10 +80,10 @@ async function withUserId<T>(fn: (userId: string) => Promise<T>): Promise<T> {
   return fn(userId);
 }
 
-export async function getCurrentPlan(): Promise<WeeklyPlan | null> {
+export async function getCurrentPlan(clientId?: string): Promise<WeeklyPlan | null> {
   return withUserId(async (userId) => {
     try {
-      const res = await api.get('/weekly-plan/current', { headers: { 'x-user-id': userId } });
+      const res = await api.get('/weekly-plan/current', { headers: { 'x-user-id': userId }, params: clientId ? { clientId } : {} });
       return res.data as WeeklyPlan;
     } catch (e: any) {
       if (e.response?.status === 404) return null;

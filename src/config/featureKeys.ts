@@ -21,6 +21,18 @@ export type FeatureKey =
   | 'appleHealthSync'
   | 'androidHealthSync'
   | 'trainerDashboard'
+  | 'trainerRegistration'
+  | 'trainerDiscovery'
+  | 'trainerCoaching'
+  | 'trainerInsights'
+  | 'trainerAdvancedFeaturesEnabled'
+  | 'trainerWorkoutPlansEnabled'
+  | 'trainerNutritionGuidanceEnabled'
+  | 'trainerMessagingEnabled'
+  | 'trainerSchedulingEnabled'
+  | 'trainerPaidCoachingEnabled'
+  | 'trainerWorkoutPlanAiEnabled'
+  | 'trainerNutritionAiEnabled'
   | 'smartReminderSuggestions'
   | 'supplements'
   | 'videoSearch'
@@ -45,6 +57,18 @@ export const DEFAULT_FLAGS: Record<FeatureKey, boolean> = {
   appleHealthSync: false,
   androidHealthSync: false,
   trainerDashboard: false,
+  trainerRegistration: false,
+  trainerDiscovery: false,
+  trainerCoaching: false,
+  trainerInsights: false,
+  trainerAdvancedFeaturesEnabled: false,
+  trainerWorkoutPlansEnabled: false,
+  trainerNutritionGuidanceEnabled: false,
+  trainerMessagingEnabled: false,
+  trainerSchedulingEnabled: false,
+  trainerPaidCoachingEnabled: false,
+  trainerWorkoutPlanAiEnabled: false,
+  trainerNutritionAiEnabled: false,
   smartReminderSuggestions: true,
   supplements: false,
   videoSearch: false,

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ScrollView, Switch, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/RootNavigator';
@@ -14,6 +14,7 @@ import { getLastWaterAt } from '../api/dailyStats';
 import { loadMealsFor } from '../storage/meals';
 import { useConfirmLeave } from '../hooks/useConfirmLeave';
 import { useFeatureFlags } from '../context/FeatureFlagsContext';
+import Toggle from '../components/Toggle';
 
 const CATEGORY_LABELS: Record<string, string> = {
   'meal:breakfast': 'Breakfast', 'meal:lunch': 'Lunch', 'meal:dinner': 'Dinner', 'meal:snack': 'Snack',
@@ -25,14 +26,6 @@ const DAY_OPTIONS = [
   { label: 'Weekdays', value: [1, 2, 3, 4, 5] },
   { label: 'Weekends', value: [0, 6] },
 ] as const;
-
-function Toggle({ label, value, onChange, hint }: { label: string; value: boolean; onChange: (v: boolean) => void; hint?: string }) {
-  const { colors } = useTheme();
-  return <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-    <View style={{ flex: 1 }}><Copy>{label}</Copy>{!!hint && <Copy size="caption" tone="muted">{hint}</Copy>}</View>
-    <Switch value={value} onValueChange={onChange} trackColor={{ true: colors.primary }} accessibilityLabel={label} />
-  </View>;
-}
 
 export default function SmartRemindersScreen() {
   const { isEnabled } = useFeatureFlags();
