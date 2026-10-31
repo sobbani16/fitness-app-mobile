@@ -1,5 +1,5 @@
 import { startEntryTimer } from '../analytics/events';
-import { betaFeatures } from '../config/betaFeatures';
+import { useFeatureFlags } from '../context/FeatureFlagsContext';
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import {
   View,
@@ -92,6 +92,7 @@ const activeUnit = (p: PreviewForm): ServingUnit =>
   servingUnits(p).find(u => u.id === p.servingUnitId) ?? WEIGHT_UNITS[0];
 
 export default function FoodEntryScreen() {
+  const { isEnabled } = useFeatureFlags();
   const [entryCompleted] = useState(() => startEntryTimer('food_entry_saved'));
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
@@ -228,7 +229,7 @@ export default function FoodEntryScreen() {
   const clearPhoto = () => { invalidate(); setPhotoUri(null); setPhotoBase64(null); };
 
   const onDetect = async () => {
-    if (!betaFeatures.ai) return;
+    if (!isEnabled('foodPhotoScanning')) return;
     const generation = ++request.current;
     const userId = getSession()?.user.id;
     const current = () => generation === request.current && userId === getSession()?.user.id;
@@ -462,7 +463,7 @@ export default function FoodEntryScreen() {
         </View>
 
         <View style={{ height: 8 }} />
-        {betaFeatures.ai && mode === 'photo' && <Button
+        {isEnabled('foodPhotoScanning') && mode === 'photo' && <Button
           title={detecting ? 'Analyzing…' : photoUri ? 'Detect food' : 'Analyze description'}
           onPress={onDetect}
           disabled={detecting}
@@ -472,7 +473,7 @@ export default function FoodEntryScreen() {
           invalidate(); setError(null);
           setPreview({ name: description.trim() || 'Meal', portionGrams:'', calories:'', protein:'', carbs:'', fat:'', caloriesPer100g:0, macrosPer100g:{protein_g:0,carbs_g:0,fat_g:0}, source:'Manual entry' });
         }} />}
-        {!betaFeatures.ai && <Text style={styles.muted}>AI estimates are unavailable in this beta. Use food search, label scanning or manual entry.</Text>}
+        {!isEnabled('foodPhotoScanning') && <Text style={styles.muted}>AI estimates are unavailable. Use food search, label scanning or manual entry.</Text>}
         {detecting && <ActivityIndicator style={{ marginTop: 10 }} />}
         {error && <Text style={styles.err}>Error: {error}</Text>}
 

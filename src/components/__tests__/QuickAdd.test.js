@@ -14,6 +14,7 @@ jest.mock('../../context/ProfileContext', () => ({ useProfile: () => ({ profile:
 jest.mock('../../storage/favoriteFoods', () => ({ loadFavorites: jest.fn(async () => []), loadRecentFoods: jest.fn(async () => []) }));
 const mockLogWeight = jest.fn(async () => ({}));
 jest.mock('../../api/weight', () => ({ logWeight: mockLogWeight }));
+jest.mock('../../context/FeatureFlagsContext', () => ({ useFeatureFlags: () => ({ isEnabled: () => true, isLoading: false, refresh: jest.fn() }) }));
 const React = require('react');
 const { create, act } = require('react-test-renderer');
 const QuickAdd = require('../QuickAdd').default;

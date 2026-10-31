@@ -1,5 +1,5 @@
 import { useReducedMotion } from '../hooks/useReducedMotion';
-import { betaFeatures } from '../config/betaFeatures';
+import { gateScreen } from '../components/FeatureGate';
 import React, { useEffect } from 'react';
 import { View, ActivityIndicator, Pressable, BackHandler } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -68,6 +68,23 @@ export type RootStackParamList = {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
+// Feature-gated screens: routes stay registered so mid-session flag flips and
+// deep entries render FeatureUnavailable instead of a broken navigation state.
+const GatedWeeklyPlan = gateScreen('weeklyMealPlans', WeeklyPlanScreen, 'Weekly meal plans');
+const GatedLeo = gateScreen('aiCoach', ChatScreen, 'Leo coach');
+const GatedLabelScanner = gateScreen('nutritionLabelScanning', LabelScannerScreen, 'Label scanning');
+const GatedMenuScan = gateScreen('menuScanning', MenuScanScreen, 'Menu scanning');
+const GatedConnectedHealth = gateScreen(['appleHealthSync', 'androidHealthSync'], ConnectedHealthScreen, 'Connected health');
+const GatedVideoSearch = gateScreen('videoSearch', VideoSearchScreen, 'Video search');
+const GatedVideoCompare = gateScreen('videoSearch', VideoCompareScreen, 'Video compare');
+const GatedTrainerList = gateScreen('trainerDashboard', TrainerListScreen, 'Trainers');
+const GatedTrainerDetail = gateScreen('trainerDashboard', TrainerDetailScreen, 'Trainers');
+const GatedTrainerSignup = gateScreen('trainerDashboard', TrainerSignupScreen, 'Trainers');
+const GatedClientProgress = gateScreen('trainerDashboard', ClientProgressScreen, 'Trainers');
+const GatedTrainerDropForm = gateScreen('trainerDashboard', TrainerDropFormScreen, 'Trainers');
+const GatedClientMealPlan = gateScreen('trainerDashboard', ClientMealPlanScreen, 'Trainers');
+const GatedClientDropSurvey = gateScreen('trainerDashboard', ClientDropSurveyScreen, 'Trainers');
+
 export default function RootNavigator() {
   const reducedMotion = useReducedMotion();
   const { colors } = useTheme();
@@ -103,7 +120,7 @@ export default function RootNavigator() {
       {profile ? (
         <>
           <Stack.Screen name="Main" component={MainTabs} />
-          <Stack.Screen name="LeoHelp" component={ChatScreen} options={{ headerShown: true, title: 'Leo guide' }} />
+          <Stack.Screen name="LeoHelp" component={GatedLeo} options={{ headerShown: true, title: 'Leo guide' }} />
           <Stack.Screen name="FoodEntry" component={FoodEntryScreen} options={{ headerShown: true, title: 'Log food' }} />
           <Stack.Screen name="WorkoutPlan" component={WorkoutPlanScreen} options={{ headerShown: true, title: 'Workout plan' }} />
           <Stack.Screen name="MuscleExplorer" component={MuscleExplorerScreen} options={{ headerShown: true, title: 'Muscles' }} />
@@ -117,54 +134,54 @@ export default function RootNavigator() {
             component={HealthScoreDetailScreen}
             options={{ headerShown: true, title: 'Health Score' }}
           />
-          {betaFeatures.weeklyPlans && <Stack.Screen
+          <Stack.Screen
             name="WeeklyPlan"
-            component={WeeklyPlanScreen}
+            component={GatedWeeklyPlan}
             options={{ headerShown: true, title: 'Weekly Meal Plan' }}
-          />}
+          />
           <Stack.Screen
             name="TrainerList"
-            component={TrainerListScreen}
+            component={GatedTrainerList}
             options={{ headerShown: true, title: 'Find a Trainer' }}
           />
           <Stack.Screen
             name="TrainerDetail"
-            component={TrainerDetailScreen}
+            component={GatedTrainerDetail}
             options={{ headerShown: true, title: 'Trainer' }}
           />
           <Stack.Screen
             name="TrainerSignup"
-            component={TrainerSignupScreen}
+            component={GatedTrainerSignup}
             options={{ headerShown: true, title: 'Become a Trainer' }}
           />
           <Stack.Screen
             name="ClientProgress"
-            component={ClientProgressScreen}
+            component={GatedClientProgress}
             options={{ headerShown: true, title: 'Client Progress' }}
           />
           <Stack.Screen
             name="TrainerDropForm"
-            component={TrainerDropFormScreen}
+            component={GatedTrainerDropForm}
             options={{ headerShown: true, title: 'Drop Client', presentation: 'modal' }}
           />
           <Stack.Screen
             name="ClientMealPlan"
-            component={ClientMealPlanScreen}
+            component={GatedClientMealPlan}
             options={{ headerShown: true, title: 'Client Meal Plan' }}
           />
           <Stack.Screen
             name="ClientDropSurvey"
-            component={ClientDropSurveyScreen}
+            component={GatedClientDropSurvey}
             options={{ headerShown: true, title: 'Leave Trainer', presentation: 'modal' }}
           />
           <Stack.Screen
             name="LabelScanner"
-            component={LabelScannerScreen}
+            component={GatedLabelScanner}
             options={{ headerShown: true, title: 'Scan Label' }}
           />
           <Stack.Screen
             name="MenuScan"
-            component={MenuScanScreen}
+            component={GatedMenuScan}
             options={{ headerShown: true, title: 'Scan Menu' }}
           />
           <Stack.Screen
@@ -179,17 +196,17 @@ export default function RootNavigator() {
           />
           <Stack.Screen
             name="VideoSearch"
-            component={VideoSearchScreen}
+            component={GatedVideoSearch}
             options={{ headerShown: true, title: 'Videos' }}
           />
           <Stack.Screen
             name="ConnectedHealth"
-            component={ConnectedHealthScreen}
+            component={GatedConnectedHealth}
             options={{ headerShown: true, title: 'Connected health' }}
           />
           <Stack.Screen
             name="VideoCompare"
-            component={VideoCompareScreen}
+            component={GatedVideoCompare}
             options={{ headerShown: true, title: 'Compare videos' }}
           />
           <Stack.Screen
@@ -203,7 +220,7 @@ export default function RootNavigator() {
           <Stack.Screen name="Onboarding" component={OnboardingScreen} />
           <Stack.Screen
             name="TrainerSignup"
-            component={TrainerSignupScreen}
+            component={GatedTrainerSignup}
             options={{ headerShown: true, title: 'Become a Trainer' }}
           />
         </>

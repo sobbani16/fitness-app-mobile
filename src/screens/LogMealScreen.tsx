@@ -9,11 +9,12 @@ import { useMeals } from '../context/MealsContext';
 import { LoggedMeal } from '../storage/meals';
 import { loadFavorites, loadRecentFoods, setFavorite } from '../storage/favoriteFoods';
 import VoiceInput from '../components/VoiceInput';
-import { betaFeatures } from '../config/betaFeatures';
+import { useFeatureFlags } from '../context/FeatureFlagsContext';
 
 export default function LogMealScreen() {
   const navigation = useNavigation<any>();
   const { colors } = useTheme();
+  const { isEnabled } = useFeatureFlags();
   const { meals, syncError, remove } = useMeals();
   const [recent, setRecent] = useState<LoggedMeal[]>([]);
   const [favorites, setFavorites] = useState<LoggedMeal[]>([]);
@@ -49,13 +50,13 @@ export default function LogMealScreen() {
   const lists: { value: 'today' | 'recent' | 'favorites'; label: string }[] = [
     { value: 'today', label: 'Today’s diary' }, { value: 'recent', label: 'Recent foods' }, { value: 'favorites', label: 'Favorite foods' }];
   const entries: { icon: keyof typeof Ionicons.glyphMap; label: string; a11y: string; onPress?: () => void; disabled?: boolean }[] = [
-    { icon: 'barcode-outline', label: 'Scan', a11y: 'Scan nutrition label', onPress: () => navigation.navigate('LabelScanner', { mealType: 'lunch' }) },
+    { icon: 'barcode-outline', label: 'Scan', a11y: isEnabled('nutritionLabelScanning') ? 'Scan nutrition label' : 'Label scanning unavailable', onPress: () => navigation.navigate('LabelScanner', { mealType: 'lunch' }), disabled: !isEnabled('nutritionLabelScanning') },
     { icon: 'search', label: 'Search', a11y: 'Search food', onPress: () => open('search') },
     { icon: 'create-outline', label: 'Manual', a11y: 'Manual entry', onPress: () => open('manual') },
-    { icon: 'mic-outline', label: 'Voice', a11y: 'Voice log', onPress: () => setVoiceOpen(true) },
-    betaFeatures.ai
+    { icon: 'mic-outline', label: 'Voice', a11y: isEnabled('voiceFoodLogging') ? 'Voice log' : 'Voice logging unavailable', onPress: () => setVoiceOpen(true), disabled: !isEnabled('voiceFoodLogging') },
+    isEnabled('foodPhotoScanning')
       ? { icon: 'camera-outline', label: 'Photo', a11y: 'Photo or description estimate', onPress: () => open('photo') }
-      : { icon: 'camera-outline', label: 'Photo', a11y: 'Photo estimate unavailable in this beta', disabled: true }];
+      : { icon: 'camera-outline', label: 'Photo', a11y: 'Photo estimate unavailable', disabled: true }];
   return <KeyboardAwareScrollView key={tab} contentOffset={{ x: 0, y: offsets.current[tab] }}
     onScroll={event => { offsets.current[tab] = event.nativeEvent.contentOffset.y; }} scrollEventThrottle={16}
     style={{ backgroundColor: colors.background, width: '100%' }} contentContainerStyle={{ padding: 20, gap: 16, width: '100%', maxWidth: 760, alignSelf: 'center' }}>

@@ -1,5 +1,6 @@
 // These tests exercise the explicitly enabled AI entry flow, independent of the export environment.
 jest.mock('../../config/betaFeatures', () => ({ betaFeatures: { ai: true, weeklyPlans: true, supplements: true } }));
+jest.mock('../../context/FeatureFlagsContext', () => ({ useFeatureFlags: () => ({ isEnabled: () => true, isLoading: false, refresh: jest.fn() }) }));
 jest.mock('@react-native-async-storage/async-storage', () => require('@react-native-async-storage/async-storage/jest/async-storage-mock'));
 jest.mock('@react-navigation/native', () => ({ usePreventRemove: jest.fn(), useRoute: () => ({ params: {} }), useNavigation: () => ({ navigate: jest.fn() }) }));
 jest.mock('../../storage/session', () => ({ getSession: () => ({ user: { id: 'alice' } }) }));

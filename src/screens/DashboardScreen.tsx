@@ -10,7 +10,7 @@ import { useDailyStats } from '../hooks/useDailyStats';
 import { getMacroGoals, MacroGoals } from '../api/macroScore';
 import { getHealthScore, HealthScoreResponse } from '../api/healthScore';
 import ScoreRing from '../components/ScoreRing';
-import { betaFeatures } from '../config/betaFeatures';
+import { useFeatureFlags } from '../context/FeatureFlagsContext';
 import { Action, Card, Copy, Field, IconAction, Notice, Progress, Sheet, Skeleton } from '../design/components';
 import { useTheme } from '../design/theme';
 import { useDisplayPreferences } from '../context/DisplayPreferencesContext';
@@ -20,6 +20,8 @@ import { todaySummary, validTarget } from '../util/todaySummary';
 import { todayInsight } from '../util/todayInsight';
 import { formatVolume, VolumeUnit, VOLUME_UNITS } from '../util/units';
 import { loadVolumeUnit, saveVolumeUnit } from '../storage/volumePrefs';
+import { getReminderPreferences } from '../api/reminders';
+import { dismissReminderNudge, loadReminderNudge, snoozeReminderNudge } from '../storage/reminderNudge';
 import { loadProgressPrefs } from '../storage/progressPrefs';
 import { useWeather } from '../hooks/useWeather';
 import { weatherSuggestion, weatherSummaryLine, weatherIcon } from '../services/weatherContext';
@@ -31,7 +33,8 @@ export default function DashboardScreen() {
   const { profile } = useProfile();
   const { cards } = useDisplayPreferences();
   const diary = useMeals();
-  const daily = useDailyStats(betaFeatures.supplements);
+  const { isEnabled } = useFeatureFlags();
+  const daily = useDailyStats(isEnabled('supplements'));
   const [goals, setGoals] = useState<MacroGoals | null>(null);
   const [goalLoading, setGoalLoading] = useState(true);
   const [goalError, setGoalError] = useState(false);
@@ -39,7 +42,9 @@ export default function DashboardScreen() {
   const [waterOpen, setWaterOpen] = useState(false);
   const [unitPickerOpen, setUnitPickerOpen] = useState(false);
   const [waterUnit, setWaterUnit] = useState<VolumeUnit>('ml');
+  const [waterAmount, setWaterAmount] = useState('');
   const [weatherCityOpen, setWeatherCityOpen] = useState(false);
+  const [reminderNudgeOpen, setReminderNudgeOpen] = useState(false);
   const [weatherCity, setWeatherCityText] = useState('');
   const [weatherCityBusy, setWeatherCityBusy] = useState(false);
   const [weatherCityMessage, setWeatherCityMessage] = useState('');
@@ -68,6 +73,9 @@ export default function DashboardScreen() {
   const todayActive = (wearable || []).filter(r => r.startAt.slice(0, 10) === new Date().toISOString().slice(0, 10))
     .reduce((m: Record<string, { kcal: number; syncedAt: string }>, r) => { const p = m[r.provider] || { kcal: 0, syncedAt: r.syncedAt }; p.kcal += r.activeKcal; if (r.syncedAt > p.syncedAt) p.syncedAt = r.syncedAt; m[r.provider] = p; return m; }, {});
   const waterTarget = validTarget(goals?.waterMlTarget);
+  const waterUnitDef = VOLUME_UNITS.find(u => u.key === waterUnit) ?? VOLUME_UNITS[5];
+  const waterAmountNum = Number.parseFloat(waterAmount.replace(',', '.'));
+  const waterStepMl = Number.isFinite(waterAmountNum) && waterAmountNum > 0 ? Math.round(waterAmountNum * waterUnitDef.mlPerUnit) : 250;
   const insight = cards.note ? todayInsight({
     mealsLogged: summary.meals.length,
     mealsWithMissingNutrition: summary.fiber === null && summary.meals.length > 0,
@@ -91,6 +99,7 @@ export default function DashboardScreen() {
     getHealthScore().then(s => { if (hr === healthRequest.current) setHealth(s); }).catch(() => { if (hr === healthRequest.current) setHealth(null); });
     void loadProgressPrefs().then(p => { setWorkoutDays(p.workoutDays); setRestDays(p.restDays); }).catch(() => { setWorkoutDays([]); setRestDays([]); });
     void loadVolumeUnit().then(setWaterUnit);
+    void maybeShowReminderNudge();
     return () => { goalRequest.current += 1; healthRequest.current += 1; };
   }, [loadGoals]));
   // Refresh the displayed date after backgrounding or midnight; old meals never count toward a new day.
@@ -135,6 +144,12 @@ export default function DashboardScreen() {
     try { await daily.retryWaterSync(); }
     finally { waterLock.current = false; setWaterBusy(false); }
   }
+  async function maybeShowReminderNudge() {
+    try {
+      const [prefs, nudge] = await Promise.all([getReminderPreferences(), loadReminderNudge()]);
+      if (!prefs.masterEnabled && !nudge.dontShow && Date.now() >= nudge.snoozedUntil) setReminderNudgeOpen(true);
+    } catch { /* offline or signed out — the nudge can wait */ }
+  }
   async function saveWeatherCity() {
     if (weatherCityBusy) return;
     setWeatherCityBusy(true);
@@ -151,18 +166,28 @@ export default function DashboardScreen() {
     <Copy size="heading" style={{ fontWeight: '700' }}>{daily.stats ? formatVolume(daily.stats.waterMl, waterUnit) : '—'}</Copy>
     <Copy tone="muted">{waterTarget ? `Daily target ${formatVolume(waterTarget, waterUnit)}` : 'Daily target unavailable'}</Copy>
     <Progress label="Logged water" value={daily.stats?.waterMl ?? null} target={waterTarget} />
-    <Action label={waterBusy ? 'Saving water…' : `Add ${formatVolume(250, waterUnit)} water`} disabled={waterBusy || daily.loading} onPress={() => { void water(250); }} />
-    <Action secondary label={`Remove ${formatVolume(250, waterUnit)} water`} disabled={waterBusy || !daily.stats?.waterMl} onPress={() => { void water(-250); }} />
-    <Pressable accessibilityRole="button" accessibilityLabel={`Water unit: ${VOLUME_UNITS.find(u => u.key === waterUnit)?.name}. Change unit.`}
-      onPress={() => setUnitPickerOpen(true)}
+    <Field label={`Amount (${waterUnitDef.symbol})`} value={waterAmount} onChangeText={setWaterAmount} keyboardType="decimal-pad" placeholder={formatVolume(250, waterUnit)} />
+    <Action label={waterBusy ? 'Saving water…' : `Add ${formatVolume(waterStepMl, waterUnit)} water`} disabled={waterBusy || daily.loading} onPress={() => { void water(waterStepMl); }} />
+    <Action secondary label={`Remove ${formatVolume(waterStepMl, waterUnit)} water`} disabled={waterBusy || !daily.stats?.waterMl} onPress={() => { void water(-waterStepMl); }} />
+    <Pressable accessibilityRole="button" accessibilityLabel={`Water unit: ${waterUnitDef.name}. Change unit.`}
+      accessibilityState={{ expanded: unitPickerOpen }}
+      onPress={() => setUnitPickerOpen(open => !open)}
       style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 48, paddingVertical: 8,
         borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.border, opacity: pressed ? 0.6 : 1 })}>
       <Copy size="caption" tone="muted">Unit</Copy>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-        <Copy size="caption" style={{ color: colors.primary, fontWeight: '600' }}>{VOLUME_UNITS.find(u => u.key === waterUnit)?.name}</Copy>
-        <Ionicons name="chevron-forward" size={14} color={colors.muted} />
+        <Copy size="caption" style={{ color: colors.primary, fontWeight: '600' }}>{waterUnitDef.name}</Copy>
+        <Ionicons name={unitPickerOpen ? 'chevron-down' : 'chevron-forward'} size={14} color={colors.muted} />
       </View>
     </Pressable>
+    {unitPickerOpen && VOLUME_UNITS.map(u => <Pressable key={u.key} accessibilityRole="button" accessibilityLabel={u.name}
+      accessibilityState={{ selected: waterUnit === u.key }}
+      onPress={() => { setWaterUnit(u.key); void saveVolumeUnit(u.key); setUnitPickerOpen(false); }}
+      style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 48, paddingLeft: 12,
+        borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border, opacity: pressed ? 0.6 : 1 })}>
+      <Copy style={{ fontWeight: waterUnit === u.key ? '700' : '400' }}>{u.name}</Copy>
+      {waterUnit === u.key && <Ionicons name="checkmark" size={20} color={colors.primary} />}
+    </Pressable>)}
     {waterMessage !== '' && <Copy accessibilityLiveRegion="polite" size="caption">{waterMessage}</Copy>}
     {daily.waterSyncError && <><Notice error title="Water sync pending" message={daily.waterSyncError} />
       <Action secondary label="Retry water sync" disabled={waterBusy} onPress={() => { void retryWater(); }} /></>}
@@ -245,7 +270,7 @@ export default function DashboardScreen() {
           </Pressable>
         </Card></View>
       </View>
-      {betaFeatures.supplements && <SupplementsDetail daily={daily} />}
+      {isEnabled('supplements') && <SupplementsDetail daily={daily} />}
       {cards.meals && <Card>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Ionicons name="restaurant-outline" size={18} color={colors.primary} />
@@ -277,7 +302,7 @@ export default function DashboardScreen() {
               {energyInfo && <Copy size="caption" tone="muted">Resting estimate uses the Mifflin–St Jeor equation from your profile. The full-day estimate multiplies it by your activity level, so routine movement — including wearable active energy — is already included and never added twice. Logged food covers only what you recorded so far today, so it cannot be compared to a full-day estimate as a verified deficit or surplus.</Copy>}
             </>}
         </Card>
-        {betaFeatures.weeklyPlans && <Action secondary label="Open weekly meal plan" onPress={() => navigation.navigate('WeeklyPlan')} />}
+        {isEnabled('weeklyMealPlans') && <Action secondary label="Open weekly meal plan" onPress={() => navigation.navigate('WeeklyPlan')} />}
         <WeatherDetail weatherState={weather} />
       </>}
     </ScrollView>
@@ -298,6 +323,12 @@ export default function DashboardScreen() {
       {!!weatherCity.trim() && <Action label={weatherCityBusy ? 'Looking up…' : 'Use this city'} disabled={weatherCityBusy} onPress={() => { void saveWeatherCity(); }} />}
       {weather.savedLocation && <Action secondary label="Use device location instead" onPress={() => { void weather.setCity(null); }} />}
       {!!weatherCityMessage && <Copy size="caption" tone="danger">{weatherCityMessage}</Copy>}
+    </Sheet>
+    <Sheet visible={reminderNudgeOpen} title="Reminders are off" onClose={() => setReminderNudgeOpen(false)}>
+      <Copy tone="muted">Turn on reminders to get meal, water, supplement and workout nudges at the times you pick. Nothing sends automatically — you choose every category and time.</Copy>
+      <Action label="Set up reminders" onPress={() => { setReminderNudgeOpen(false); navigation.navigate('SmartReminders'); }} />
+      <Action secondary label="Maybe later" onPress={() => { void snoozeReminderNudge(); setReminderNudgeOpen(false); }} />
+      <Action secondary label="Don't show again" onPress={() => { void dismissReminderNudge(); setReminderNudgeOpen(false); }} />
     </Sheet>
   </View>;
 }

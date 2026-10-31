@@ -1,4 +1,3 @@
-import { betaFeatures } from '../config/betaFeatures';
 import React from 'react';
 import { View, useWindowDimensions } from 'react-native';
 import FeedbackButton from '../components/FeedbackButton';
@@ -14,6 +13,7 @@ import ClientsScreen from '../screens/ClientsScreen';
 import QuickAdd from '../components/QuickAdd';
 import { useTheme } from '../design/theme';
 import { useRoles } from '../context/RolesContext';
+import { useFeatureFlags } from '../context/FeatureFlagsContext';
 
 export type MainTabsParamList = {
   Dashboard: { waterRequest?: number } | undefined;
@@ -49,8 +49,9 @@ function HeaderActions({ source }: { source: string }) {
 
 export default function MainTabs() {
   const { hasRole } = useRoles();
+  const { isEnabled } = useFeatureFlags();
   const { colors } = useTheme();
-  const isTrainerOrNutritionist = hasRole('TRAINER') || hasRole('NUTRITIONIST');
+  const isTrainerOrNutritionist = (hasRole('TRAINER') || hasRole('NUTRITIONIST')) && isEnabled('trainerDashboard');
 
   return (
     <Tab.Navigator
@@ -73,7 +74,7 @@ export default function MainTabs() {
       <Tab.Screen name="Dashboard" component={DashboardScreen} options={{ title: 'Today' }} />
       <Tab.Screen name="LogMeal" component={LogMealScreen} options={{ title: 'Food' }} />
       <Tab.Screen name="LogExercise" component={LogExerciseScreen} options={{ title: 'Workout' }} />
-      {betaFeatures.ai && <Tab.Screen name="Chat" component={ChatScreen} options={{ title: 'Leo' }} />}
+      {isEnabled('aiCoach') && <Tab.Screen name="Chat" component={ChatScreen} options={{ title: 'Leo' }} />}
       {isTrainerOrNutritionist && (
         <Tab.Screen name="Clients" component={ClientsScreen} />
       )}

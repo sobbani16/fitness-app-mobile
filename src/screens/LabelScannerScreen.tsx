@@ -8,10 +8,13 @@ import { recognizeLabel } from '../services/ocr';
 import { extractFromOcrText, classifyDocument, extractMergedLabel } from '../api/labelScanner';
 import { Action, Card, Copy, Field, Notice, Skeleton } from '../design/components';
 import { useTheme } from '../design/theme';
+import { useFeatureFlags } from '../context/FeatureFlagsContext';
 import KeyboardAwareScrollView from '../components/KeyboardAwareScrollView';
 import { getSession } from '../storage/session';
 import { useConfirmLeave } from '../hooks/useConfirmLeave';
 export default function LabelScannerScreen() {
+  const { isEnabled } = useFeatureFlags();
+  const menuScanEnabled = isEnabled('menuScanning');
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const focused = useIsFocused();
@@ -112,7 +115,7 @@ export default function LabelScannerScreen() {
   const modes: { key: string; icon: keyof typeof Ionicons.glyphMap; label: string; a11y: string }[] = [
     { key: 'camera', icon: 'camera-outline', label: 'Camera', a11y: 'Scan with camera' },
     { key: 'text', icon: 'create-outline', label: 'Type text', a11y: 'Type label text' },
-    { key: 'menu', icon: 'restaurant-outline', label: 'Menu', a11y: 'Scan Restaurant Menu' },
+    ...(menuScanEnabled ? [{ key: 'menu', icon: 'restaurant-outline' as const, label: 'Menu', a11y: 'Scan Restaurant Menu' }] : []),
     { key: 'manual', icon: 'keypad-outline', label: 'Manual', a11y: 'Enter nutrition manually' },
   ];
   function onModeTab(key: string) {
@@ -148,7 +151,7 @@ export default function LabelScannerScreen() {
     {!!rejected && <Card>
       <Notice error title="Not a food label" message="This doesn’t look like a food label or restaurant menu. Please scan food packaging or a menu." />
       <Action secondary label="Retake photo" onPress={() => { setRejected(null); setError(''); }} />
-      <Action secondary label="Scan a restaurant menu" onPress={() => navigation.navigate('MenuScan', { mealType: route.params?.mealType })} />
+      {menuScanEnabled && <Action secondary label="Scan a restaurant menu" onPress={() => navigation.navigate('MenuScan', { mealType: route.params?.mealType })} />}
     </Card>}
     {!!saved[panel]?.length && <Card>
       <Copy size="caption" tone="muted">{saved[panel].length} saved {panel} photo{saved[panel].length === 1 ? '' : 's'} — merged in this order</Copy>

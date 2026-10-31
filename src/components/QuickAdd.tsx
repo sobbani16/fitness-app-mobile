@@ -11,6 +11,7 @@ import { loadFavorites, loadRecentFoods } from '../storage/favoriteFoods';
 import { LoggedMeal } from '../storage/meals';
 import { logWeight } from '../api/weight';
 import { parseQuickText } from '../services/quickParse';
+import { useFeatureFlags } from '../context/FeatureFlagsContext';
 import {
   QUICK_WATER_ML,
   buildRepeatMeal,
@@ -20,6 +21,7 @@ import {
 } from '../services/quickLog';
 
 export default function QuickAdd() {
+  const { isEnabled } = useFeatureFlags();
   const [visible, setVisible] = useState(false);
   const navigation = useNavigation<any>();
   const { colors } = useTheme();
@@ -160,7 +162,7 @@ export default function QuickAdd() {
         {status.undo && <Action secondary label="Undo" onPress={() => { void run(async () => { try { await status.undo!(); } catch { setStatus({ message: 'Could not undo. Please check your diary.', error: true }); } }); }} />}
       </>}
       <Copy accessibilityRole="header" size="caption" style={{ fontWeight: '700', marginTop: 4 }}>More ways to log</Copy>
-      <Action label="Scan nutrition label" secondary onPress={() => go('LabelScanner', {})} />
+      {isEnabled('nutritionLabelScanning') && <Action label="Scan nutrition label" secondary onPress={() => go('LabelScanner', {})} />}
       <Action label="Search food" secondary onPress={() => go('FoodEntry', { mode: 'search' })} />
       <Action label="Log a meal" secondary onPress={() => go('LogMeal')} />
       <Action label="Log water" secondary onPress={() => go('Dashboard', { waterRequest: Date.now() })} />

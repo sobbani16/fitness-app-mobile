@@ -16,13 +16,16 @@ import RootNavigator from './src/navigation/RootNavigator';
 import { ProfileProvider } from './src/context/ProfileContext';
 import { MealsProvider } from './src/context/MealsContext';
 import { RolesProvider } from './src/context/RolesContext';
+import { FeatureFlagsProvider, useFeatureFlags } from './src/context/FeatureFlagsContext';
 
 // Global voice-log entry — floats over every screen so a user can dictate a
 // log without navigating to a specific tab first.
 function GlobalVoice() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const { isEnabled } = useFeatureFlags();
   const [open, setOpen] = useState(false);
+  if (!isEnabled('voiceFoodLogging') && !isEnabled('voiceExerciseLogging')) return null;
   return <>
     <Pressable accessibilityRole="button" accessibilityLabel="Voice log" accessibilityHint="Dictate a workout, meal, or water entry"
       onPress={() => setOpen(true)}
@@ -55,7 +58,9 @@ export default function App() {
       <AuthGate><ProfileProvider>
         <MealsProvider>
           <RolesProvider>
-            <DisplayPreferencesProvider><ThemedNavigation /></DisplayPreferencesProvider>
+            <FeatureFlagsProvider>
+              <DisplayPreferencesProvider><ThemedNavigation /></DisplayPreferencesProvider>
+            </FeatureFlagsProvider>
           </RolesProvider>
         </MealsProvider>
       </ProfileProvider></AuthGate>

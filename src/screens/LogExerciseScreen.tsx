@@ -19,6 +19,8 @@ import { clockText, displayWeight, elapsed, exerciseName, toPounds, validateSet,
 import { accountStorage } from '../storage/accountStorage';
 import { accountKey, getSession } from '../storage/session';
 import PoseCameraScreen from './PoseCameraScreen';
+import { FeatureGate } from '../components/FeatureGate';
+import { useFeatureFlags } from '../context/FeatureFlagsContext';
 
 type Template = { name: string; exerciseType: string; reps: number; weight: number; sets: number };
 type Preferences = { favorites: string[]; templates: Template[]; unit: WeightUnit };
@@ -26,6 +28,7 @@ const categories: Record<string, string> = { 'bench-press': 'Push', 'overhead-pr
 export default function LogExerciseScreen({ route }: { route?: { params?: { start?: string } } }) {
   const navigation = useNavigation<any>();
   const { colors } = useTheme();
+  const { isEnabled } = useFeatureFlags();
   const focused = useIsFocused();
   const workout = useExerciseSession();
   const { draft, sets, loading, saving, error } = workout;
@@ -241,11 +244,11 @@ export default function LogExerciseScreen({ route }: { route?: { params?: { star
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
               <Copy size="caption" tone="muted">Muscle group — filters the list below</Copy>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <VoiceInput context={{
+                <FeatureGate feature="voiceExerciseLogging"><VoiceInput context={{
                   lastExercise: selected || undefined,
                   lastWeight: sets.length ? sets.at(-1)!.weight : undefined,
                   weightUnit: prefs.unit,
-                }} onDone={() => setRefresh(v => v + 1)} />
+                }} onDone={() => setRefresh(v => v + 1)} /></FeatureGate>
                 <IconAction icon="🧍" label="Browse muscles" onPress={() => navigation.navigate('MuscleExplorer')} />
               </View>
             </View>
@@ -309,7 +312,7 @@ export default function LogExerciseScreen({ route }: { route?: { params?: { star
           <Copy tone="muted">Enter added weight only. Use 0 for bodyweight exercises.</Copy>
           {!draft.pending && <Action label={saving ? 'Saving set…' : `Log set ${sets.length + 1}`} disabled={locked || !weight.trim() || !!validateSet(Number(reps), toPounds(Number(weight), prefs.unit))} onPress={() => void saveSet()} />}
           {draft.pending && <><Notice title="Set awaiting confirmation" message="Your set is kept on this device. Reconnect and retry; the same set will not be logged twice." /><Action label="Retry saved set" disabled={saving} onPress={() => void saveSet()} /></>}
-          <Action secondary label="Camera rep count and form" disabled={locked || detection.status === 'loading'} onPress={async () => { setCamera(true); await detection.start(exercise); }} />
+          {isEnabled('poseDetection') && <Action secondary label="Camera rep count and form" disabled={locked || detection.status === 'loading'} onPress={async () => { setCamera(true); await detection.start(exercise); }} />}
           <IconAction icon="🎥" label="Search on YouTube" disabled={locked} onPress={() => void openYouTubeSearch(`${exerciseName(exercise)} proper form`).then(ok => { if (!ok) setLocalError('Couldn’t open YouTube. Try searching in a browser.'); })} />
           {detection.error && <Notice title="Camera unavailable" message={detection.error} error />}
           <Copy tone="muted">Review camera counts before saving. Form feedback is an estimate.</Copy>

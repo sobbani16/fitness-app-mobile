@@ -2,6 +2,7 @@
 // Plans stay drafts until explicit confirmation; confirm syncs plan days to
 // the reminder engine via progressPrefs.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useFeatureFlags } from '../context/FeatureFlagsContext';
 import { View } from 'react-native';
 import KeyboardAwareScrollView from '../components/KeyboardAwareScrollView';
 import { Action, Card, Copy, Field, IconAction, ListRow, Notice, Skeleton } from '../design/components';
@@ -25,6 +26,7 @@ function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () 
 
 export default function WorkoutPlanScreen() {
   const { colors } = useTheme();
+  const { isEnabled } = useFeatureFlags();
   const [prefs, setPrefs] = useState<PlanPreferences>({});
   const [plan, setPlan] = useState<PersonalPlan | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -160,7 +162,9 @@ export default function WorkoutPlanScreen() {
           <Copy tone="muted">Selecting recent injury or rehab routes exercises to qualified review instead of auto-prescribing.</Copy>
           {LIMITATIONS.map(l => <Chip key={l} label={l.replace(/-/g, ' ')} on={(prefs.limitations || []).includes(l)} onPress={() => toggle('limitations', l)} />)}
         </Card>
-        <Action label={busy ? 'Generating…' : 'Generate my draft plan'} onPress={generate} disabled={busy} />
+        {isEnabled('aiWorkoutRecommendations')
+          ? <Action label={busy ? 'Generating…' : 'Generate my draft plan'} onPress={generate} disabled={busy} />
+          : <Notice title="AI plans unavailable" message="Plan generation is currently unavailable." />}
       </>}
 
       {plan && <>

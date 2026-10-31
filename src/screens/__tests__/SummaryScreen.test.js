@@ -6,6 +6,7 @@ jest.mock('../../context/ProfileContext', () => ({ useProfile: () => ({ profile:
 jest.mock('../../components/AccountPrivacy', () => () => null);
 jest.mock('../../components/ProfileForm', () => ({ ACTIVITY_LABELS: { moderate: 'Moderate activity' }, GOAL_LABELS: { maintain: 'Maintain weight' } }));
 jest.mock('../../api/client', () => ({ api: { post: jest.fn(async () => {}) } }));
+jest.mock('../../context/FeatureFlagsContext', () => ({ useFeatureFlags: () => ({ isEnabled: () => true, isLoading: false, refresh: jest.fn() }) }));
 jest.mock('../../storage/session', () => ({ getSession: () => ({ token: 'token' }), saveSession: jest.fn() }));
 const React = require('react');
 const { create, act } = require('react-test-renderer');

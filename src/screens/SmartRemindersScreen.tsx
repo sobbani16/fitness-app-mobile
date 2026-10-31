@@ -13,6 +13,7 @@ import { planNotifications } from '../services/reminderPlan';
 import { getLastWaterAt } from '../api/dailyStats';
 import { loadMealsFor } from '../storage/meals';
 import { useConfirmLeave } from '../hooks/useConfirmLeave';
+import { useFeatureFlags } from '../context/FeatureFlagsContext';
 
 const CATEGORY_LABELS: Record<string, string> = {
   'meal:breakfast': 'Breakfast', 'meal:lunch': 'Lunch', 'meal:dinner': 'Dinner', 'meal:snack': 'Snack',
@@ -34,6 +35,8 @@ function Toggle({ label, value, onChange, hint }: { label: string; value: boolea
 }
 
 export default function SmartRemindersScreen() {
+  const { isEnabled } = useFeatureFlags();
+  const suggestionsEnabled = isEnabled('smartReminderSuggestions');
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { colors } = useTheme();
   const [prefs, setPrefs] = useState<api.ReminderPreferences | null>(null);
@@ -55,7 +58,7 @@ export default function SmartRemindersScreen() {
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const [p, c, s] = await Promise.all([api.getReminderPreferences(), api.getReminderCategories(), api.getSuggestions()]);
+      const [p, c, s] = await Promise.all([api.getReminderPreferences(), api.getReminderCategories(), suggestionsEnabled ? api.getSuggestions() : Promise.resolve([])]);
       setPrefs(p); setCategories(c); setSuggestions(s);
       setQuietDraft({});
       setTimesText(Object.fromEntries(c.map(x => [x.category, (x.times || []).join(', ')])));
@@ -65,7 +68,7 @@ export default function SmartRemindersScreen() {
   }, []);
 
   useEffect(() => { void setupNotifications(); void load(); }, [load]);
-  useFocusEffect(useCallback(() => { void api.getSuggestions().then(setSuggestions).catch(() => {}); }, []));
+  useFocusEffect(useCallback(() => { if (suggestionsEnabled) void api.getSuggestions().then(setSuggestions).catch(() => {}); }, [suggestionsEnabled]));
 
   async function savePrefs(patch: Partial<api.ReminderPreferences>) {
     setPendingWrites(n => n + 1);
@@ -179,7 +182,7 @@ export default function SmartRemindersScreen() {
       {!!prefs.pausedUntil && <Copy tone="muted">Paused{ prefs.pauseReason ? ` (${prefs.pauseReason.replace('_', ' ')})` : ''} until {new Date(prefs.pausedUntil).toLocaleString()}. Schedules resume automatically.</Copy>}
     </Card>
 
-    {!!suggestions.length && prefs.adaptiveEnabled && !prefs.suggestionsMuted && <Card>
+    {suggestionsEnabled && !!suggestions.length && prefs.adaptiveEnabled && !prefs.suggestionsMuted && <Card>
       <Copy size="heading">Suggestions for you</Copy>
       {suggestions.map(s => <View key={s.id} style={{ gap: 4 }}>
         <Copy>{s.title}</Copy>
