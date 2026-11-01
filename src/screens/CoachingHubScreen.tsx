@@ -54,6 +54,27 @@ const SECTIONS: Section[] = [
     navigate: (nav) => nav.navigate('Main', { screen: 'Clients' }),
   },
   {
+    key: 'groupMessagingEnabled',
+    icon: '👥',
+    title: 'Groups',
+    subtitle: 'Cohorts, challenges and group chat',
+    navigate: (nav) => nav.navigate('Groups'),
+  },
+  {
+    key: 'trainerDocumentsEnabled',
+    icon: '📄',
+    title: 'Documents',
+    subtitle: 'Shared guides and education PDFs',
+    navigate: (nav) => nav.navigate('Documents'),
+  },
+  {
+    key: 'videoSessionsEnabled',
+    icon: '🎥',
+    title: 'Video sessions',
+    subtitle: 'Schedule, join and review calls',
+    navigate: (nav) => nav.navigate('VideoSessions'),
+  },
+  {
     key: 'trainerPaidCoachingEnabled',
     icon: '💳',
     title: 'Coaching packages',

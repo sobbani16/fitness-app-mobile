@@ -97,7 +97,11 @@ export function planNotifications(
         if (bm == null) continue;
         const day = new Date(fire.getFullYear(), fire.getMonth(), fire.getDate());
         fire = new Date(day.getTime() + bm * 60000);
-        if (fire <= new Date(ctx.lastWaterAt.getTime() + interval)) fire = new Date(fire.getTime() + 86400000);
+        if (fire <= new Date(ctx.lastWaterAt.getTime() + interval)) {
+          // Next calendar day at the boundary time — constructing with local
+          // components keeps the wall-clock target across DST transitions.
+          fire = new Date(fire.getFullYear(), fire.getMonth(), fire.getDate() + 1, Math.floor(bm / 60), bm % 60);
+        }
       }
       out.push({ identifier: `water|${ctx.lastWaterAt.toISOString()}`, category: cat, title: TITLES.water, body: `It's been ${s.intervalMinutes ?? 120} min since your last water log.`, fireAt: fire, deepLink: DEEP_LINKS.water, optional: false });
       continue;

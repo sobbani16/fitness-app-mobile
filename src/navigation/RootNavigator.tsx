@@ -32,6 +32,10 @@ import TrainerNutritionScreen from '../screens/TrainerNutritionScreen';
 import ClientGuidanceScreen from '../screens/ClientGuidanceScreen';
 import ConversationsScreen from '../screens/ConversationsScreen';
 import CoachChatScreen from '../screens/CoachChatScreen';
+import GroupsScreen from '../screens/GroupsScreen';
+import GroupChatScreen from '../screens/GroupChatScreen';
+import DocumentsScreen from '../screens/DocumentsScreen';
+import VideoSessionsScreen from '../screens/VideoSessionsScreen';
 import TrainerScheduleScreen from '../screens/TrainerScheduleScreen';
 import BookSessionScreen from '../screens/BookSessionScreen';
 import MyBookingsScreen from '../screens/MyBookingsScreen';
@@ -79,6 +83,10 @@ export type RootStackParamList = {
   ClientGuidance: { assignmentId?: string } | undefined;
   Conversations: undefined;
   CoachChat: { conversationId: string; name?: string };
+  Groups: undefined;
+  GroupChat: { groupId: string; name?: string };
+  Documents: undefined;
+  VideoSessions: undefined;
   TrainerSchedule: undefined;
   BookSession: { relationId: string; trainerId: string; trainerName?: string; sessionTypes?: unknown[] };
   MyBookings: undefined;
@@ -135,6 +143,10 @@ const GatedBookSession = gateScreen('trainerSchedulingEnabled', BookSessionScree
 const GatedMyBookings = gateScreen('trainerSchedulingEnabled', MyBookingsScreen, 'My sessions');
 const GatedTrainerPackages = gateScreen('trainerPaidCoachingEnabled', TrainerPackagesScreen, 'Packages');
 const GatedEntitlements = gateScreen('trainerPaidCoachingEnabled', EntitlementsScreen, 'My coaching');
+const GatedGroups = gateScreen('groupMessagingEnabled', GroupsScreen, 'Groups');
+const GatedGroupChat = gateScreen('groupMessagingEnabled', GroupChatScreen, 'Group');
+const GatedDocuments = gateScreen('trainerDocumentsEnabled', DocumentsScreen, 'Documents');
+const GatedVideoSessions = gateScreen('videoSessionsEnabled', VideoSessionsScreen, 'Video sessions');
 
 export default function RootNavigator() {
   const reducedMotion = useReducedMotion();
@@ -222,6 +234,10 @@ export default function RootNavigator() {
           <Stack.Screen name="ClientGuidance" component={GatedClientGuidance} options={{ headerShown: true, title: 'Nutrition guidance' }} />
           <Stack.Screen name="Conversations" component={GatedConversations} options={{ headerShown: true, title: 'Messages' }} />
           <Stack.Screen name="CoachChat" component={GatedCoachChat} options={{ headerShown: true, title: 'Chat' }} />
+          <Stack.Screen name="Groups" component={GatedGroups} options={{ headerShown: true, title: 'Groups' }} />
+          <Stack.Screen name="GroupChat" component={GatedGroupChat} options={{ headerShown: true, title: 'Group' }} />
+          <Stack.Screen name="Documents" component={GatedDocuments} options={{ headerShown: true, title: 'Documents' }} />
+          <Stack.Screen name="VideoSessions" component={GatedVideoSessions} options={{ headerShown: true, title: 'Video sessions' }} />
           <Stack.Screen name="TrainerSchedule" component={GatedTrainerSchedule} options={{ headerShown: true, title: 'Schedule' }} />
           <Stack.Screen name="BookSession" component={GatedBookSession} options={{ headerShown: true, title: 'Book a session' }} />
           <Stack.Screen name="MyBookings" component={GatedMyBookings} options={{ headerShown: true, title: 'My sessions' }} />

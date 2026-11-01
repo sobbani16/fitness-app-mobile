@@ -36,7 +36,11 @@ export type FeatureKey =
   | 'smartReminderSuggestions'
   | 'supplements'
   | 'videoSearch'
-  | 'aiEmergencyShutdown';
+  | 'aiEmergencyShutdown'
+  | 'groupMessagingEnabled'
+  | 'trainerDocumentsEnabled'
+  | 'videoSessionsEnabled'
+  | 'callRecordingEnabled';
 
 export type FeatureMap = Partial<Record<FeatureKey, boolean>>;
 
@@ -73,6 +77,10 @@ export const DEFAULT_FLAGS: Record<FeatureKey, boolean> = {
   supplements: false,
   videoSearch: false,
   aiEmergencyShutdown: false,
+  groupMessagingEnabled: false,
+  trainerDocumentsEnabled: false,
+  videoSessionsEnabled: false,
+  callRecordingEnabled: false,
 };
 
 // Build-time gate applied ON TOP of the remote flag. A TestFlight/store build
