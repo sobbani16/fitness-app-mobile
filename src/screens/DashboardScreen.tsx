@@ -59,6 +59,7 @@ export default function DashboardScreen() {
   const [restDays, setRestDays] = useState<number[]>([]);
   const [now, setNow] = useState(new Date());
   const [health, setHealth] = useState<HealthScoreResponse | null>(null);
+  const [healthError, setHealthError] = useState(false);
   const goalRequest = useRef(0);
   const healthRequest = useRef(0);
   const summary = todaySummary(diary.meals, now);
@@ -101,7 +102,7 @@ export default function DashboardScreen() {
     setNow(new Date());
     void loadGoals();
     const hr = ++healthRequest.current;
-    getHealthScore().then(s => { if (hr === healthRequest.current) setHealth(s); }).catch(() => { if (hr === healthRequest.current) setHealth(null); });
+    getHealthScore().then(s => { if (hr === healthRequest.current) { setHealth(s); setHealthError(false); } }).catch(() => { if (hr === healthRequest.current) { setHealth(null); setHealthError(true); } });
     void loadProgressPrefs().then(p => { setWorkoutDays(p.workoutDays); setRestDays(p.restDays); }).catch(() => { setWorkoutDays([]); setRestDays([]); });
     void loadVolumeUnit().then(setWaterUnit);
     void maybeShowReminderNudge();
@@ -272,7 +273,7 @@ export default function DashboardScreen() {
             <ScoreRing score={health?.score ?? null} size={64} />
             <View style={{ flex: 1 }}>
               <Copy size="title" style={{ fontWeight: '600' }}>Health score</Copy>
-              <Copy size="caption" tone="muted">{health?.score == null ? 'No records yet — provisional' : `${health.coverage ? `${health.coverage.available} of ${health.coverage.total} parts logged · ` : ''}Provisional`}</Copy>
+              <Copy size="caption" tone="muted">{healthError ? 'Couldn’t reach the server — score not loaded' : health?.score == null ? 'No records yet — provisional' : `${health.coverage ? `${health.coverage.available} of ${health.coverage.total} parts logged · ` : ''}Provisional`}</Copy>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.muted} />
           </Pressable>
