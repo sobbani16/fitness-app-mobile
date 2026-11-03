@@ -5,7 +5,7 @@ import {
   loadMealsFor,
   sumCalories,
 } from '../storage/meals';
-import { flushMeals, saveMealChange, reconcileMealsFor } from '../services/mealSync';
+import { flushMeals, saveMealChange, reconcileMealsFor, getMealSyncIssues, retryRejectedMeals, MealSyncIssue } from '../services/mealSync';
 
 interface MealsContextValue {
   meals: LoggedMeal[];
@@ -16,12 +16,17 @@ interface MealsContextValue {
   refresh: () => Promise<void>;
   syncAll: () => Promise<void>;
   syncError: string | null;
+  /** Entries the server rejected; kept on the device until corrected. */
+  syncIssues: MealSyncIssue[];
+  retryRejected: () => Promise<void>;
 }
 
 const MealsContext = createContext<MealsContextValue | undefined>(undefined);
 
 export function MealsProvider({ children }: { children: React.ReactNode }) {
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncIssues, setSyncIssues] = useState<MealSyncIssue[]>([]);
+  const loadIssues = useCallback(() => getMealSyncIssues().then(setSyncIssues).catch(() => {}), []);
   const [meals, setMeals] = useState<LoggedMeal[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -30,7 +35,8 @@ export function MealsProvider({ children }: { children: React.ReactNode }) {
     setMeals(list);
     try { setMeals(await reconcileMealsFor()); setSyncError(null); }
     catch { setSyncError('Showing saved meals. Server sync is pending.'); }
-  }, []);
+    finally { void loadIssues(); }
+  }, [loadIssues]);
 
   useEffect(() => {
     refresh().finally(() => setLoading(false));
@@ -41,7 +47,7 @@ export function MealsProvider({ children }: { children: React.ReactNode }) {
     trackEvent('meal_saved');
     setMeals(next);
     // Sync to backend so Health Score engine sees the meal
-    flushMeals().then(()=>setSyncError(null)).catch(()=>setSyncError('Meals saved on this device. Sync pending; refresh when connected.'));
+    flushMeals().then(issues => { setSyncError(null); setSyncIssues(issues); }).catch(()=>setSyncError('Meals saved on this device. Sync pending; refresh when connected.'));
   }, []);
 
   const remove = useCallback(async (id: string) => {
@@ -53,11 +59,17 @@ export function MealsProvider({ children }: { children: React.ReactNode }) {
   const syncAll = useCallback(async () => {
     try { setMeals(await reconcileMealsFor()); setSyncError(null); }
     catch (e) { setSyncError('Meals saved on this device. Sync pending.'); throw e; }
+    finally { void loadIssues(); }
+  }, [loadIssues]);
+
+  const retryRejected = useCallback(async () => {
+    setSyncIssues(await retryRejectedMeals());
+    setMeals(await reconcileMealsFor());
   }, []);
 
   return (
     <MealsContext.Provider
-      value={{ meals, totalCalories: sumCalories(meals), loading, add, remove, refresh, syncAll, syncError }}
+      value={{ meals, totalCalories: sumCalories(meals), loading, add, remove, refresh, syncAll, syncError, syncIssues, retryRejected }}
     >
       {children}
     </MealsContext.Provider>

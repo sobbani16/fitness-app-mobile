@@ -26,6 +26,11 @@ import { dismissReminderNudge, loadReminderNudge, snoozeReminderNudge } from '..
 import { loadProgressPrefs } from '../storage/progressPrefs';
 import { useWeather } from '../hooks/useWeather';
 import { weatherSuggestion, weatherSummaryLine, weatherIcon } from '../services/weatherContext';
+import { SyncStatusBanner } from '../components/today/SyncStatusBanner';
+import { createRefreshCoordinator, RefreshResult, retryDelay, summarize } from '../util/refreshCoordinator';
+import { compatibility, subscribeFailures } from '../services/apiDiagnostics';
+
+const REFRESH_KEYS = ['meals', 'daily', 'goals', 'health', 'energy', 'weather'] as const;
 
 export default function DashboardScreen() {
   const navigation = useNavigation<any>();
@@ -72,7 +77,12 @@ export default function DashboardScreen() {
   // Backend-owned summary is the shared truth with web; local estimates are
   // the offline fallback only.
   const [energyApi, setEnergyApi] = useState<EnergySummary | null>(null);
-  useEffect(() => { getEnergySummary().then(setEnergyApi).catch(() => setEnergyApi(null)); }, []);
+  const energyRequest = useRef(0);
+  const loadEnergy = useCallback(async (): Promise<unknown> => {
+    const request = ++energyRequest.current;
+    try { const result = await getEnergySummary(); if (request === energyRequest.current) setEnergyApi(result); return null; }
+    catch (e) { if (request === energyRequest.current) setEnergyApi(null); return e; }
+  }, []);
   const [wearable, setWearable] = useState<EnergyRecord[] | null>(null);
   useEffect(() => { if (!energyApi) getEnergyRecords(7).then(r => setWearable(r.records)).catch(() => setWearable([])); }, [energyApi]);
   // Latest day's imported active energy, grouped by provider (no double counting).
@@ -91,30 +101,72 @@ export default function DashboardScreen() {
   }) : null;
   // Water findings render on the Water card — no duplicate insight card.
   const insightForWater = insight?.action === 'water' ? insight : null;
-  const loadGoals = useCallback(async () => {
+  // Each loader returns its error (or null) so the coordinator can report partial success; a newer request always wins.
+  const loadGoals = useCallback(async (): Promise<unknown> => {
     const request = ++goalRequest.current;
     setGoalLoading(true);
-    try { const result = await getMacroGoals(); if (request === goalRequest.current) { setGoals(result); setGoalError(false); } }
-    catch { if (request === goalRequest.current) { setGoals(null); setGoalError(true); } }
+    try { const result = await getMacroGoals(); if (request === goalRequest.current) { setGoals(result); setGoalError(false); } return null; }
+    catch (e) { if (request === goalRequest.current) { setGoals(null); setGoalError(true); } return e; }
     finally { if (request === goalRequest.current) setGoalLoading(false); }
   }, []);
+  const loadHealth = useCallback(async (): Promise<unknown> => {
+    const request = ++healthRequest.current;
+    try { const s = await getHealthScore(); if (request === healthRequest.current) { setHealth(s); setHealthError(false); } return null; }
+    catch (e) { if (request === healthRequest.current) { setHealth(null); setHealthError(true); } return e; }
+  }, []);
+  const throwIf = (e: unknown) => { if (e) throw e; };
+  const tasks = useRef<Record<string, () => Promise<unknown>>>({});
+  tasks.current = {
+    meals: () => diary.syncAll(),
+    daily: () => daily.refresh(),
+    goals: async () => throwIf(await loadGoals()),
+    health: async () => throwIf(await loadHealth()),
+    energy: async () => throwIf(await loadEnergy()),
+    weather: () => weather.refresh(),
+  };
+  const coordinator = useRef(createRefreshCoordinator(Object.fromEntries(REFRESH_KEYS.map(k => [k, () => tasks.current[k]()])))).current;
+  const [syncResult, setSyncResult] = useState<RefreshResult>({});
+  const [syncBusy, setSyncBusy] = useState(false);
+  const [, setDiagnosticsTick] = useState(0);
+  useEffect(() => subscribeFailures(() => setDiagnosticsTick(t => t + 1)), []);
+  const runRefresh = useCallback(async (keys?: string[]) => {
+    setSyncBusy(true);
+    // Merge each outcome as it lands so one slow request never hides another's result.
+    const merge = (r: RefreshResult) => { setSyncResult(prev => ({ ...prev, ...r })); return r; };
+    try { return Object.assign({}, ...(await Promise.all((keys ?? [...REFRESH_KEYS]).map(k => coordinator.run([k]).then(merge))))) as RefreshResult; }
+    finally { setSyncBusy(coordinator.busy()); }
+  }, [coordinator]);
+  const failedKeys = () => Object.entries(syncResult).filter(([, o]) => !o.ok).map(([k]) => k);
+  const syncSummary = summarize(diary.syncError && syncResult.meals?.ok !== false ? { ...syncResult, meals: { ok: false, category: 'unknown' } } : syncResult);
+  // Bounded automatic retry for transient failures; manual Retry is always available.
+  const autoRetry = useRef(0);
+  useEffect(() => {
+    if (syncSummary.state === 'ok' || !syncSummary.transientOnly) { autoRetry.current = 0; return; }
+    const delay = retryDelay(autoRetry.current);
+    if (delay == null) return;
+    const timer = setTimeout(() => { autoRetry.current += 1; void runRefresh(syncSummary.failed); }, delay);
+    return () => clearTimeout(timer);
+  }, [syncSummary.state, syncSummary.transientOnly, syncSummary.failed.join(), runRefresh]);
   useFocusEffect(useCallback(() => {
     setNow(new Date());
-    void loadGoals();
-    const hr = ++healthRequest.current;
-    getHealthScore().then(s => { if (hr === healthRequest.current) { setHealth(s); setHealthError(false); } }).catch(() => { if (hr === healthRequest.current) { setHealth(null); setHealthError(true); } });
+    void runRefresh(['goals', 'health', 'energy']);
     void loadProgressPrefs().then(p => { setWorkoutDays(p.workoutDays); setRestDays(p.restDays); }).catch(() => { setWorkoutDays([]); setRestDays([]); });
     void loadVolumeUnit().then(setWaterUnit);
     void maybeShowReminderNudge();
-    return () => { goalRequest.current += 1; healthRequest.current += 1; };
-  }, [loadGoals]));
+    return () => { goalRequest.current += 1; healthRequest.current += 1; energyRequest.current += 1; };
+  }, [runRefresh]));
   // Refresh the displayed date after backgrounding or midnight; old meals never count toward a new day.
   useEffect(() => {
     const update = () => setNow(new Date());
-    const subscription = AppState.addEventListener('change', state => { if (state === 'active') update(); });
+    // Returning to the foreground is the reconnection signal: retry what failed (or refresh server data).
+    const subscription = AppState.addEventListener('change', state => {
+      if (state !== 'active') return;
+      update(); autoRetry.current = 0;
+      void runRefresh(failedKeys().length ? failedKeys() : ['meals', 'goals', 'health', 'energy']);
+    });
     const timer = setInterval(update, 60000);
     return () => { subscription.remove(); clearInterval(timer); };
-  }, []);
+  }, [runRefresh, syncResult]);
   const refreshMeals = diary.refresh;
   const refreshDaily = daily.refresh;
   const day = now.toDateString();
@@ -130,7 +182,7 @@ export default function DashboardScreen() {
   async function refresh() {
     if (refreshing) return;
     setRefreshing(true);
-    try { await Promise.allSettled([diary.syncAll(), daily.refresh(), loadGoals(), weather.refresh()]); }
+    try { autoRetry.current = 0; await runRefresh(); }
     finally { setRefreshing(false); }
   }
   async function water(delta: number) {
@@ -207,8 +259,9 @@ export default function DashboardScreen() {
           <Copy size="caption" tone="muted">{weatherSummaryLine(weather.weather)}{(() => { const p = weather.savedLocation?.label ?? weather.locationLabel; return p ? ` · ${p.length > 13 ? `${p.slice(0, 12).trimEnd()}…` : p}` : ''; })()}{weather.stale ? ' (earlier forecast)' : ''}</Copy>
           <IconBtn name="create-outline" label="Change weather city" onPress={() => setWeatherCityOpen(true)} />
         </View>}</View>
-      {diary.syncError && <Card><Notice title="Showing your saved diary" message="Meal sync is pending. Your saved meals are still available." />
-        <Action secondary label="Retry meal sync" onPress={() => { void refresh(); }} /></Card>}
+      <SyncStatusBanner failed={syncSummary.failed} offline={syncSummary.state === 'offline'} issues={diary.syncIssues} compat={compatibility()} busy={syncBusy}
+        onRetry={() => { autoRetry.current = 0; void runRefresh(syncSummary.failed.length ? syncSummary.failed : undefined); }}
+        onRetryRejected={() => { void diary.retryRejected().catch(() => {}); }} />
       {workoutPlanned && <Card>
         <Copy accessibilityRole="header" size="title" style={{ fontWeight: '600' }}>Today’s plan: workout</Copy>
         <Copy tone="muted" size="caption">{suggestion ?? 'Scheduled in your plan. Rest is a valid choice too.'}</Copy>
@@ -222,8 +275,6 @@ export default function DashboardScreen() {
           <Progress label="Logged food calories toward daily target" value={summary.calories} target={target} tone={budgetTone(pctOf(summary.calories, target))} />
         </>}
         {goalLoading && <Skeleton label="Loading your targets" />}
-        {goalError && <><Notice title="Targets couldn’t load" message="You can still log food and see meals saved on this device." />
-          <Action secondary label="Retry targets" onPress={() => { void loadGoals(); }} /></>}
         <Copy size="caption" tone="muted">Logged meals only — may not be everything you ate.</Copy>
         <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
           <Action label="Log a meal" onPress={() => navigation.navigate('LogMeal')} />

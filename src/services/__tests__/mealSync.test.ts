@@ -12,7 +12,7 @@ jest.mock('../../storage/session', () => ({
 }));
 jest.mock('../../api/client', () => ({ api: { post: jest.fn(), delete: jest.fn(), get: jest.fn() } }));
 import { api } from '../../api/client';
-import { queueMeal, flushMeals, saveMealChange, reconcileMealsFor, reconcileMealDays } from '../mealSync';
+import { queueMeal, flushMeals, saveMealChange, reconcileMealsFor, reconcileMealDays, getMealSyncIssues, retryRejectedMeals } from '../mealSync';
 import { loadHistory, todayKey } from '../../storage/meals';
 const meal = { id: 'meal-1', createdAt: '2026-10-09T12:00:00Z', name: 'Apple', calories: 52, macros: { protein_g: 0, carbs_g: 14, fat_g: 0, fiber_g: 2 }, feedback: '', source: 'manual' };
 beforeEach(() => { mockStore.clear(); mockUser = 'alice'; jest.clearAllMocks(); });
@@ -129,4 +129,66 @@ it('preserves unknown fiber through upload and a new-device hydration', async ()
   (api.get as jest.Mock).mockResolvedValue({ data: { logs: [{ id: meal.id, loggedAt: meal.createdAt, foodName: meal.name, calories: 52, quantityG: 100, proteinG: 0, carbsG: 14, fatG: 0, fiberG: null, mealType: 'lunch' }] } });
   const rows = await reconcileMealsFor(new Date(meal.createdAt));
   expect(rows[0].macros.fiber_g).toBeUndefined();
+});
+
+describe('item-level failure handling', () => {
+  const m = (id: string, name = id) => ({ ...meal, id, name });
+  const reject = (status: number, error = 'Invalid calories') => Object.assign(new Error(`HTTP ${status}`), { isAxiosError: true, response: { status, data: { error } } });
+  it('one corrupt pending meal does not block later valid meals', async () => {
+    (api.post as jest.Mock).mockImplementation(async (_u, body) => { if (body.id === 'bad') throw reject(400); return {}; });
+    await queueMeal(m('good-1')); await queueMeal(m('bad', 'Broken')); await queueMeal(m('good-2'));
+    const issues = await flushMeals();
+    expect((api.post as jest.Mock).mock.calls.map(c => c[1].id)).toEqual(['good-1', 'bad', 'good-2']);
+    expect(issues).toEqual([expect.objectContaining({ id: 'bad', name: 'Broken', status: 400 })]);
+    expect(issues[0].message).toMatch(/Invalid calories.*Edit the meal/);
+    // The rejected entry is not resent until corrected; valid ones are not resent at all.
+    await flushMeals();
+    expect(api.post).toHaveBeenCalledTimes(3);
+  });
+  it('retries a rejected meal after the user corrects it', async () => {
+    (api.post as jest.Mock).mockRejectedValueOnce(reject(400)).mockResolvedValue({});
+    await queueMeal(m('fixme')); await flushMeals();
+    await queueMeal({ ...m('fixme'), calories: 60 });
+    expect(await flushMeals()).toEqual([]);
+    expect(api.post).toHaveBeenLastCalledWith('/food-logs', expect.objectContaining({ id: 'fixme', calories: 60 }));
+  });
+  it('stops at a service-level failure, keeps order and does not mark the item', async () => {
+    (api.post as jest.Mock).mockResolvedValueOnce({}).mockRejectedValueOnce(reject(503, 'Service unavailable'));
+    await queueMeal(m('a')); await queueMeal(m('b')); await queueMeal(m('c'));
+    await expect(flushMeals()).rejects.toMatchObject({ category: 'unavailable', status: 503 });
+    expect(api.post).toHaveBeenCalledTimes(2);
+    expect(await getMealSyncIssues()).toEqual([]);
+    (api.post as jest.Mock).mockResolvedValue({});
+    await flushMeals();
+    expect((api.post as jest.Mock).mock.calls.map(c => c[1].id)).toEqual(['a', 'b', 'b', 'c']);
+  });
+  it('a missing deployed route is not blamed on the meal', async () => {
+    (api.post as jest.Mock).mockRejectedValue(reject(404, 'Not found'));
+    await queueMeal(m('a'));
+    await expect(flushMeals()).rejects.toMatchObject({ category: 'not_found' });
+    expect(await getMealSyncIssues()).toEqual([]);
+  });
+  it('repeated retries reuse the same stable id (server dedupes)', async () => {
+    (api.post as jest.Mock).mockRejectedValueOnce(Object.assign(new Error('Network Error'), { isAxiosError: true })).mockRejectedValueOnce(reject(500)).mockResolvedValue({});
+    await queueMeal(m('same'));
+    await expect(flushMeals()).rejects.toMatchObject({ category: 'network' });
+    await expect(flushMeals()).rejects.toMatchObject({ category: 'server' });
+    await flushMeals();
+    expect(new Set((api.post as jest.Mock).mock.calls.map(c => c[1].id))).toEqual(new Set(['same']));
+  });
+  it('reconciliation keeps a rejected meal visible instead of dropping it', async () => {
+    const date = new Date(meal.createdAt);
+    (api.post as jest.Mock).mockImplementation(async (_u, body) => { if (body.id === 'bad') throw reject(400); return {}; });
+    await saveMealChange(m('ok')); await saveMealChange(m('bad'));
+    (api.get as jest.Mock).mockResolvedValue({ data: { logs: [serverRow('ok', date)] } });
+    const result = await reconcileMealsFor(date);
+    expect(result.map(x => x.id).sort()).toEqual(['bad', 'ok']);
+  });
+  it('retryRejectedMeals resends rejected entries unchanged', async () => {
+    (api.post as jest.Mock).mockRejectedValueOnce(reject(409, 'Meal id conflict')).mockResolvedValue({});
+    await queueMeal(m('dup'));
+    expect((await flushMeals())[0].message).toMatch(/conflicts/);
+    expect(await retryRejectedMeals()).toEqual([]);
+    expect(api.post).toHaveBeenCalledTimes(2);
+  });
 });

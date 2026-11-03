@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { AppState, Linking } from 'react-native';
 import { Action, Card, Copy, Notice } from '../../design/components';
 import { useStepCounter } from '../../hooks/useStepCounter';
-import { syncSteps } from '../../api/dailyStats';
+import { syncDeviceSteps } from '../../services/stepsSync';
 
 function ConnectedSteps({ retry }: { retry: () => void }) {
   const { steps, available, error, loading } = useStepCounter();
@@ -11,7 +11,7 @@ function ConnectedSteps({ retry }: { retry: () => void }) {
     if (!available || steps <= 0) return;
     let live = true;
     const timeout = setTimeout(() => {
-      syncSteps(steps).then(() => { if (live) setSyncError(false); }).catch(() => { if (live) setSyncError(true); });
+      syncDeviceSteps(steps).then(r => { if (live && r.status !== 'skipped') setSyncError(r.status === 'failed'); });
     }, 2000);
     return () => { live = false; clearTimeout(timeout); };
   }, [steps, available]);
