@@ -17,6 +17,7 @@ import { useTheme } from '../design/theme';
 import { useDisplayPreferences } from '../context/DisplayPreferencesContext';
 import StepsCard from '../components/today/StepsCard';
 import { SupplementsDetail, WeatherDetail } from '../components/today/OptionalDetails';
+import TodayActionsCard from '../components/TodayActionsCard';
 import { todaySummary, validTarget } from '../util/todaySummary';
 import { todayInsight } from '../util/todayInsight';
 import { formatVolume, VolumeUnit, VOLUME_UNITS } from '../util/units';
@@ -330,6 +331,7 @@ export default function DashboardScreen() {
           </Pressable>
         </Card></View>
       </View>
+      {isEnabled('healthPriorities') && <TodayActionsCard />}
       {isEnabled('supplements') && <SupplementsDetail daily={daily} />}
       {cards.meals && <Card>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>

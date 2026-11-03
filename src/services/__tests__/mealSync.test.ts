@@ -192,3 +192,11 @@ describe('item-level failure handling', () => {
     expect(api.post).toHaveBeenCalledTimes(2);
   });
 });
+
+it.each([408, 429])('treats %s as transient: halts and keeps the meal queued, unmarked', async status => {
+  (api.post as jest.Mock).mockRejectedValueOnce({ isAxiosError: true, response: { status } });
+  await queueMeal({ ...meal, id: `t-${status}` });
+  await expect(flushMeals()).rejects.toBeTruthy();
+  expect(JSON.parse(mockStore.get('alice:fitness.mealOutbox.v1')!)).toHaveLength(1);
+  expect(await getMealSyncIssues()).toEqual([]);
+});
