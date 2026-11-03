@@ -36,6 +36,9 @@ import GroupsScreen from '../screens/GroupsScreen';
 import GroupChatScreen from '../screens/GroupChatScreen';
 import DocumentsScreen from '../screens/DocumentsScreen';
 import VideoSessionsScreen from '../screens/VideoSessionsScreen';
+import LearnScreen from '../screens/LearnScreen';
+import SuggestScreen from '../screens/SuggestScreen';
+import LearnArticleScreen from '../screens/LearnArticleScreen';
 import TrainerScheduleScreen from '../screens/TrainerScheduleScreen';
 import BookSessionScreen from '../screens/BookSessionScreen';
 import MyBookingsScreen from '../screens/MyBookingsScreen';
@@ -87,6 +90,9 @@ export type RootStackParamList = {
   GroupChat: { groupId: string; name?: string };
   Documents: undefined;
   VideoSessions: undefined;
+  Learn: undefined;
+  Suggest: undefined;
+  LearnArticle: { slug: string };
   TrainerSchedule: undefined;
   BookSession: { relationId: string; trainerId: string; trainerName?: string; sessionTypes?: unknown[] };
   MyBookings: undefined;
@@ -147,6 +153,8 @@ const GatedGroups = gateScreen('groupMessagingEnabled', GroupsScreen, 'Groups');
 const GatedGroupChat = gateScreen('groupMessagingEnabled', GroupChatScreen, 'Group');
 const GatedDocuments = gateScreen('trainerDocumentsEnabled', DocumentsScreen, 'Documents');
 const GatedVideoSessions = gateScreen('videoSessionsEnabled', VideoSessionsScreen, 'Video sessions');
+const GatedLearn = gateScreen('knowledgeAcademyEnabled', LearnScreen, 'Learn');
+const GatedLearnArticle = gateScreen('knowledgeAcademyEnabled', LearnArticleScreen, 'Article');
 
 export default function RootNavigator() {
   const reducedMotion = useReducedMotion();
@@ -238,6 +246,9 @@ export default function RootNavigator() {
           <Stack.Screen name="GroupChat" component={GatedGroupChat} options={{ headerShown: true, title: 'Group' }} />
           <Stack.Screen name="Documents" component={GatedDocuments} options={{ headerShown: true, title: 'Documents' }} />
           <Stack.Screen name="VideoSessions" component={GatedVideoSessions} options={{ headerShown: true, title: 'Video sessions' }} />
+          <Stack.Screen name="Suggest" component={SuggestScreen} options={{ headerShown: true, title: 'What should I eat?' }} />
+          <Stack.Screen name="Learn" component={GatedLearn} options={{ headerShown: true, title: 'Learn' }} />
+          <Stack.Screen name="LearnArticle" component={GatedLearnArticle} options={{ headerShown: true, title: 'Myth vs Fact' }} />
           <Stack.Screen name="TrainerSchedule" component={GatedTrainerSchedule} options={{ headerShown: true, title: 'Schedule' }} />
           <Stack.Screen name="BookSession" component={GatedBookSession} options={{ headerShown: true, title: 'Book a session' }} />
           <Stack.Screen name="MyBookings" component={GatedMyBookings} options={{ headerShown: true, title: 'My sessions' }} />

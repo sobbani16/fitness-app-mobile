@@ -40,7 +40,8 @@ export type FeatureKey =
   | 'groupMessagingEnabled'
   | 'trainerDocumentsEnabled'
   | 'videoSessionsEnabled'
-  | 'callRecordingEnabled';
+  | 'callRecordingEnabled'
+  | 'knowledgeAcademyEnabled';
 
 export type FeatureMap = Partial<Record<FeatureKey, boolean>>;
 
@@ -81,6 +82,7 @@ export const DEFAULT_FLAGS: Record<FeatureKey, boolean> = {
   trainerDocumentsEnabled: false,
   videoSessionsEnabled: false,
   callRecordingEnabled: false,
+  knowledgeAcademyEnabled: false,
 };
 
 // Build-time gate applied ON TOP of the remote flag. A TestFlight/store build

@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { useProfile } from '../context/ProfileContext';
 import { estimateBMR, estimateTDEE, calorieTarget } from '../services/energy';
+import { getEnergySummary, EnergySummary } from '../api/energy';
 import { getEnergyRecords, EnergyRecord } from '../api/healthData';
 import { useMeals } from '../context/MealsContext';
 import { useDailyStats } from '../hooks/useDailyStats';
@@ -67,8 +68,12 @@ export default function DashboardScreen() {
   const budgetTone = (p: number | null) => p == null ? 'primary' as const : p > 105 ? 'danger' as const : p >= 85 ? 'warning' as const : 'primary' as const;
   const goalTone = (p: number | null) => p == null ? 'primary' as const : p >= 90 ? 'primary' as const : p >= 40 ? 'warning' as const : 'muted' as const;
   const energy = { bmr: estimateBMR(profile), tdee: estimateTDEE(profile), target: calorieTarget(profile) };
+  // Backend-owned summary is the shared truth with web; local estimates are
+  // the offline fallback only.
+  const [energyApi, setEnergyApi] = useState<EnergySummary | null>(null);
+  useEffect(() => { getEnergySummary().then(setEnergyApi).catch(() => setEnergyApi(null)); }, []);
   const [wearable, setWearable] = useState<EnergyRecord[] | null>(null);
-  useEffect(() => { getEnergyRecords(7).then(r => setWearable(r.records)).catch(() => setWearable([])); }, []);
+  useEffect(() => { if (!energyApi) getEnergyRecords(7).then(r => setWearable(r.records)).catch(() => setWearable([])); }, [energyApi]);
   // Latest day's imported active energy, grouped by provider (no double counting).
   const todayActive = (wearable || []).filter(r => r.startAt.slice(0, 10) === new Date().toISOString().slice(0, 10))
     .reduce((m: Record<string, { kcal: number; syncedAt: string }>, r) => { const p = m[r.provider] || { kcal: 0, syncedAt: r.syncedAt }; p.kcal += r.activeKcal; if (r.syncedAt > p.syncedAt) p.syncedAt = r.syncedAt; m[r.provider] = p; return m; }, {});
@@ -219,7 +224,10 @@ export default function DashboardScreen() {
         {goalError && <><Notice title="Targets couldn’t load" message="You can still log food and see meals saved on this device." />
           <Action secondary label="Retry targets" onPress={() => { void loadGoals(); }} /></>}
         <Copy size="caption" tone="muted">Logged meals only — may not be everything you ate.</Copy>
-        <Action label="Log a meal" onPress={() => navigation.navigate('LogMeal')} />
+        <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+          <Action label="Log a meal" onPress={() => navigation.navigate('LogMeal')} />
+          <Action secondary label="What should I eat?" onPress={() => navigation.navigate('Suggest')} />
+        </View>
         <View style={styles.grid}>
           {([
             ['Protein', summary.protein, goals?.proteinTarget], ['Carbs', summary.carbs, goals?.carbsTarget],
@@ -285,6 +293,7 @@ export default function DashboardScreen() {
           </View>)}
       </Card>}
       <Action secondary label={details ? 'Hide daily details' : 'More about your day'} onPress={() => setDetails(value => !value)} />
+      {isEnabled('knowledgeAcademyEnabled') && <Action secondary label="Learn — Myth vs Fact" onPress={() => navigation.navigate('Learn')} />}
       {details && <>
         <Card>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -292,7 +301,19 @@ export default function DashboardScreen() {
             {energy.bmr != null && <IconBtn name={energyInfo ? 'information-circle' : 'information-circle-outline'}
               label={energyInfo ? 'Hide calculation' : 'How calculated?'} onPress={() => setEnergyInfo(v => !v)} />}
           </View>
-          {energy.bmr == null
+          {energyApi ? <>
+            <Copy>{summary.calories == null ? 'No food logged yet.' : `Logged so far: ${Math.round(summary.calories)} kcal`}{energyApi.target.intakeKcal ? ` · target ${energyApi.target.intakeKcal} kcal` : ''}</Copy>
+            <Copy>
+              Calories out so far: {energyApi.expenditure.soFarKcal != null ? `${energyApi.expenditure.soFarKcal} kcal` : '—'}
+              {energyApi.day.isToday && energyApi.expenditure.projectedDayKcal != null ? ` · ~${energyApi.expenditure.projectedDayKcal} projected today` : ''}
+            </Copy>
+            <Copy size="caption" tone="muted">
+              Resting {energyApi.resting.soFarKcal ?? '—'} kcal ({sourceLabel(energyApi.resting.source)}) · Active {energyApi.active.soFarKcal ?? '—'} kcal ({sourceLabel(energyApi.active.source)})
+            </Copy>
+            {energyApi.balance.provisionalKcal != null && <Copy size="caption" tone="muted">Provisional balance {energyApi.balance.provisionalKcal > 0 ? '+' : ''}{energyApi.balance.provisionalKcal} kcal — logged intake vs expended so far, not a confirmed deficit.</Copy>}
+            {energyApi.sync.stale && <Copy size="caption" tone="danger">Wearable sync is stale — figures may lag.</Copy>}
+            {energyInfo && <Copy size="caption" tone="muted">{energyApi.explanation}</Copy>}
+          </> : energy.bmr == null
             ? <Copy tone="muted">Complete your profile to estimate resting energy use.</Copy>
             : <>
               <Copy>{summary.calories == null ? 'No food logged yet.' : `Logged so far: ${Math.round(summary.calories)} kcal`}</Copy>
@@ -331,6 +352,14 @@ export default function DashboardScreen() {
       <Action secondary label="Don't show again" onPress={() => { void dismissReminderNudge(); setReminderNudgeOpen(false); }} />
     </Sheet>
   </View>;
+}
+function sourceLabel(source: string | null): string {
+  if (!source) return 'unavailable';
+  if (source.startsWith('wearable:')) {
+    const p = source.slice(9);
+    return p === 'healthkit' ? 'Apple Health' : p === 'health_connect' ? 'Health Connect' : p === 'fitbit' ? 'Fitbit' : p;
+  }
+  return 'estimated';
 }
 function IconBtn({ name, label, onPress }: { name: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }) {
   const { colors } = useTheme();
