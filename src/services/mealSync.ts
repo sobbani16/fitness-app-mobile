@@ -2,8 +2,14 @@ import { accountStorage as AsyncStorage } from '../storage/accountStorage';
 import { api } from '../api/client';
 import { accountKey, getSession } from '../storage/session';
 import { LoggedMeal, todayKey } from '../storage/meals';
+import { classifyFailure, FailureCategory } from './apiDiagnostics';
 
-type Operation = { id: string; meal?: LoggedMeal };
+export interface MealSyncFailure { category: FailureCategory; status: number | null; message: string; at: string }
+type Operation = { id: string; meal?: LoggedMeal; attempts?: number; failure?: MealSyncFailure };
+export interface MealSyncIssue { id: string; name: string | null; message: string; status: number | null }
+export class MealSyncError extends Error {
+  constructor(message: string, readonly category: FailureCategory, readonly status: number | null) { super(message); this.name = 'MealSyncError'; }
+}
 let serial: Promise<unknown> = Promise.resolve();
 function locked<T>(fn: () => Promise<T>): Promise<T> {
   const next = serial.then(fn, fn);
@@ -13,24 +19,28 @@ function locked<T>(fn: () => Promise<T>): Promise<T> {
 function assertAccount(userId: string | undefined) {
   if (!userId || getSession()?.user.id !== userId) throw new Error('Account changed. Sync paused.');
 }
+const readOps = async (key: string): Promise<Operation[]> => JSON.parse(await AsyncStorage.getItem(key) || '[]');
 async function queueAt(key: string, meal: LoggedMeal | string) {
-  const ops: Operation[] = JSON.parse(await AsyncStorage.getItem(key) || '[]');
+  const ops = await readOps(key);
+  // A new edit replaces any earlier attempt, clearing its failure so it is retried.
   const op = typeof meal === 'string' ? { id: meal } : { id: meal.id, meal };
   await AsyncStorage.setItem(key, JSON.stringify([...ops.filter(x => x.id !== op.id), op]));
 }
-// Transient failures (network drop, 5xx) halt the flush so ops retry later in
-// order. Permanent rejections (4xx validation/conflict) drop the offending op
-// so one bad record cannot block unrelated writes forever.
-function isPermanent(err: any): boolean {
-  const s = err?.response?.status;
-  return typeof s === 'number' && s >= 400 && s < 500 && s !== 408 && s !== 429;
+// Only a request-specific rejection is item-level. 404/403/401/5xx/network
+// describe the service or session, so later items would fail the same way.
+const itemLevel = (status: number | null) => status === 400 || status === 409 || status === 422;
+function failureMessage(error: any, status: number | null): string {
+  const server = error?.response?.data?.error;
+  const detail = typeof server === 'string' ? server.slice(0, 160) : 'The server rejected this entry.';
+  if (status === 409) return 'This entry conflicts with an existing record. Edit and save it again to retry.';
+  return `${detail} Edit the meal and save it again to retry.`;
 }
 async function flushAt(key: string, userId: string | undefined) {
-  let ops: Operation[] = JSON.parse(await AsyncStorage.getItem(key) || '[]');
-  const dropped: string[] = [];
-  while (ops.length) {
+  let ops = await readOps(key);
+  for (const op of [...ops]) {
     assertAccount(userId);
-    const op = ops[0], m = op.meal;
+    if (op.failure && itemLevel(op.failure.status)) continue; // waits for the user's correction
+    const m = op.meal;
     try {
       if (m) await api.post('/food-logs', {
         nutritionProfileId: m.nutritionSnapshot?.nutritionProfileId,
@@ -40,19 +50,35 @@ async function flushAt(key: string, userId: string | undefined) {
         fiberG: m.macros.fiber_g ?? null, mealType: m.mealType || 'meal', loggedAt: m.createdAt,
       });
       else await api.delete(`/food-logs/${encodeURIComponent(op.id)}`);
-    } catch (e) {
-      if (!isPermanent(e)) {
-        if (dropped.length) await AsyncStorage.setItem(key, JSON.stringify(ops));
-        const retry = new Error('Sync temporarily unavailable. Will retry.');
-        (retry as any).dropped = dropped;
-        throw retry;
-      }
-      dropped.push(op.id); // poisoned record — discard, keep the queue moving
+      ops = ops.filter(x => x !== op);
+      await AsyncStorage.setItem(key, JSON.stringify(ops));
+    } catch (error: any) {
+      assertAccount(userId);
+      const status: number | null = error?.response?.status ?? null;
+      const category = classifyFailure(error);
+      const failure = { category, status, message: failureMessage(error, status), at: new Date().toISOString() };
+      ops = ops.map(x => (x === op ? { ...x, attempts: (x.attempts || 0) + 1, failure } : x));
+      await AsyncStorage.setItem(key, JSON.stringify(ops));
+      if (!itemLevel(status)) throw new MealSyncError(error?.message || 'Meal sync failed', category, status);
     }
-    ops = ops.slice(1);
-    await AsyncStorage.setItem(key, JSON.stringify(ops));
   }
-  if (dropped.length) console.warn(`[mealSync] dropped ${dropped.length} permanently rejected op(s)`, dropped);
+  return ops.filter(op => op.failure && itemLevel(op.failure.status));
+}
+const toIssues = (ops: Operation[]): MealSyncIssue[] => ops.map(op => ({ id: op.id, name: op.meal?.name ?? null, message: op.failure!.message, status: op.failure!.status }));
+/** Entries the server rejected; kept on the device until corrected. */
+export async function getMealSyncIssues(): Promise<MealSyncIssue[]> {
+  const ops = await readOps(accountKey('fitness.mealOutbox.v1'));
+  return toIssues(ops.filter(op => op.failure && itemLevel(op.failure.status)));
+}
+/** Clears rejection markers so the next flush retries them as-is. */
+export function retryRejectedMeals() {
+  const key = accountKey('fitness.mealOutbox.v1'), userId = getSession()?.user.id;
+  return locked(async () => {
+    assertAccount(userId);
+    const ops = await readOps(key);
+    await AsyncStorage.setItem(key, JSON.stringify(ops.map(({ failure, ...op }) => op)));
+    return toIssues(await flushAt(key, userId));
+  });
 }
 export function queueMeal(meal: LoggedMeal | string) {
   const key = accountKey('fitness.mealOutbox.v1');
@@ -60,7 +86,7 @@ export function queueMeal(meal: LoggedMeal | string) {
 }
 export function flushMeals() {
   const key = accountKey('fitness.mealOutbox.v1'), userId = getSession()?.user.id;
-  return locked(() => flushAt(key, userId));
+  return locked(async () => toIssues(await flushAt(key, userId)));
 }
 
 // Serialize local mutations with reconciliation so a network refresh cannot
@@ -101,6 +127,8 @@ export function reconcileMealDays(dates: Date[]): Promise<LoggedMeal[][]> {
   return locked(async () => {
     assertAccount(userId);
     await flushAt(outboxKey, userId);
+    // Anything still in the outbox (e.g. rejected entries) stays as the user saved it.
+    const pending = new Map((await readOps(outboxKey)).map(op => [op.id, op]));
     // The API uses UTC days; fetch every UTC day touched by this local day,
     // then filter by local bounds (including DST days).
     const utcDays = new Set<string>();
@@ -139,6 +167,11 @@ export function reconcileMealDays(dates: Date[]): Promise<LoggedMeal[][]> {
       }
       // Retain device-only legacy rows until the owner explicitly edits or deletes them.
       for (const meal of cached) if (meal.source === 'legacy-local' && !records.has(meal.id)) records.set(meal.id, meal);
+      for (const [id, op] of pending) {
+        if (!op.meal) { records.delete(id); continue; }
+        const local = cached.find(m => m.id === id);
+        if (local) records.set(id, local);
+      }
       const next = [...records.values()].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
       assertAccount(userId);
       await AsyncStorage.setItem(cacheKey, JSON.stringify(next));

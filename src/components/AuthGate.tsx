@@ -4,7 +4,7 @@ import { ActivityIndicator, AppState, View, Text, TextInput, Button, StyleSheet,
 import { api } from '../api/client';
 import { getSession, loadSession, saveSession, subscribeSession, Session } from '../storage/session';
 
-import { purgeAccountCache } from '../storage/accountStorage';
+import { purgeAccountCache, UNSYNCED_KEYS } from '../storage/accountStorage';
 import LegacyMigrationGate from './LegacyMigrationGate';
 import AccountPrivacy from './AccountPrivacy';
 import { clearTemporaryExports, resumeAccountCleanup } from '../services/accountLifecycle';
@@ -31,7 +31,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       if (!data.user.emailVerifiedAt) setMessage('Your email is not verified yet. Open the email link, then check again.');
     } catch (e: any) {
       if (getSession()?.token !== current.token) return;
-      if (e.response?.status === 401) { await purgeAccountCache(current.user.id); await saveSession(null); }
+      if (e.response?.status === 401) { await purgeAccountCache(current.user.id, UNSYNCED_KEYS); await saveSession(null); }
       else throw e;
     }
   }

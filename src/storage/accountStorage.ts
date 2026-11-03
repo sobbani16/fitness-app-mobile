@@ -17,12 +17,15 @@ export const accountStorage = {
     });
   },
 };
-export async function purgeAccountCache(userId: string) {
+// Session expiry is not sign-out: unsent entries survive until the same account signs in again.
+export const UNSYNCED_KEYS = ['fitness.mealOutbox.v1'];
+/** `keep` lists account key suffixes to retain (e.g. unsynced meals on session expiry). */
+export async function purgeAccountCache(userId: string, keep: string[] = []) {
   blockAccountWrites(userId);
   await serialize(async () => {
     const allKeys = await AsyncStorage.getAllKeys();
     const ownsLegacy = await AsyncStorage.getItem(LEGACY_DEVICE_KEY) === userId;
-    const keys = allKeys.filter(key => key.startsWith(`${userId}:`) || (ownsLegacy && (LEGACY_DATA_KEY.test(key) || key === LEGACY_DEVICE_KEY)));
+    const keys = allKeys.filter(key => (key.startsWith(`${userId}:`) && !keep.includes(key.slice(userId.length + 1))) || (ownsLegacy && (LEGACY_DATA_KEY.test(key) || key === LEGACY_DEVICE_KEY)));
     if (keys.length) {
       const entries = await AsyncStorage.multiGet(allKeys);
       const { removeOwnedPhotoCopies } = require('./accountMedia') as typeof import('./accountMedia');

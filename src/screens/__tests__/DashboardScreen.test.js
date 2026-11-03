@@ -4,10 +4,11 @@ jest.mock('@react-native-async-storage/async-storage', () => require('@react-nat
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ bottom: 0 }) }));
 const mockNavigate = jest.fn();
 jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: mockNavigate }), useRoute: () => ({ params: {} }), useFocusEffect: callback => require('react').useEffect(callback, [callback]) }));
-const mockDiary = { meals: [], loading: false, refresh: jest.fn(), syncAll: jest.fn(), syncError: null };
+const mockDiary = { meals: [], loading: false, refresh: jest.fn(), syncAll: jest.fn(), syncError: null, syncIssues: [], retryRejected: jest.fn() };
 jest.mock('../../context/MealsContext', () => ({ useMeals: () => mockDiary }));
 jest.mock('../../context/ProfileContext', () => ({ useProfile: () => ({ profile: { name: 'Sam', units: 'metric', weightKg: 70, sex: 'female', age: 30, heightCm: 165, activityLevel: 'moderate', goal: 'maintain' } }) }));
 jest.mock('../../storage/progressPrefs', () => ({ loadProgressPrefs: jest.fn(async () => ({ calendarView: 'overall', workoutDays: [new Date().getDay()], restDays: [] })), saveProgressPrefs: jest.fn() }));
+jest.mock('../../api/energy', () => ({ getEnergySummary: jest.fn(async () => { throw new Error('offline'); }) }));
 jest.mock('../../api/healthData', () => ({ getEnergyRecords: jest.fn(async () => ({ records: [] })) }));
 const mockDaily = { stats: { waterMl: 500 }, loading: false, addWater: jest.fn(), refresh: jest.fn(), retryWaterSync: jest.fn(), waterSyncError: null };
 jest.mock('../../hooks/useDailyStats', () => ({ useDailyStats: () => mockDaily }));
@@ -39,13 +40,15 @@ it('keeps cached meals and logging available when targets fail, without claiming
   mockDiary.syncError = 'pending';
   await act(async () => { tree = create(<Screen />); });
   expect(output()).toContain('Saved lunch');
-  expect(output()).toContain('Targets couldn’t load');
+  expect(output()).toMatch(/Couldn’t refresh [^.]*targets/);
+  expect(output().match(/Couldn’t refresh/g)).toHaveLength(1);
   expect(output()).toContain('Incomplete data');
   expect(output()).not.toMatch(/need to burn|only eaten|under target/);
   await act(async () => press('Log a meal'));
   expect(mockNavigate).toHaveBeenCalledWith('LogMeal');
   getMacroGoals.mockResolvedValue({ caloriesTarget: 2200 });
-  await act(async () => press('Retry targets'));
+  mockDiary.syncError = null;
+  await act(async () => press('Retry'));
   expect(output()).toContain('2,200');
 });
 it('connects steps automatically on load without refetching targets', async () => {
