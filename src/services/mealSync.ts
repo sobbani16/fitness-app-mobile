@@ -18,22 +18,41 @@ async function queueAt(key: string, meal: LoggedMeal | string) {
   const op = typeof meal === 'string' ? { id: meal } : { id: meal.id, meal };
   await AsyncStorage.setItem(key, JSON.stringify([...ops.filter(x => x.id !== op.id), op]));
 }
+// Transient failures (network drop, 5xx) halt the flush so ops retry later in
+// order. Permanent rejections (4xx validation/conflict) drop the offending op
+// so one bad record cannot block unrelated writes forever.
+function isPermanent(err: any): boolean {
+  const s = err?.response?.status;
+  return typeof s === 'number' && s >= 400 && s < 500 && s !== 408 && s !== 429;
+}
 async function flushAt(key: string, userId: string | undefined) {
   let ops: Operation[] = JSON.parse(await AsyncStorage.getItem(key) || '[]');
+  const dropped: string[] = [];
   while (ops.length) {
     assertAccount(userId);
     const op = ops[0], m = op.meal;
-    if (m) await api.post('/food-logs', {
-      nutritionProfileId: m.nutritionSnapshot?.nutritionProfileId,
-      catalogRevision: m.nutritionSnapshot?.revision, ingredientId: m.ingredientId, selectedServing: m.selectedServing,
-      id: m.id, foodName: m.name, quantityG: m.quantityG || 0, calories: m.calories,
-      proteinG: m.macros.protein_g, carbsG: m.macros.carbs_g, fatG: m.macros.fat_g,
-      fiberG: m.macros.fiber_g ?? null, mealType: m.mealType || 'meal', loggedAt: m.createdAt,
-    });
-    else await api.delete(`/food-logs/${encodeURIComponent(op.id)}`);
+    try {
+      if (m) await api.post('/food-logs', {
+        nutritionProfileId: m.nutritionSnapshot?.nutritionProfileId,
+        catalogRevision: m.nutritionSnapshot?.revision, ingredientId: m.ingredientId, selectedServing: m.selectedServing,
+        id: m.id, foodName: m.name, quantityG: m.quantityG || 0, calories: m.calories,
+        proteinG: m.macros.protein_g, carbsG: m.macros.carbs_g, fatG: m.macros.fat_g,
+        fiberG: m.macros.fiber_g ?? null, mealType: m.mealType || 'meal', loggedAt: m.createdAt,
+      });
+      else await api.delete(`/food-logs/${encodeURIComponent(op.id)}`);
+    } catch (e) {
+      if (!isPermanent(e)) {
+        if (dropped.length) await AsyncStorage.setItem(key, JSON.stringify(ops));
+        const retry = new Error('Sync temporarily unavailable. Will retry.');
+        (retry as any).dropped = dropped;
+        throw retry;
+      }
+      dropped.push(op.id); // poisoned record — discard, keep the queue moving
+    }
     ops = ops.slice(1);
     await AsyncStorage.setItem(key, JSON.stringify(ops));
   }
+  if (dropped.length) console.warn(`[mealSync] dropped ${dropped.length} permanently rejected op(s)`, dropped);
 }
 export function queueMeal(meal: LoggedMeal | string) {
   const key = accountKey('fitness.mealOutbox.v1');
