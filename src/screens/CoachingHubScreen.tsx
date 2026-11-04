@@ -54,6 +54,13 @@ const SECTIONS: Section[] = [
     navigate: (nav) => nav.navigate('Main', { screen: 'Clients' }),
   },
   {
+    key: 'trainerCopilotEnabled',
+    icon: '🧭',
+    title: 'Copilot',
+    subtitle: 'Draft suggestions from shared client data — you confirm',
+    navigate: (nav) => nav.navigate('Copilot'),
+  },
+  {
     key: 'groupMessagingEnabled',
     icon: '👥',
     title: 'Groups',

@@ -55,6 +55,9 @@ import ReminderInboxScreen from '../screens/ReminderInboxScreen';
 import VideoSearchScreen from '../screens/VideoSearchScreen';
 import VideoCompareScreen from '../screens/VideoCompareScreen';
 import ConnectedHealthScreen from '../screens/ConnectedHealthScreen';
+import WeeklyReviewScreen from '../screens/WeeklyReviewScreen';
+import UnifiedProgressScreen from '../screens/UnifiedProgressScreen';
+import CopilotScreen from '../screens/CopilotScreen';
 import { LoggedMeal } from '../storage/meals';
 import ChatScreen from '../screens/ChatScreen';
 import FeedbackScreen from '../screens/FeedbackScreen';
@@ -109,6 +112,9 @@ export type RootStackParamList = {
   ReminderInbox: undefined;
   VideoSearch: { query?: string; context?: 'exercise' | 'recipe' | 'nutrition' | 'education' | 'general'; exerciseKey?: string };
   ConnectedHealth: undefined;
+  WeeklyReview: undefined;
+  UnifiedProgress: undefined;
+  Copilot: undefined;
   WorkoutPlan: undefined;
   MuscleExplorer: { selectMuscle?: string };
   VideoCompare: { videos: [import('../api/videos').VideoResult, import('../api/videos').VideoResult]; exerciseKey?: string };
@@ -154,6 +160,9 @@ const GatedGroupChat = gateScreen('groupMessagingEnabled', GroupChatScreen, 'Gro
 const GatedDocuments = gateScreen('trainerDocumentsEnabled', DocumentsScreen, 'Documents');
 const GatedVideoSessions = gateScreen('videoSessionsEnabled', VideoSessionsScreen, 'Video sessions');
 const GatedLearn = gateScreen('knowledgeAcademyEnabled', LearnScreen, 'Learn');
+const GatedWeeklyReview = gateScreen('weeklyHealthReviewEnabled', WeeklyReviewScreen, 'Weekly review');
+const GatedUnifiedProgress = gateScreen('leoProgressEnabled', UnifiedProgressScreen, 'Progress');
+const GatedCopilot = gateScreen('trainerCopilotEnabled', CopilotScreen, 'Copilot');
 const GatedLearnArticle = gateScreen('knowledgeAcademyEnabled', LearnArticleScreen, 'Article');
 
 export default function RootNavigator() {
@@ -238,6 +247,9 @@ export default function RootNavigator() {
           <Stack.Screen name="TrainerPlanEditor" component={GatedTrainerPlanEditor} options={{ headerShown: true, title: 'Plan editor' }} />
           <Stack.Screen name="ClientPlans" component={GatedClientPlans} options={{ headerShown: true, title: 'My plans' }} />
           <Stack.Screen name="ClientPlanDetail" component={GatedClientPlanDetail} options={{ headerShown: true, title: 'Plan details' }} />
+          <Stack.Screen name="WeeklyReview" component={GatedWeeklyReview} options={{ headerShown: true, title: 'Weekly review' }} />
+          <Stack.Screen name="UnifiedProgress" component={GatedUnifiedProgress} options={{ headerShown: true, title: 'Progress' }} />
+          <Stack.Screen name="Copilot" component={GatedCopilot} options={{ headerShown: true, title: 'Copilot' }} />
           <Stack.Screen name="TrainerNutrition" component={GatedTrainerNutrition} options={{ headerShown: true, title: 'Nutrition guidance' }} />
           <Stack.Screen name="ClientGuidance" component={GatedClientGuidance} options={{ headerShown: true, title: 'Nutrition guidance' }} />
           <Stack.Screen name="Conversations" component={GatedConversations} options={{ headerShown: true, title: 'Messages' }} />

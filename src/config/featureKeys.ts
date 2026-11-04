@@ -43,7 +43,14 @@ export type FeatureKey =
   | 'callRecordingEnabled'
   | 'knowledgeAcademyEnabled'
   | 'healthPriorities'
-  | 'actionLoop';
+  | 'actionLoop'
+  | 'coachingIntakeEnabled'
+  | 'sharedOutcomePlansEnabled'
+  | 'trainerCopilotEnabled'
+  | 'trainerFormFeedbackEnabled'
+  | 'trainerPartnershipEnabled'
+  | 'weeklyHealthReviewEnabled'
+  | 'leoProgressEnabled';
 
 export type FeatureMap = Partial<Record<FeatureKey, boolean>>;
 
@@ -87,6 +94,13 @@ export const DEFAULT_FLAGS: Record<FeatureKey, boolean> = {
   knowledgeAcademyEnabled: false,
   healthPriorities: false,
   actionLoop: true,
+  coachingIntakeEnabled: false,
+  sharedOutcomePlansEnabled: false,
+  trainerCopilotEnabled: false,
+  trainerFormFeedbackEnabled: false,
+  trainerPartnershipEnabled: false,
+  weeklyHealthReviewEnabled: false,
+  leoProgressEnabled: false,
 };
 
 // Build-time gate applied ON TOP of the remote flag. A TestFlight/store build
