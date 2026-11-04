@@ -61,6 +61,13 @@ const SECTIONS: Section[] = [
     navigate: (nav) => nav.navigate('Copilot'),
   },
   {
+    key: 'trainerFormFeedbackEnabled',
+    icon: '🎬',
+    title: 'Form checks',
+    subtitle: 'Request clips and leave timestamped feedback',
+    navigate: (nav) => nav.navigate('FormChecks'),
+  },
+  {
     key: 'groupMessagingEnabled',
     icon: '👥',
     title: 'Groups',

@@ -58,6 +58,10 @@ import ConnectedHealthScreen from '../screens/ConnectedHealthScreen';
 import WeeklyReviewScreen from '../screens/WeeklyReviewScreen';
 import UnifiedProgressScreen from '../screens/UnifiedProgressScreen';
 import CopilotScreen from '../screens/CopilotScreen';
+import IntakeScreen from '../screens/IntakeScreen';
+import OutcomePlanScreen from '../screens/OutcomePlanScreen';
+import FormChecksScreen from '../screens/FormChecksScreen';
+import CoachingPreferenceScreen from '../screens/CoachingPreferenceScreen';
 import { LoggedMeal } from '../storage/meals';
 import ChatScreen from '../screens/ChatScreen';
 import FeedbackScreen from '../screens/FeedbackScreen';
@@ -115,6 +119,10 @@ export type RootStackParamList = {
   WeeklyReview: undefined;
   UnifiedProgress: undefined;
   Copilot: undefined;
+  Intake: undefined;
+  OutcomePlan: undefined;
+  FormChecks: undefined;
+  CoachingPreference: undefined;
   WorkoutPlan: undefined;
   MuscleExplorer: { selectMuscle?: string };
   VideoCompare: { videos: [import('../api/videos').VideoResult, import('../api/videos').VideoResult]; exerciseKey?: string };
@@ -163,6 +171,10 @@ const GatedLearn = gateScreen('knowledgeAcademyEnabled', LearnScreen, 'Learn');
 const GatedWeeklyReview = gateScreen('weeklyHealthReviewEnabled', WeeklyReviewScreen, 'Weekly review');
 const GatedUnifiedProgress = gateScreen('leoProgressEnabled', UnifiedProgressScreen, 'Progress');
 const GatedCopilot = gateScreen('trainerCopilotEnabled', CopilotScreen, 'Copilot');
+const GatedIntake = gateScreen('coachingIntakeEnabled', IntakeScreen, 'Baseline intake');
+const GatedOutcomePlan = gateScreen('sharedOutcomePlansEnabled', OutcomePlanScreen, 'Shared plan');
+const GatedFormChecks = gateScreen('trainerFormFeedbackEnabled', FormChecksScreen, 'Form checks');
+const GatedCoachingPreference = gateScreen('trainerPartnershipEnabled', CoachingPreferenceScreen, 'Coaching mode');
 const GatedLearnArticle = gateScreen('knowledgeAcademyEnabled', LearnArticleScreen, 'Article');
 
 export default function RootNavigator() {
@@ -250,6 +262,10 @@ export default function RootNavigator() {
           <Stack.Screen name="WeeklyReview" component={GatedWeeklyReview} options={{ headerShown: true, title: 'Weekly review' }} />
           <Stack.Screen name="UnifiedProgress" component={GatedUnifiedProgress} options={{ headerShown: true, title: 'Progress' }} />
           <Stack.Screen name="Copilot" component={GatedCopilot} options={{ headerShown: true, title: 'Copilot' }} />
+          <Stack.Screen name="Intake" component={GatedIntake} options={{ headerShown: true, title: 'Baseline intake' }} />
+          <Stack.Screen name="OutcomePlan" component={GatedOutcomePlan} options={{ headerShown: true, title: 'Shared plan' }} />
+          <Stack.Screen name="FormChecks" component={GatedFormChecks} options={{ headerShown: true, title: 'Form checks' }} />
+          <Stack.Screen name="CoachingPreference" component={GatedCoachingPreference} options={{ headerShown: true, title: 'Coaching mode' }} />
           <Stack.Screen name="TrainerNutrition" component={GatedTrainerNutrition} options={{ headerShown: true, title: 'Nutrition guidance' }} />
           <Stack.Screen name="ClientGuidance" component={GatedClientGuidance} options={{ headerShown: true, title: 'Nutrition guidance' }} />
           <Stack.Screen name="Conversations" component={GatedConversations} options={{ headerShown: true, title: 'Messages' }} />
