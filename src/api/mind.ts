@@ -10,6 +10,8 @@ export type EmotionalCheckIn = {
 export type MindPreferences = {
   moduleEnabled: boolean; remindersEnabled: boolean;
   aiJournalConsent: boolean; checkinSharingConsent: boolean;
+  reminderTimeLocal?: string | null; reminderTimeZone?: string | null;
+  reminderPaused?: boolean; quietHoursStart?: string | null; quietHoursEnd?: string | null;
 };
 export type Track = { key: string; title: string; description: string; lessonCount: number; lessons: { key: string; title: string }[] };
 export type TrackDetail = { key: string; title: string; description: string; attribution: string; lessons: { key: string; title: string; body: string; exercise: string; completed: boolean }[] };
@@ -17,6 +19,7 @@ export type GuidedExercise = { key: string; trackKey: string; title: string; dur
 export type MindInsights = { checkinCount: number; minObservations: number; dataQuality: 'ok' | 'insufficient'; insights: { type: string; statement: string; sampleSize: number; causal: false }[]; attribution: string };
 
 export const getMindPreferences = () => api.get('/mind/preferences').then((r) => r.data.preferences as Promise<MindPreferences>);
+export const updateReminderPrefs = (patch: Partial<MindPreferences>) => api.put('/mind/reminders', patch).then((r) => r.data.preferences as Promise<MindPreferences>);
 export const updateMindPreferences = (patch: Partial<MindPreferences>) => api.put('/mind/preferences', patch).then((r) => r.data.preferences as Promise<MindPreferences>);
 export const createCheckIn = (body: Partial<EmotionalCheckIn>) => api.post('/mind/check-ins', body).then((r) => r.data.checkin as Promise<EmotionalCheckIn>);
 export const listCheckIns = (days = 30) => api.get('/mind/check-ins', { params: { days } }).then((r) => r.data.checkins as Promise<EmotionalCheckIn[]>);

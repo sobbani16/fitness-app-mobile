@@ -1,12 +1,12 @@
 import React, { useCallback, useState } from 'react';
-import { ScrollView, View, TextInput, Alert } from 'react-native';
+import { ScrollView, TextInput, View, Alert } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Action, Card, Copy, ListRow, Notice, Skeleton } from '../design/components';
 import { useTheme } from '../design/theme';
 import { useFeatureFlags } from '../context/FeatureFlagsContext';
 import {
   listCheckIns, createCheckIn, listTracks, listExercises, getMindInsights,
-  getMindPreferences, updateMindPreferences,
+  getMindPreferences, updateMindPreferences, updateReminderPrefs,
   EmotionalCheckIn, Mood, Track, GuidedExercise, MindInsights, MindPreferences,
 } from '../api/mind';
 
@@ -21,6 +21,7 @@ export default function MindHomeScreen() {
   const navigation = useNavigation<any>();
   const { isEnabled } = useFeatureFlags();
   const [loading, setLoading] = useState(true);
+  const [reminderTime, setReminderTime] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [checkins, setCheckins] = useState<EmotionalCheckIn[]>([]);
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -147,7 +148,13 @@ export default function MindHomeScreen() {
       {prefs && (
         <Card>
           <Copy style={{ fontWeight: '600' }}>Privacy</Copy>
-          <ListRow title="Reminders" subtitle={prefs.remindersEnabled ? 'On' : 'Off'} onPress={async () => setPrefs(await updateMindPreferences({ remindersEnabled: !prefs.remindersEnabled }))} />
+          <ListRow title="Reminders" subtitle={prefs.remindersEnabled ? (prefs.reminderPaused ? 'Paused' : `On${prefs.reminderTimeLocal ? ` · ${prefs.reminderTimeLocal}` : ''}`) : 'Off'} onPress={async () => setPrefs(await updateReminderPrefs({ remindersEnabled: !prefs.remindersEnabled, reminderTimeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }))} />
+          {prefs.remindersEnabled && (
+            <>
+              <TextInput value={reminderTime} onChangeText={setReminderTime} onBlur={async () => { if (/^([01]\d|2[0-3]):[0-5]\d$/.test(reminderTime)) setPrefs(await updateReminderPrefs({ reminderTimeLocal: reminderTime })); }} placeholder="Reminder time HH:MM" placeholderTextColor={colors.muted} keyboardType="numbers-and-punctuation" style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 10, color: colors.text }} />
+              <ListRow title="Pause reminders" subtitle={prefs.reminderPaused ? 'Paused' : 'Active'} onPress={async () => setPrefs(await updateReminderPrefs({ reminderPaused: !prefs.reminderPaused }))} />
+            </>
+          )}
           <ListRow title="Journal AI processing" subtitle={prefs.aiJournalConsent ? 'Consented' : 'Never without consent'} onPress={async () => setPrefs(await updateMindPreferences({ aiJournalConsent: !prefs.aiJournalConsent }))} />
           <ListRow title="Share check-ins with coach" subtitle={prefs.checkinSharingConsent ? 'Consented' : 'Private'} onPress={async () => setPrefs(await updateMindPreferences({ checkinSharingConsent: !prefs.checkinSharingConsent }))} />
         </Card>

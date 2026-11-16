@@ -5,7 +5,7 @@ import { ScrollView, View, TextInput } from 'react-native';
 import { Action, Card, Copy, ListRow, Notice } from '../design/components';
 import { useTheme } from '../design/theme';
 import { useFeatureFlags } from '../context/FeatureFlagsContext';
-import { scanResult, getAlternatives, logScannedFood, ScanResult } from '../api/foodIntel';
+import { scanResult, getAlternatives, logScannedFood, toggleFavorite, correctProduct, ScanResult } from '../api/foodIntel';
 
 const VERDICT: Record<string, { tone: 'danger' | 'primary' | 'muted' | 'text'; label: string }> = {
   conflict: { tone: 'danger', label: 'Conflicts with your restrictions' },
@@ -51,11 +51,15 @@ export default function FoodIntelligenceScreen() {
     setBusy(false);
   };
 
+  const [serving, setServing] = useState('');
+  const [fav, setFav] = useState<boolean | null>(null);
   const addToLog = async () => {
     if (!result?.product) return;
+    const g = Number(serving) || result.product.servingSizeG || 100;
+    if (!Number.isFinite(g) || g <= 0 || g > 5000) { setError('Enter a serving between 1 and 5000 g'); return; }
     setBusy(true); setError(null);
     try {
-      await logScannedFood({ productName: result.product.name, servingG: result.product.servingSizeG || 100, nutrients: result.nutrition?.values || {}, barcode: result.product.barcode });
+      await logScannedFood({ productName: result.product.name, servingG: g, nutrients: result.nutrition?.values || {}, barcode: result.product.barcode });
       setLogged(true);
     } catch (e: any) { setError(e?.response?.data?.error || 'Could not log this food'); }
     setBusy(false);
@@ -129,9 +133,24 @@ export default function FoodIntelligenceScreen() {
 
           {result.product && (
             <Card>
+              <TextInput value={serving} onChangeText={setServing} placeholder={`Serving g (default ${result.product.servingSizeG || 100})`}
+                placeholderTextColor={colors.muted} keyboardType="number-pad"
+                style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 10, color: colors.text }} />
               <Action label={logged ? 'Logged ✓' : 'Add to Food Log'} onPress={addToLog} disabled={busy || logged} />
+              <Action label={fav ? '★ Saved' : 'Save favorite'} secondary selected={!!fav} disabled={busy} onPress={async () => {
+                setBusy(true); setError(null);
+                try { const r = await toggleFavorite(result.product!.barcode); setFav(r.favorite); } catch { setError('Could not save favorite'); }
+                setBusy(false);
+              }} />
               <Action label="Find alternatives" secondary onPress={showAlternatives} disabled={busy} />
               <Action label="Ask Leo about this" secondary onPress={() => navigation.navigate('LeoHelp')} disabled={busy} />
+              {result.product.source !== 'catalog' && (
+                <Action label="Fix wrong product name" secondary disabled={busy} onPress={async () => {
+                  setBusy(true); setError(null);
+                  try { await correctProduct(result.product!.barcode, { field: 'name', value: `${result.product!.name} (verified)` }); setResult({ ...result, product: { ...result.product!, name: `${result.product!.name} (verified)` } }); } catch (e: any) { setError(e?.response?.data?.error || 'Correction failed'); }
+                  setBusy(false);
+                }} />
+              )}
             </Card>
           )}
           {alts && (
