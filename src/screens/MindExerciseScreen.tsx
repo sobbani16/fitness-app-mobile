@@ -34,7 +34,7 @@ export default function MindExerciseScreen() {
         {exercise.steps.map((s, i) => <Copy key={i}>{i + 1}. {s}</Copy>)}
       </Card>
       {done ? (
-        <Notice tone='primary'>Done — nice work.</Notice>
+        <Copy size="caption" tone="primary">Done — nice work.</Copy>
       ) : (
         <Card>
           <TextInput value={reflection} onChangeText={setReflection} placeholder="One-line reflection (optional)"

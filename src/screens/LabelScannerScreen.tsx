@@ -181,7 +181,7 @@ export default function LabelScannerScreen() {
       <Action label="Extract nutrition for review" disabled={busy || !(((saved.nutrition || []).some(i => i.text.trim())) || (panel === 'nutrition' && text.trim()))} onPress={() => { void extract(); }} />
       <Action secondary label={`Save ${panel} photo & add another`} disabled={busy || (saved[panel]?.length || 0) >= 4} onPress={() => commitDraft()} />
       <Action secondary label="Retake label" disabled={busy} onPress={() => { generation.current++; setPhoto(null); setText(''); setManual(false); setError(''); }} />
-      {foodIntelEnabled && join('ingredients').trim() ? <Action secondary label="Check ingredient evidence & suitability" onPress={() => navigation.navigate('FoodIntelligence', { ingredientText: join('ingredients').replace(/^ingredients\s*:\s*/gim, '') })} /> : null}
+      {foodIntelEnabled && (saved['ingredients'] || []).some(i => i.text?.trim()) ? <Action secondary label="Check ingredient evidence & suitability" onPress={() => navigation.navigate('FoodIntelligence', { ingredientText: (saved['ingredients'] || []).map(i => i.text).filter(Boolean).join('\n').replace(/^ingredients\s*:\s*/gim, '') })} /> : null}
     </Card> : permission?.granted ? <>
       {focused && <CameraView ref={camera} facing="back" style={{ height: 300, borderRadius: 20 }} />}
       <Action label="Capture nutrition label" disabled={busy} onPress={() => { void capture(); }} />

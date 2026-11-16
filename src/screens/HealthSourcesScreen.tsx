@@ -74,7 +74,7 @@ export default function HealthSourcesScreen() {
       )}
 
       {recovery && recovery.status === 'INSUFFICIENT_DATA' && (
-        <Notice tone='muted'>Not enough recorded data yet for recovery trends — {recovery.note}</Notice>
+        <Copy size="caption" tone="muted">Not enough recorded data yet for recovery trends — {recovery.note}</Copy>
       )}
       {recovery && recovery.status === 'OK' && recovery.trends && (
         <Card>

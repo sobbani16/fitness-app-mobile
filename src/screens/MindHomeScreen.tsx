@@ -111,7 +111,7 @@ export default function MindHomeScreen() {
         </Card>
       )}
       {insights && insights.dataQuality === 'insufficient' && checkins.length > 0 && (
-        <Notice tone='muted'>Keep checking in — patterns appear after {insights.minObservations} check-ins.</Notice>
+        <Copy size="caption" tone="muted">Keep checking in — patterns appear after {insights.minObservations} check-ins.</Copy>
       )}
 
       {tracks.length > 0 && (

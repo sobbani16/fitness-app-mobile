@@ -33,7 +33,7 @@ export default function MindTrackScreen() {
         <Card key={l.key}>
           <Copy style={{ fontWeight: '600' }}>{l.completed ? '✓ ' : ''}{l.title}</Copy>
           <Copy>{l.body}</Copy>
-          <Notice tone='muted'>Try it: {l.exercise}</Notice>
+          <Copy size="caption" tone="muted">Try it: {l.exercise}</Copy>
           {!l.completed && <Action label={busy === l.key ? 'Saving…' : 'Mark done'} onPress={() => complete(l.key)} disabled={!!busy} />}
         </Card>
       ))}

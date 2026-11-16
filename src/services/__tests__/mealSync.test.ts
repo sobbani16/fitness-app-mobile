@@ -17,6 +17,8 @@ import type { LoggedMeal } from '../../storage/meals';
 const meal = (id: string): LoggedMeal => ({
   id, name: id, calories: 100, quantityG: 100, createdAt: '2026-11-03T12:00:00Z',
   macros: { protein_g: 10, carbs_g: 10, fat_g: 5 },
+  feedback: '',
+  source: 'manual',
 });
 const OUTBOX = 'u1:fitness.mealOutbox.v1';
 const ops = async () => JSON.parse((await accountStorage.getItem(OUTBOX)) || '[]');
