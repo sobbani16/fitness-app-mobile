@@ -57,6 +57,11 @@ import VideoCompareScreen from '../screens/VideoCompareScreen';
 import ConnectedHealthScreen from '../screens/ConnectedHealthScreen';
 import WeeklyReviewScreen from '../screens/WeeklyReviewScreen';
 import UnifiedProgressScreen from '../screens/UnifiedProgressScreen';
+import MindHomeScreen from '../screens/MindHomeScreen';
+import MindTrackScreen from '../screens/MindTrackScreen';
+import MindExerciseScreen from '../screens/MindExerciseScreen';
+import FoodIntelligenceScreen from '../screens/FoodIntelligenceScreen';
+import HealthSourcesScreen from '../screens/HealthSourcesScreen';
 import CopilotScreen from '../screens/CopilotScreen';
 import IntakeScreen from '../screens/IntakeScreen';
 import OutcomePlanScreen from '../screens/OutcomePlanScreen';
@@ -118,6 +123,11 @@ export type RootStackParamList = {
   ConnectedHealth: undefined;
   WeeklyReview: undefined;
   UnifiedProgress: undefined;
+  MindHome: undefined;
+  MindTrack: { trackKey: string };
+  MindExercise: { exerciseKey: string };
+  FoodIntelligence: undefined;
+  HealthSources: undefined;
   Copilot: undefined;
   Intake: undefined;
   OutcomePlan: undefined;
@@ -133,6 +143,11 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 // Feature-gated screens: routes stay registered so mid-session flag flips and
 // deep entries render FeatureUnavailable instead of a broken navigation state.
 const GatedWeeklyPlan = gateScreen('weeklyMealPlans', WeeklyPlanScreen, 'Weekly meal plans');
+const GatedMindHome = gateScreen('mindHabitsEnabled', MindHomeScreen, 'Mind & Habits');
+const GatedMindTrack = gateScreen('mindLearningEnabled', MindTrackScreen, 'Learning');
+const GatedMindExercise = gateScreen('mindLearningEnabled', MindExerciseScreen, 'Exercise');
+const GatedFoodIntel = gateScreen('foodIntelligenceEnabled', FoodIntelligenceScreen, 'Food Intelligence');
+const GatedHealthSources = gateScreen('wearablePlatformEnabled', HealthSourcesScreen, 'Connected health');
 const GatedLeo = gateScreen('aiCoach', ChatScreen, 'Leo coach');
 const GatedLabelScanner = gateScreen('nutritionLabelScanning', LabelScannerScreen, 'Label scanning');
 const GatedMenuScan = gateScreen('menuScanning', MenuScanScreen, 'Menu scanning');
@@ -261,6 +276,11 @@ export default function RootNavigator() {
           <Stack.Screen name="ClientPlanDetail" component={GatedClientPlanDetail} options={{ headerShown: true, title: 'Plan details' }} />
           <Stack.Screen name="WeeklyReview" component={GatedWeeklyReview} options={{ headerShown: true, title: 'Weekly review' }} />
           <Stack.Screen name="UnifiedProgress" component={GatedUnifiedProgress} options={{ headerShown: true, title: 'Progress' }} />
+          <Stack.Screen name="MindHome" component={GatedMindHome} options={{ headerShown: true, title: 'Mind & Habits' }} />
+          <Stack.Screen name="MindTrack" component={GatedMindTrack} options={{ headerShown: true, title: 'Learning' }} />
+          <Stack.Screen name="MindExercise" component={GatedMindExercise} options={{ headerShown: true, title: 'Exercise' }} />
+          <Stack.Screen name="FoodIntelligence" component={GatedFoodIntel} options={{ headerShown: true, title: 'Food Intelligence' }} />
+          <Stack.Screen name="HealthSources" component={GatedHealthSources} options={{ headerShown: true, title: 'Connected health' }} />
           <Stack.Screen name="Copilot" component={GatedCopilot} options={{ headerShown: true, title: 'Copilot' }} />
           <Stack.Screen name="Intake" component={GatedIntake} options={{ headerShown: true, title: 'Baseline intake' }} />
           <Stack.Screen name="OutcomePlan" component={GatedOutcomePlan} options={{ headerShown: true, title: 'Shared plan' }} />

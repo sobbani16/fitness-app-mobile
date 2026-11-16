@@ -45,6 +45,17 @@ export type FeatureKey =
   | 'healthPriorities'
   | 'actionLoop'
   | 'coachingIntakeEnabled'
+  | 'mindHabitsEnabled'
+  | 'mindEmotionalCheckinsEnabled'
+  | 'mindLearningEnabled'
+  | 'mindBehavioralInsightsEnabled'
+  | 'foodIntelligenceEnabled'
+  | 'foodBarcodeScanningEnabled'
+  | 'ingredientEvidenceEnabled'
+  | 'wearablePlatformEnabled'
+  | 'healthDataSourcesEnabled'
+  | 'wearableRecoveryInsightsEnabled'
+  | 'humaiBandEnabled'
   | 'sharedOutcomePlansEnabled'
   | 'trainerCopilotEnabled'
   | 'trainerFormFeedbackEnabled'
@@ -95,6 +106,17 @@ export const DEFAULT_FLAGS: Record<FeatureKey, boolean> = {
   healthPriorities: false,
   actionLoop: true,
   coachingIntakeEnabled: false,
+  mindHabitsEnabled: false,
+  mindEmotionalCheckinsEnabled: false,
+  mindLearningEnabled: false,
+  mindBehavioralInsightsEnabled: false,
+  foodIntelligenceEnabled: false,
+  foodBarcodeScanningEnabled: false,
+  ingredientEvidenceEnabled: false,
+  wearablePlatformEnabled: false,
+  healthDataSourcesEnabled: false,
+  wearableRecoveryInsightsEnabled: false,
+  humaiBandEnabled: false,
   sharedOutcomePlansEnabled: false,
   trainerCopilotEnabled: false,
   trainerFormFeedbackEnabled: false,
