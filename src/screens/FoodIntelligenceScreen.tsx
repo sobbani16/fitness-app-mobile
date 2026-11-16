@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useRoute } from '@react-navigation/native';
 import { ScrollView, View, TextInput } from 'react-native';
 import { Action, Card, Copy, ListRow, Notice } from '../design/components';
 import { useTheme } from '../design/theme';
@@ -15,8 +16,9 @@ const VERDICT: Record<string, { tone: 'danger' | 'primary' | 'muted' | 'text'; l
 export default function FoodIntelligenceScreen() {
   const { colors } = useTheme();
   const { isEnabled } = useFeatureFlags();
+  const route = useRoute<any>();
   const [barcode, setBarcode] = useState('');
-  const [ingredientText, setIngredientText] = useState('');
+  const [ingredientText, setIngredientText] = useState(route.params?.ingredientText || '');
   const [result, setResult] = useState<ScanResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
