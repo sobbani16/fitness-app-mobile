@@ -114,6 +114,7 @@ export default function LeoCalendarScreen() {
       <Copy>Monthly average: {cal.summary.average ?? '—'}/day</Copy>
       <Copy>Points so far: {cal.summary.earned.toLocaleString()} / target-to-date {cal.summary.targetToDate.toLocaleString()}</Copy>
       <Copy size="caption" tone="muted">Full-month target (incl. projected): {cal.summary.monthlyTarget.toLocaleString()} · Days met target: {cal.summary.daysMetTarget} · Insufficient data: {cal.summary.gray}</Copy>
+      {!!cal.summary.lastMonth && cal.summary.lastMonth.average != null && <Copy size="caption" tone="muted">Last month avg: {cal.summary.lastMonth.average}/day{cal.summary.lastMonth.deltaAvg != null ? ` (${cal.summary.lastMonth.deltaAvg > 0 ? '+' : ''}${cal.summary.lastMonth.deltaAvg} vs this month)` : ''} · {cal.summary.lastMonth.recorded} recorded days</Copy>}
       <Copy size="caption" tone="muted">Colors reflect each day's own assigned target — progress toward your plan, not a health grade.</Copy>
     </Card>}
 

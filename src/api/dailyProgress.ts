@@ -41,7 +41,7 @@ export interface CalendarDay {
 export interface ProgressCalendar {
   month: string; timezone: string; colorPolicy: number;
   days: CalendarDay[];
-  summary: { daysInMonth: number; recorded: number; earned: number; targetToDate: number; monthlyTarget: number; average: number | null; daysMetTarget: number; gray: number };
+  summary: { daysInMonth: number; recorded: number; earned: number; targetToDate: number; monthlyTarget: number; average: number | null; daysMetTarget: number; gray: number; lastMonth?: { month: string; recorded: number; earned: number; average: number | null; daysMetTarget: number; deltaAvg: number | null } };
 }
 export const getProgressCalendar = (month?: string) =>
   api.get<{ calendar: ProgressCalendar }>('/daily-progress/calendar', { params: month ? { month } : undefined }).then(r => r.data.calendar);

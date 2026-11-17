@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFeatureFlags } from '../context/FeatureFlagsContext';
+import { accountKey } from '../storage/session';
+import { accountStorage } from '../storage/accountStorage';
 import { Action, Card, Copy, Notice, Progress, Skeleton } from '../design/components';
 import { useTheme } from '../design/theme';
 import { getTodayProgress, getProgressOpportunities, getStreak, getProgressWeek, DailyProgress, ProgressOpportunity, StreakInfo, ProgressWeek } from '../api/dailyProgress';
@@ -16,7 +19,9 @@ const DAY_LABEL = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 export default function ProgressHomeScreen() {
   const { colors } = useTheme();
   const navigation = useNavigation<any>();
+  const { isEnabled } = useFeatureFlags();
   const [seg, setSeg] = useState<Segment>('Today');
+  const [weekStale, setWeekStale] = useState('');
   const [today, setToday] = useState<DailyProgress | null>(null);
   const [opps, setOpps] = useState<ProgressOpportunity[]>([]);
   const [streak, setStreak] = useState<StreakInfo | null>(null);
@@ -30,7 +35,14 @@ export default function ProgressHomeScreen() {
     if (t.status === 'fulfilled') setToday(t.value);
     if (o.status === 'fulfilled') setOpps(o.value.top);
     if (s.status === 'fulfilled') setStreak(s.value);
-    if (w.status === 'fulfilled') setWeek(w.value);
+    if (w.status === 'fulfilled') {
+      setWeek(w.value); setWeekStale('');
+      accountStorage.setItem(accountKey('progressWeek'), JSON.stringify({ freshAt: new Date().toISOString(), week: w.value })).catch(() => {});
+    } else {
+      accountStorage.getItem(accountKey('progressWeek')).then(raw => {
+        if (raw) { const c = JSON.parse(raw); setWeek(c.week); setWeekStale(c.freshAt); }
+      }).catch(() => {});
+    }
     if (t.status === 'rejected' && w.status === 'rejected') setError('Progress could not load. Try again when connected.');
     setLoading(false);
   }, []);
@@ -85,11 +97,12 @@ export default function ProgressHomeScreen() {
         <Card>
           <Copy>Earned {week.summary.earned} / target-to-date {week.summary.targetToDate} · week target {week.summary.target}</Copy>
           <Copy size="caption" tone="muted">Average {week.summary.average ?? '—'} · {week.summary.daysMetTarget} days met target · {week.summary.recorded}/7 recorded</Copy>
+          {!!weekStale && <Copy size="caption" tone="muted">Offline — week last updated {weekStale.slice(0, 10)}</Copy>}
           <Copy size="caption" tone="muted">Last week avg {week.lastWeek.summary.average ?? '—'}{week.comparison.deltaAvg != null ? ` · ${week.comparison.deltaAvg > 0 ? '+' : ''}${week.comparison.deltaAvg}/day` : ''}. {week.comparison.note}</Copy>
         </Card>
       </>}
     </ScrollView>}
 
-    {seg === 'Month' && <LeoCalendarScreen />}
+    {seg === 'Month' && (isEnabled('leoProgressCalendarEnabled') ? <LeoCalendarScreen /> : <View style={{ padding: 16 }}><Notice title="Calendar unavailable" message="The monthly progress calendar is not enabled for this account yet." /></View>)}
   </View>;
 }
