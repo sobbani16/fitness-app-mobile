@@ -202,6 +202,18 @@ export default function RootNavigator() {
   const reducedMotion = useReducedMotionResolved();
   const { colors } = useTheme();
   const { profile, loading } = useProfile();
+  // Hooks must be unconditional — the BackHandler subscription runs even while
+  // the OS reduced-motion preference or profile is still resolving (iOS hit a
+  // "rendered more hooks" crash when this effect sat below an early return).
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (!navigationRef.isReady()) return false;
+      const state = navigationRef.getRootState();
+      return handleRootHardwareBack(navigationRef, state?.routes[state.index]?.name);
+    });
+    return () => subscription.remove();
+  }, []);
+
   // null = OS preference still resolving. Mounting the stack before it settles
   // would flip `animation` on live screens — a known wedge for native-stack
   // transitions (back button AND edge-swipe both die).
@@ -212,14 +224,6 @@ export default function RootNavigator() {
       </View>
     );
   }
-  useEffect(() => {
-    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (!navigationRef.isReady()) return false;
-      const state = navigationRef.getRootState();
-      return handleRootHardwareBack(navigationRef, state?.routes[state.index]?.name);
-    });
-    return () => subscription.remove();
-  }, []);
 
   if (loading) {
     return (
