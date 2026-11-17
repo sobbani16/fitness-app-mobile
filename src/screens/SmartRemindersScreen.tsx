@@ -191,6 +191,13 @@ export default function SmartRemindersScreen() {
       </View>
       {prefs.timezoneMode === 'FIXED_TIMEZONE' && <Copy size="caption" tone="muted">Reminders stay on {prefs.timezone || 'the saved zone'} even when you travel.</Copy>}
       {prefs.timezoneMode !== 'FIXED_TIMEZONE' && prefs.lastDetectedTimezone && prefs.lastDetectedTimezone !== prefs.timezone && <Copy size="caption" tone="muted">Time zone updated to {prefs.lastDetectedTimezone} — reminders follow this device.</Copy>}
+      <Copy size="caption" tone="muted">Mode: {(prefs.timezoneMode ?? 'FOLLOW_DEVICE') === 'FOLLOW_DEVICE' ? 'Follow device' : 'Fixed'} · Schedule v{prefs.scheduleVersion ?? 0}</Copy>
+      <Action secondary label="Check permission & next reminder" onPress={async () => {
+        const perm = await Notifications.getPermissionsAsync();
+        const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+        const next = scheduled.filter(n => String(n.identifier).startsWith('humai-reminder:')).map(n => n.trigger && 'date' in n.trigger ? new Date(Number(n.trigger.date)) : null).filter((d): d is Date => d != null).sort((a, b) => a.getTime() - b.getTime())[0];
+        setMessage(`${perm.granted ? 'Notifications allowed.' : 'Notifications are off in system settings.'}${next ? ` Next reminder: ${next.toLocaleString()}.` : ' No reminders currently scheduled.'}${!perm.granted ? ' Enable permission or reminders can only appear inside the app.' : ''}`);
+      }} />
     </Card>
 
     <Card>

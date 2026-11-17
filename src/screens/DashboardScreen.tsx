@@ -274,7 +274,7 @@ export default function DashboardScreen() {
         {cards.steps && <View style={styles.column}><StepsCard key={day} /></View>}
         <View style={styles.column}><Card>
           {isEnabled('dailyProgressEnabled') ? (
-            <Pressable accessibilityRole="button" onPress={() => navigation.navigate('HealthScoreDetail')}
+            <Pressable accessibilityRole="button" onPress={() => navigation.navigate('DailyProgressDetail')}
               accessibilityLabel={progress == null ? 'Daily progress: not loaded yet. View details.' : `Daily progress ${Math.round(progress.earned)} of 100. ${progress.nextAction ? `Next: ${progress.nextAction.note || progress.nextAction.component}` : ''} View details.`}
               style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, opacity: pressed ? 0.7 : 1 })}>
               <ScoreRing score={progress?.earned ?? null} size={64} />

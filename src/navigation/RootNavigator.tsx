@@ -12,6 +12,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import HealthScoreDetailScreen from '../screens/HealthScoreDetailScreen';
+import DailyProgressScreen from '../screens/DailyProgressScreen';
 import WeeklyPlanScreen from '../screens/WeeklyPlanScreen';
 import TrainerListScreen from '../screens/TrainerListScreen';
 import TrainerDetailScreen from '../screens/TrainerDetailScreen';
@@ -82,6 +83,7 @@ export type RootStackParamList = {
   FoodEntry: { mode: 'search' | 'manual' | 'photo' | 'recipes' | 'repeat'; meal?: LoggedMeal };
   EditProfile: undefined;
   HealthScoreDetail: undefined;
+  DailyProgressDetail: undefined;
   WeeklyPlan: undefined;
   TrainerList: undefined;
   TrainerDetail: { trainerId: string };
@@ -250,6 +252,11 @@ export default function RootNavigator() {
             name="HealthScoreDetail"
             component={HealthScoreDetailScreen}
             options={{ headerShown: true, title: 'Health Score' }}
+          />
+          <Stack.Screen
+            name="DailyProgressDetail"
+            component={DailyProgressScreen}
+            options={{ headerShown: true, title: "Today's progress" }}
           />
           <Stack.Screen
             name="WeeklyPlan"

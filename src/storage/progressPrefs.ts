@@ -31,4 +31,10 @@ export async function loadProgressPrefs(): Promise<ProgressPrefs> {
 
 export async function saveProgressPrefs(p: ProgressPrefs): Promise<void> {
   await AsyncStorage.setItem(accountKey(KEY), JSON.stringify(p));
+  // Best-effort backend sync so Daily Progress V2 can honor planned rest days
+  // (A6). Offline simply defers to the next successful save.
+  try {
+    const { updateProgressPreferences } = await import('../api/dailyProgress');
+    await updateProgressPreferences(p.restDays);
+  } catch {}
 }

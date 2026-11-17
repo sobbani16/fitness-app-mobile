@@ -31,3 +31,5 @@ export const getTodayProgress = (tz?: string) =>
   api.get<{ progress: DailyProgress }>('/daily-progress/today', { params: tz ? { tz } : undefined }).then(r => r.data.progress);
 export const getProgressHistory = (days = 14) =>
   api.get<{ days: { dayKey: string; earned: number; version: number }[] }>('/daily-progress/history', { params: { days } }).then(r => r.data.days);
+export const updateProgressPreferences = (restDays: number[]) =>
+  api.put('/daily-progress/preferences', { restDays }).then(r => r.data.preferences);
