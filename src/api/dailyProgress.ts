@@ -48,6 +48,18 @@ export const getProgressCalendar = (month?: string) =>
 export const getDayProgress = (dayKey: string) =>
   api.get<{ progress: DailyProgress }>('/daily-progress/today', { params: { day: dayKey } }).then(r => r.data.progress);
 
+export interface WeekDay { dayKey: string; weekday: number; earned: number | null; target: number | null; color: string; isToday: boolean; }
+export interface WeekSummary { earned: number; target: number; targetToDate: number; average: number | null; daysMetTarget: number; recorded: number; }
+export interface ProgressWeek {
+  weekStart: string; weekEnd: string; timezone: string;
+  days: WeekDay[];
+  summary: WeekSummary;
+  lastWeek: { days: WeekDay[]; summary: WeekSummary };
+  comparison: { deltaAvg: number | null; note: string };
+}
+export const getProgressWeek = () =>
+  api.get<{ week: ProgressWeek }>('/daily-progress/week').then(r => r.data.week);
+
 
 export interface ProgressOpportunity {
   id: string; component: string; actionType: string; title: string; explanation: string;

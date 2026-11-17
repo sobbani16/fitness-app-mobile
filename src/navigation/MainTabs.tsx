@@ -8,7 +8,7 @@ import LogMealScreen from '../screens/LogMealScreen';
 import LogExerciseScreen from '../screens/LogExerciseScreen';
 import ChatScreen from '../screens/ChatScreen';
 import SummaryScreen from '../screens/SummaryScreen';
-import HistoryScreen from '../screens/HistoryScreen';
+import ProgressHomeScreen from '../screens/ProgressHomeScreen';
 import ClientsScreen from '../screens/ClientsScreen';
 import QuickAdd from '../components/QuickAdd';
 import { useTheme } from '../design/theme';
@@ -78,7 +78,7 @@ export default function MainTabs() {
       {isTrainerOrNutritionist && (
         <Tab.Screen name="Clients" component={ClientsScreen} />
       )}
-      <Tab.Screen name="History" component={HistoryScreen} options={{ title: 'Progress' }} />
+      <Tab.Screen name="History" component={ProgressHomeScreen} options={{ title: 'Progress' }} />
       <Tab.Screen name="Summary" component={SummaryScreen} options={{ title: 'Account' }} />
     </Tab.Navigator>
   );

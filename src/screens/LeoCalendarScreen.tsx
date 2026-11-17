@@ -3,6 +3,8 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { Action, Card, Copy, Notice, Sheet, Skeleton } from '../design/components';
 import { useTheme } from '../design/theme';
 import { getProgressCalendar, getDayProgress, ProgressCalendar, CalendarDay, DailyProgress } from '../api/dailyProgress';
+import { accountKey } from '../storage/session';
+import { accountStorage } from '../storage/accountStorage';
 import ScoreRing from '../components/ScoreRing';
 
 const WEEKDAYS_SUN = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];

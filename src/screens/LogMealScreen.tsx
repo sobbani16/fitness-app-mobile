@@ -104,7 +104,7 @@ export default function LogMealScreen() {
     </ListRow>; })}</Card>}
     <View style={{ flexDirection: 'row', gap: 8 }}>
       <View style={{ flex: 1, minWidth: 0 }}><Action secondary label="Discover recipes" onPress={() => open('recipes')} /></View>
-      <View style={{ flex: 1, minWidth: 0 }}><Action secondary label="Food history" onPress={() => navigation.navigate('History')} /></View>
+      <View style={{ flex: 1, minWidth: 0 }}><Action secondary label="Food history" onPress={() => navigation.navigate('HistoryDetail')} /></View>
     </View>
   </KeyboardAwareScrollView>;
 }

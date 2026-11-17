@@ -306,7 +306,7 @@ export default function DashboardScreen() {
           <Ionicons name="restaurant-outline" size={18} color={colors.primary} />
           <Copy accessibilityRole="header" size="title" style={{ fontWeight: '600', flex: 1 }}>Your meals</Copy>
           <IconBtn name="book-outline" label="Open food diary" onPress={() => navigation.navigate('LogMeal')} />
-          <IconBtn name="time-outline" label="View previous days" onPress={() => navigation.navigate('History')} />
+          <IconBtn name="time-outline" label="View previous days" onPress={() => navigation.navigate('HistoryDetail')} />
         </View>
         {summary.meals.length === 0 ? <Notice title="No meals logged yet" message="Missing logs don’t mean you haven’t eaten. Add a meal when it suits you." /> :
           summary.meals.slice(0, 3).map(meal => <View key={meal.id} style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border, paddingBottom: 8 }}>
