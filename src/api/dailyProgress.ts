@@ -33,3 +33,13 @@ export const getProgressHistory = (days = 14) =>
   api.get<{ days: { dayKey: string; earned: number; version: number }[] }>('/daily-progress/history', { params: { days } }).then(r => r.data.days);
 export const updateProgressPreferences = (restDays: number[]) =>
   api.put('/daily-progress/preferences', { restDays }).then(r => r.data.preferences);
+
+
+export interface ProgressOpportunity {
+  id: string; component: string; actionType: string; title: string; explanation: string;
+  remainingPoints: number; projectedPoints: number; version: number; assumptions: string;
+  confidence: string; status: string; suggestedNext: string;
+}
+export interface StreakInfo { current: number; longest: number; todayQualified: boolean; qualifyRule: string; paused: boolean; explanation: string; }
+export const getProgressOpportunities = () => api.get<{ top: ProgressOpportunity[]; earned: number; applicable: number }>('/progress-coach/opportunities').then(r => r.data);
+export const getStreak = () => api.get<{ streak: StreakInfo }>('/progress-coach/streak').then(r => r.data.streak);

@@ -11,6 +11,7 @@ import { useDailyStats } from '../hooks/useDailyStats';
 import { getMacroGoals, MacroGoals } from '../api/macroScore';
 import { getHealthScore, HealthScoreResponse } from '../api/healthScore';
 import { getTodayProgress, DailyProgress } from '../api/dailyProgress';
+import ProgressCoachCard from '../components/ProgressCoachCard';
 import ScoreRing from '../components/ScoreRing';
 import { useFeatureFlags } from '../context/FeatureFlagsContext';
 import { Action, Card, Copy, Field, IconAction, Notice, Progress, Sheet, Skeleton } from '../design/components';
@@ -297,6 +298,7 @@ export default function DashboardScreen() {
           </Pressable>)}
         </Card></View>
       </View>
+      {(isEnabled('progressOpportunitiesEnabled') || isEnabled('consistencyStreakEnabled')) && <ProgressCoachCard />}
       {isEnabled('healthPriorities') && <TodayActionsCard />}
       {isEnabled('supplements') && <SupplementsDetail daily={daily} />}
       {cards.meals && <Card>
