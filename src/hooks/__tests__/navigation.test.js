@@ -6,7 +6,7 @@ const { create, act } = require('react-test-renderer');
 const { Alert, TextInput, View } = require('react-native');
 const { BaseNavigationContainer, createNavigatorFactory, useNavigationBuilder, StackRouter, TabRouter } = require('@react-navigation/native');
 const { useConfirmLeave } = require('../useConfirmLeave');
-const { backOrFallback, handleRootHardwareBack } = require('../../navigation/back');
+const { backOrFallback, handleRootHardwareBack, _resetBackGuard } = require('../../navigation/back');
 const { navigationRef, navigateToTab, flushPendingNavigation, clearPendingNavigation } = require('../../navigation/navigationRef');
 
 // Actual React Navigation state/actions/removal events; only native rendering is omitted.
@@ -44,7 +44,8 @@ async function mount(initialRouteName = 'Main', params) {
     </BaseNavigationContainer>);
   });
 }
-beforeEach(() => { mockAccount = 'alice'; clearPendingNavigation(); jest.spyOn(Alert, 'alert').mockImplementation(() => {}); });
+beforeEach(() => {
+  _resetBackGuard(); mockAccount = 'alice'; clearPendingNavigation(); jest.spyOn(Alert, 'alert').mockImplementation(() => {}); });
 afterEach(async () => { if (tree) await act(async () => tree.unmount()); clearPendingNavigation(); jest.restoreAllMocks(); });
 const active = () => navigationRef.getRootState().routes.at(-1).name;
 

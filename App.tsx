@@ -49,7 +49,13 @@ function ThemedNavigation() {
     const sub = AppState.addEventListener('change', state => { if (state === 'active') void syncReminderSchedules(); });
     return () => { sub.remove(); clearPendingNavigation(); };
   }, []);
-  return <NavigationContainer ref={navigationRef} onReady={flushPendingNavigation} onStateChange={flushPendingNavigation} theme={{ ...base, colors: { ...base.colors, primary: colors.primary, background: colors.background, card: colors.surface, text: colors.text, border: colors.border } }}>
+  return <NavigationContainer ref={navigationRef} onReady={flushPendingNavigation} onStateChange={(state) => {
+    if (__DEV__ && state) {
+      const r = state.routes[state.index];
+      console.log(`[nav] route=${r?.name} depth=${state.routes.length} canGoBack=${navigationRef.canGoBack()}`);
+    }
+    flushPendingNavigation();
+  }} theme={{ ...base, colors: { ...base.colors, primary: colors.primary, background: colors.background, card: colors.surface, text: colors.text, border: colors.border } }}>
     <View style={{ flex: 1 }}><RootNavigator /><GlobalVoice /></View><StatusBar style={isDark ? 'light' : 'dark'} />
   </NavigationContainer>;
 }

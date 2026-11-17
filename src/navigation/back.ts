@@ -18,8 +18,16 @@ export function handleRootHardwareBack(navigation: BackNavigation, route: string
   return true;
 }
 
-/** A fallback still uses a navigation action, so removal guards can intercept it. */
+let lastDispatchAt = 0;
+export function _resetBackGuard() { lastDispatchAt = 0; } // test hook
+
+/** A fallback still uses a navigation action, so removal guards can intercept it.
+ * Dedupes rapid presses: two dispatches within 450ms can race a native
+ * transition and leave the stack wedged (dead back button + dead swipe). */
 export function backOrFallback(navigation: BackNavigation, screen = 'Dashboard') {
+  const now = Date.now();
+  if (now - lastDispatchAt < 450) return;
+  lastDispatchAt = now;
   if (navigation.canGoBack()) {
     navigation.goBack();
     return;

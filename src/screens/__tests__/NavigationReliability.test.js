@@ -35,8 +35,9 @@ const plan = { id: 'plan-1', status: 'draft', version: 1, preferences: {}, plan:
 let tree;
 const control = label => tree.root.findAllByProps({ accessibilityLabel: label })[0];
 const notice = title => tree.root.findAllByType(Notice).some(node => node.props.title === title);
+const { _resetBackGuard } = require('../../navigation/back');
 beforeEach(() => {
-  jest.clearAllMocks(); mockParams = undefined;
+  _resetBackGuard(); jest.clearAllMocks(); mockParams = undefined;
   reminders.getReminderCategories.mockResolvedValue([]);
   reminders.getSuggestions.mockResolvedValue([]);
   reminders.getReminderPreferences.mockResolvedValue(preferences);

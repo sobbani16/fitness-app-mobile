@@ -1,4 +1,4 @@
-import { useReducedMotion } from '../hooks/useReducedMotion';
+import { useReducedMotionResolved } from '../hooks/useReducedMotion';
 import { gateScreen } from '../components/FeatureGate';
 import React, { useEffect } from 'react';
 import { View, ActivityIndicator, Pressable, BackHandler } from 'react-native';
@@ -193,9 +193,19 @@ const GatedCoachingPreference = gateScreen('trainerPartnershipEnabled', Coaching
 const GatedLearnArticle = gateScreen('knowledgeAcademyEnabled', LearnArticleScreen, 'Article');
 
 export default function RootNavigator() {
-  const reducedMotion = useReducedMotion();
+  const reducedMotion = useReducedMotionResolved();
   const { colors } = useTheme();
   const { profile, loading } = useProfile();
+  // null = OS preference still resolving. Mounting the stack before it settles
+  // would flip `animation` on live screens — a known wedge for native-stack
+  // transitions (back button AND edge-swipe both die).
+  if (reducedMotion === null) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
       if (!navigationRef.isReady()) return false;
@@ -215,7 +225,7 @@ export default function RootNavigator() {
 
   return (
     <Stack.Navigator screenOptions={({ route, navigation }) => ({
-      animation: reducedMotion ? 'none' : 'default', headerShown: false,
+      animation: reducedMotion ? 'none' : 'default', gestureEnabled: true, headerShown: false,
       headerRight: () => <FeedbackButton source={route.name} />,
       // Keep native Back/gestures when history exists; provide an escape for direct entry.
       headerLeft: navigation.canGoBack() ? undefined : () => <Pressable accessibilityRole="button" accessibilityLabel="Back"
