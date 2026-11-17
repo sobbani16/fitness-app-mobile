@@ -41,3 +41,7 @@ export async function loadIngredientSelections(favorite = false): Promise<Ingred
 export async function selectIngredient(id: string, favorite?: boolean): Promise<void> {
   await api.put(`/ingredients/${encodeURIComponent(id)}/selection`, favorite == null ? {} : { favorite });
 }
+
+export interface FoodEstimate { name: string; serving: string; calories: number; proteinG: number; carbsG: number; fatG: number; confidence: 'low'|'medium'|'high'; assumptions: string[]; needsClarification: string[]; provenance: { source: 'ai_estimate'; version: number; reviewed: false } }
+export const estimateFood = (query: string, opts: { portion?: string; preparation?: string } = {}) =>
+  api.post<{ estimate: FoodEstimate }>('/ingredients/estimate', { query, ...opts }).then(r => r.data.estimate);

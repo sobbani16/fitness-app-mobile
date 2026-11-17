@@ -69,7 +69,8 @@ export type FeatureKey =
   | 'progressCoachNotificationsEnabled'
   | 'leoProgressCalendarEnabled'
   | 'weeklyProgressDashboardEnabled'
-  | 'adaptiveProgressTargetsEnabled';
+  | 'adaptiveProgressTargetsEnabled'
+  | 'aiFoodEstimation';
 
 export type FeatureMap = Partial<Record<FeatureKey, boolean>>;
 
@@ -139,6 +140,7 @@ export const DEFAULT_FLAGS: Record<FeatureKey, boolean> = {
   leoProgressCalendarEnabled: false,
   weeklyProgressDashboardEnabled: false,
   adaptiveProgressTargetsEnabled: false,
+  aiFoodEstimation: false,
 };
 
 // Build-time gate applied ON TOP of the remote flag. A TestFlight/store build
@@ -158,7 +160,22 @@ const BUILD_GATES: Partial<Record<FeatureKey, keyof typeof betaFeatures>> = {
   supplements: 'supplements',
 };
 
+// Internal-testing escape hatch: EXPO_PUBLIC_BETA_FEATURES="scan,voice,photo,ai"
+// re-enables individual build-gated features WITHOUT removing BETA_SAFE_MODE's
+// protection for everything else. Public builds never set this.
+const BETA_FEATURE_TOKENS: Partial<Record<FeatureKey, string>> = {
+  nutritionLabelScanning: 'scan', menuScanning: 'scan',
+  foodPhotoScanning: 'photo',
+  voiceFoodLogging: 'voice', voiceExerciseLogging: 'voice',
+  aiCoach: 'ai', aiFoodRecommendations: 'ai', aiWorkoutRecommendations: 'ai',
+  weeklyMealPlans: 'ai', weeklyPlanAiGeneration: 'ai',
+};
+const betaFeatureAllowlist = new Set(
+  (process.env.EXPO_PUBLIC_BETA_FEATURES || '').split(',').map((t: string) => t.trim()).filter(Boolean));
+
 export function buildGateAllows(key: FeatureKey): boolean {
+  const token = BETA_FEATURE_TOKENS[key];
+  if (token && betaFeatureAllowlist.has(token)) return true; // internal build opt-in
   const gate = BUILD_GATES[key];
   return gate ? betaFeatures[gate] : true;
 }

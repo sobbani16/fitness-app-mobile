@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Keyboard, Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { IngredientResult, searchIngredients, verificationLabel, loadIngredientSelections, selectIngredient } from '../api/ingredients';
+import { IngredientResult, searchIngredients, verificationLabel, loadIngredientSelections, selectIngredient, estimateFood, FoodEstimate } from '../api/ingredients';
+import { useFeatureFlags } from '../context/FeatureFlagsContext';
 import { Action, Copy, Field, IconAction, ListRow, Notice, Sheet, Skeleton } from '../design/components';
 import { useTheme } from '../design/theme';
 
@@ -24,6 +25,10 @@ export default function IngredientSearch({ onSelect }: { onSelect: (ingredient: 
   const { colors } = useTheme();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<IngredientResult[]>([]);
+  const { isEnabled } = useFeatureFlags();
+  const [estimate, setEstimate] = useState<FoodEstimate | null>(null);
+  const [estimating, setEstimating] = useState(false);
+  const [estimateError, setEstimateError] = useState('');
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState(false);
   const [preparation, setPreparation] = useState('');
@@ -115,7 +120,22 @@ export default function IngredientSearch({ onSelect }: { onSelect: (ingredient: 
     {isSearching && <>
       {searching && <Skeleton label="Searching foods" />}
       {error && <><Notice error title="Search unavailable" message="Check your connection and retry, or enter nutrition manually." /><Action secondary label="Retry food search" onPress={() => setRetry(value => value + 1)} /></>}
-      {!searching && !error && results.length === 0 && <Copy tone="muted">No matching foods. Try another name or manual entry.</Copy>}
+      {!searching && !error && results.length === 0 && <>
+        <Copy tone="muted">No matching foods. Try another name or manual entry.</Copy>
+        {isEnabled('aiFoodEstimation') && <Action secondary label={estimating ? 'Estimating…' : 'Estimate with Leo'} onPress={async () => {
+          if (estimating) return; setEstimating(true); setEstimateError(''); setEstimate(null);
+          try { setEstimate(await estimateFood(query.trim())); }
+          catch (e: any) { setEstimateError(e?.response?.data?.error || 'Estimate unavailable right now. Manual entry still works.'); }
+          setEstimating(false);
+        }} />}
+        {!!estimateError && <Copy tone="muted" size="caption">{estimateError}</Copy>}
+        {estimate && <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 12, gap: 6 }}>
+          <Copy>{estimate.name} — ≈{estimate.calories} kcal/{estimate.serving}</Copy>
+          <Copy size="caption" tone="muted">P {estimate.proteinG}g · C {estimate.carbsG}g · F {estimate.fatG}g · Leo estimate ({estimate.confidence} confidence — not measured)</Copy>
+          {estimate.assumptions.slice(0, 3).map((a, i) => <Copy key={i} size="caption" tone="muted">• {a}</Copy>)}
+          {estimate.needsClarification.length > 0 && <Copy size="caption" tone="muted">For a better estimate: {estimate.needsClarification.join('; ')}</Copy>}
+        </View>}
+      </>}
       {results.slice(0, 12).map(row)}
     </>}
 
