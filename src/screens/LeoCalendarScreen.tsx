@@ -8,6 +8,14 @@ import { accountStorage } from '../storage/accountStorage';
 import ScoreRing from '../components/ScoreRing';
 
 const WEEKDAYS_SUN = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const COMPONENT_LABEL: Record<string, string> = {
+  nutrition: 'Nutrition', hydration: 'Hydration', activity: 'Activity',
+  sleep: 'Sleep', habits: 'Habits', planActions: 'Plan actions',
+};
+const STATUS_LABEL: Record<string, string> = {
+  NOT_STARTED: 'not started', IN_PROGRESS: 'in progress', GOAL_MET: 'goal met',
+  INSUFFICIENT_DATA: 'not enough data', NOT_APPLICABLE: 'not counted today',
+};
 const WEEKDAYS_MON = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const MONTH_NAME = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
@@ -124,16 +132,15 @@ export default function LeoCalendarScreen() {
           <ScoreRing score={detail.earned} size={56} />
           <View>
             <Copy size="heading">{Math.round(detail.earned)} / {detail.applicable}</Copy>
-            <Copy size="caption" tone="muted">v{detail.version} · {detail.timezone}</Copy>
+            <Copy size="caption" tone="muted">{cal?.days.find(d => d.isToday)?.dayKey === selected ? 'Today — still in progress' : detail.earned > 0 ? 'Points earned this day' : 'No activity recorded'}</Copy>
           </View>
         </View>
         {detail.components.map(c => <View key={c.key} style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-          <Copy size="caption">{c.key}</Copy>
-          <Copy size="caption" tone="muted">{Math.round(c.earned)}/{Math.round(c.applicable)} · {c.status.replace(/_/g, ' ').toLowerCase()}{c.note ? ` — ${c.note}` : ''}</Copy>
+          <Copy size="caption">{COMPONENT_LABEL[c.key] || c.key}</Copy>
+          <Copy size="caption" tone="muted">{Math.round(c.earned)}/{Math.round(c.applicable)} · {STATUS_LABEL[c.status] || c.status.replace(/_/g, ' ').toLowerCase()}{c.note ? ` — ${c.note}` : ''}</Copy>
         </View>)}
         {detail.nextAction && <Copy size="caption" tone="muted">Next up: {detail.nextAction.note || detail.nextAction.component}</Copy>}
       </> : <Skeleton label="Loading day" />}
-      <Action secondary label="Close" onPress={() => setSelected(null)} />
     </Sheet>
   </ScrollView>;
 }
