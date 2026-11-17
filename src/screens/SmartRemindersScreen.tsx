@@ -3,7 +3,7 @@ import { ScrollView, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/RootNavigator';
-import { Action, Card, Copy, Field, Notice, Skeleton } from '../design/components';
+import { Action, Card, Copy, Notice, Skeleton } from '../design/components';
 import { useTheme } from '../design/theme';
 import * as api from '../api/reminders';
 import * as Notifications from 'expo-notifications';
@@ -15,6 +15,8 @@ import { loadMealsFor } from '../storage/meals';
 import { useConfirmLeave } from '../hooks/useConfirmLeave';
 import { useFeatureFlags } from '../context/FeatureFlagsContext';
 import Toggle from '../components/Toggle';
+import TimeChips from '../components/TimeChips';
+import { deviceTimezone } from '../services/deviceTime';
 
 const CATEGORY_LABELS: Record<string, string> = {
   'meal:breakfast': 'Breakfast', 'meal:lunch': 'Lunch', 'meal:dinner': 'Dinner', 'meal:snack': 'Snack',
@@ -35,8 +37,6 @@ export default function SmartRemindersScreen() {
   const [prefs, setPrefs] = useState<api.ReminderPreferences | null>(null);
   const [categories, setCategories] = useState<api.ReminderCategorySetting[]>([]);
   const [suggestions, setSuggestions] = useState<api.ReminderSuggestion[]>([]);
-  const [timesText, setTimesText] = useState<Record<string, string>>({});
-  const [quietDraft, setQuietDraft] = useState<Partial<Pick<api.ReminderPreferences, 'quietStart' | 'quietEnd'>>>({});
   const [pendingWrites, setPendingWrites] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -44,8 +44,7 @@ export default function SmartRemindersScreen() {
   const [diag, setDiag] = useState<{ permission: string; scheduled: { id: string; when: string }[]; planned: number; backend: api.ReminderDiagnostics | null } | null>(null);
   const [testState, setTestState] = useState('');
   const lastTestAt = useRef(0);
-  const dirty = categories.some(c => JSON.stringify((timesText[c.category] || '').split(',').map(t => t.trim()).filter(Boolean)) !== JSON.stringify(c.times || []))
-    || Object.entries(quietDraft).some(([key, value]) => (value || '') !== (prefs?.[key as 'quietStart' | 'quietEnd'] || ''));
+  const dirty = false;
   const confirmLeave = useConfirmLeave(dirty, pendingWrites > 0);
 
   const load = useCallback(async () => {
@@ -53,8 +52,6 @@ export default function SmartRemindersScreen() {
     try {
       const [p, c, s] = await Promise.all([api.getReminderPreferences(), api.getReminderCategories(), suggestionsEnabled ? api.getSuggestions() : Promise.resolve([])]);
       setPrefs(p); setCategories(c); setSuggestions(s);
-      setQuietDraft({});
-      setTimesText(Object.fromEntries(c.map(x => [x.category, (x.times || []).join(', ')])));
       setError('');
     } catch { setError('Could not load reminder settings. Check your connection.'); }
     finally { setLoading(false); }
@@ -67,8 +64,6 @@ export default function SmartRemindersScreen() {
     setPendingWrites(n => n + 1);
     try {
       setPrefs(await api.updateReminderPreferences(patch));
-      setQuietDraft(current => Object.fromEntries(Object.entries(current).filter(([key, value]) =>
-        !(key in patch) || (value || '') !== (patch[key as 'quietStart' | 'quietEnd'] || ''))));
       setError(''); await syncReminderSchedules();
     }
     catch (e: any) { setError(e?.response?.data?.error || 'Could not save.'); }
@@ -136,10 +131,6 @@ export default function SmartRemindersScreen() {
     return 'next times are quiet-hours or already done';
   }
 
-  function saveTimes(category: string) {
-    const times = (timesText[category] || '').split(',').map(t => t.trim()).filter(Boolean);
-    void saveCategory(category, { times });
-  }
   async function enableMaster(value: boolean) {
     if (value) {
       const granted = await requestNotificationPermission();
@@ -181,7 +172,7 @@ export default function SmartRemindersScreen() {
         <Copy>{s.title}</Copy>
         <Copy size="caption" tone="muted">{s.body}</Copy>
         <View style={{ flexDirection: 'row', gap: 8 }}>
-          <Action label="Use this" onPress={() => confirmLeave(() => { void api.acceptSuggestion(s.id).then(load).then(syncReminderSchedules).catch(e => setError(e?.response?.data?.error || 'Could not apply.')); })} />
+          <Action label="Use this" onPress={() => confirmLeave(() => { void api.acceptSuggestion(s.id).then(load).then(() => syncReminderSchedules()).catch(e => setError(e?.response?.data?.error || 'Could not apply.')); })} />
           <Action secondary label="Not now" onPress={() => confirmLeave(() => { void api.declineSuggestion(s.id).then(load).catch(() => setError('Could not update suggestion.')); })} />
           <Action secondary label="Stop suggesting" onPress={() => confirmLeave(() => { void api.declineSuggestion(s.id, true).then(load).catch(() => setError('Could not update suggestion.')); })} />
         </View>
@@ -189,9 +180,25 @@ export default function SmartRemindersScreen() {
     </Card>}
 
     <Card>
+      <Copy size="heading">Time zone</Copy>
+      <Copy>Scheduling time zone: {prefs.effectiveTimezone || prefs.timezone || deviceTimezone()}</Copy>
+      <Copy size="caption" tone="muted">Detected on this device: {deviceTimezone()}</Copy>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <Action secondary label="Follow device" selected={(prefs.timezoneMode ?? 'FOLLOW_DEVICE') === 'FOLLOW_DEVICE'}
+          onPress={() => void api.updateTimezonePrefs({ mode: 'FOLLOW_DEVICE', detectedTimezone: deviceTimezone() }).then(p => { setPrefs(p); return syncReminderSchedules(true); }).catch(e => setError(e?.response?.data?.error || 'Could not update time zone.'))} />
+        <Action secondary label="Keep fixed" selected={prefs.timezoneMode === 'FIXED_TIMEZONE'}
+          onPress={() => void api.updateTimezonePrefs({ mode: 'FIXED_TIMEZONE', timezone: prefs.timezone || deviceTimezone() }).then(p => { setPrefs(p); return syncReminderSchedules(true); }).catch(e => setError(e?.response?.data?.error || 'Could not update time zone.'))} />
+      </View>
+      {prefs.timezoneMode === 'FIXED_TIMEZONE' && <Copy size="caption" tone="muted">Reminders stay on {prefs.timezone || 'the saved zone'} even when you travel.</Copy>}
+      {prefs.timezoneMode !== 'FIXED_TIMEZONE' && prefs.lastDetectedTimezone && prefs.lastDetectedTimezone !== prefs.timezone && <Copy size="caption" tone="muted">Time zone updated to {prefs.lastDetectedTimezone} — reminders follow this device.</Copy>}
+    </Card>
+
+    <Card>
       <Copy size="heading">Quiet hours & limits</Copy>
-      <Field label="Quiet from (HH:MM, optional)" value={quietDraft.quietStart ?? prefs.quietStart ?? ''} placeholder="22:00" onChangeText={v => setQuietDraft(current => ({ ...current, quietStart: v }))} onBlur={() => { if (quietDraft.quietStart !== undefined) void savePrefs({ quietStart: quietDraft.quietStart || null }); }} />
-      <Field label="Quiet until (HH:MM, optional)" value={quietDraft.quietEnd ?? prefs.quietEnd ?? ''} placeholder="07:00" onChangeText={v => setQuietDraft(current => ({ ...current, quietEnd: v }))} onBlur={() => { if (quietDraft.quietEnd !== undefined) void savePrefs({ quietEnd: quietDraft.quietEnd || null }); }} />
+      <Copy size="caption" tone="muted">Quiet from (optional)</Copy>
+      <TimeChips times={prefs.quietStart ? [prefs.quietStart] : []} onChange={ts => void savePrefs({ quietStart: ts[0] || null })} />
+      <Copy size="caption" tone="muted">Quiet until (optional)</Copy>
+      <TimeChips times={prefs.quietEnd ? [prefs.quietEnd] : []} onChange={ts => void savePrefs({ quietEnd: ts[0] || null })} />
       <Copy>Default snooze</Copy>
       {[15, 30, 60].map(m => <Action secondary key={m} label={`${m} min`} selected={prefs.snoozeMinutes === m} onPress={() => void savePrefs({ snoozeMinutes: m })} />)}
       <Copy>Daily nonessential limit: {prefs.dailyCap}</Copy>
@@ -209,7 +216,7 @@ export default function SmartRemindersScreen() {
           <Copy size="caption" tone="muted">Uses fresh step data only — never guesses. Device validation pending.</Copy>
           {[60, 90, 120].map(m => <Action secondary key={m} label={`${m} min`} selected={(c.intervalMinutes ?? 90) === m} onPress={() => void saveCategory(c.category, { intervalMinutes: m })} />)}
         </> : <>
-          <Field label="Times (HH:MM, comma separated)" value={timesText[c.category] || ''} placeholder="12:30" onChangeText={v => setTimesText({ ...timesText, [c.category]: v })} onBlur={() => saveTimes(c.category)} />
+          <TimeChips times={c.times || []} onChange={times => void saveCategory(c.category, { times })} />
           {c.category === 'workout' && <>
             <Copy size="caption" tone="muted">Remind me before it starts</Copy>
             {[15, 30, 60].map(m => <Action secondary key={m} label={`${m} min before`} selected={(c.leadMinutes ?? 30) === m} onPress={() => void saveCategory(c.category, { leadMinutes: m })} />)}

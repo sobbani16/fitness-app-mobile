@@ -82,14 +82,17 @@ it('offers Retry after reminder settings fail on first load', async () => {
   expect(reminders.getReminderPreferences).toHaveBeenCalledTimes(2);
 });
 
-it('keeps an unsaved quiet-hours value after failure and an unrelated preference save', async () => {
+it('saves quiet hours via AM/PM picker, reports failure, and keeps later saves working', async () => {
   reminders.updateReminderPreferences.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce({ ...preferences, snoozeMinutes: 15 });
   await act(async () => { tree = create(<SmartReminders />); });
-  await act(async () => control('Quiet from (HH:MM, optional)').props.onChangeText('23:00'));
-  await act(async () => control('Quiet from (HH:MM, optional)').props.onBlur());
+  await act(async () => control('+ Add time').props.onPress());
+  await act(async () => control('11').props.onPress());
+  await act(async () => control(':00').props.onPress());
+  await act(async () => control('PM').props.onPress());
+  await act(async () => control('Add 11:00 PM').props.onPress());
+  expect(reminders.updateReminderPreferences).toHaveBeenCalledWith({ quietStart: '23:00' });
   await act(async () => control('15 min').props.onPress());
-  expect(control('Quiet from (HH:MM, optional)').props.value).toBe('23:00');
-  expect(mockPrevent.mock.calls.at(-1)[0]).toBe(true);
+  expect(reminders.updateReminderPreferences).toHaveBeenCalledWith({ snoozeMinutes: 15 });
 });
 
 it('offers Retry after reminder history fails on first load', async () => {

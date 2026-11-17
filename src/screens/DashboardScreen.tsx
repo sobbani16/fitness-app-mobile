@@ -10,6 +10,7 @@ import { useMeals } from '../context/MealsContext';
 import { useDailyStats } from '../hooks/useDailyStats';
 import { getMacroGoals, MacroGoals } from '../api/macroScore';
 import { getHealthScore, HealthScoreResponse } from '../api/healthScore';
+import { getTodayProgress, DailyProgress } from '../api/dailyProgress';
 import ScoreRing from '../components/ScoreRing';
 import { useFeatureFlags } from '../context/FeatureFlagsContext';
 import { Action, Card, Copy, Field, IconAction, Notice, Progress, Sheet, Skeleton } from '../design/components';
@@ -61,6 +62,7 @@ export default function DashboardScreen() {
   const [now, setNow] = useState(new Date());
   const [health, setHealth] = useState<HealthScoreResponse | null>(null);
   const [healthError, setHealthError] = useState(false);
+  const [progress, setProgress] = useState<DailyProgress | null>(null);
   const goalRequest = useRef(0);
   const healthRequest = useRef(0);
   const summary = todaySummary(diary.meals, now);
@@ -104,6 +106,9 @@ export default function DashboardScreen() {
     void loadGoals();
     const hr = ++healthRequest.current;
     getHealthScore().then(s => { if (hr === healthRequest.current) { setHealth(s); setHealthError(false); } }).catch(() => { if (hr === healthRequest.current) { setHealth(null); setHealthError(true); } });
+    if (isEnabled('dailyProgressEnabled')) {
+      getTodayProgress().then(p => { if (hr === healthRequest.current) setProgress(p); }).catch(() => { if (hr === healthRequest.current) setProgress(null); });
+    } else setProgress(null);
     void loadProgressPrefs().then(p => { setWorkoutDays(p.workoutDays); setRestDays(p.restDays); }).catch(() => { setWorkoutDays([]); setRestDays([]); });
     void loadVolumeUnit().then(setWaterUnit);
     void maybeShowReminderNudge();
@@ -268,6 +273,18 @@ export default function DashboardScreen() {
       </Card></View>}
         {cards.steps && <View style={styles.column}><StepsCard key={day} /></View>}
         <View style={styles.column}><Card>
+          {isEnabled('dailyProgressEnabled') ? (
+            <Pressable accessibilityRole="button" onPress={() => navigation.navigate('HealthScoreDetail')}
+              accessibilityLabel={progress == null ? 'Daily progress: not loaded yet. View details.' : `Daily progress ${Math.round(progress.earned)} of 100. ${progress.nextAction ? `Next: ${progress.nextAction.note || progress.nextAction.component}` : ''} View details.`}
+              style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, opacity: pressed ? 0.7 : 1 })}>
+              <ScoreRing score={progress?.earned ?? null} size={64} />
+              <View style={{ flex: 1 }}>
+                <Copy size="title" style={{ fontWeight: '600' }}>Daily progress</Copy>
+                <Copy size="caption" tone="muted">{progress == null ? 'Loading today’s plan progress…' : progress.nextAction ? `Next up: ${progress.nextAction.note || progress.nextAction.component}` : 'All planned actions done'}</Copy>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+            </Pressable>
+          ) : (
           <Pressable accessibilityRole="button" onPress={() => navigation.navigate('HealthScoreDetail')}
             accessibilityLabel={health?.score == null ? 'Health score: not enough records yet. View details.' : `Health score ${Math.round(health.score)} of 100${health.coverage ? `, ${health.coverage.available} of ${health.coverage.total} parts logged` : ''}. View details.`}
             style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, opacity: pressed ? 0.7 : 1 })}>
@@ -277,7 +294,7 @@ export default function DashboardScreen() {
               <Copy size="caption" tone="muted">{healthError ? 'Couldn’t reach the server — score not loaded' : health?.score == null ? 'No records yet — provisional' : `${health.coverage ? `${health.coverage.available} of ${health.coverage.total} parts logged · ` : ''}Provisional`}</Copy>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.muted} />
-          </Pressable>
+          </Pressable>)}
         </Card></View>
       </View>
       {isEnabled('healthPriorities') && <TodayActionsCard />}

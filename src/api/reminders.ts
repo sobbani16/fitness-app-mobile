@@ -13,6 +13,11 @@ export interface ReminderPreferences {
   weeklyDigest: boolean;
   timezone: string | null;
   timezoneLocked: boolean;
+  // V2 timezone policy
+  timezoneMode?: 'FOLLOW_DEVICE' | 'FIXED_TIMEZONE';
+  lastDetectedTimezone?: string | null;
+  effectiveTimezone?: string;
+  scheduleVersion?: number;
 }
 
 export interface ReminderCategorySetting {
@@ -59,6 +64,10 @@ export const pauseReminders = (minutes: number | null, reason?: string | null) =
 export const revokeAdaptive = () => api.post('/reminders/preferences/revoke-adaptive').then(r => r.data);
 export const resetLearning = () => api.post('/reminders/preferences/reset-learning').then(r => r.data);
 export const muteSuggestions = () => api.post('/reminders/preferences/mute-suggestions').then(r => r.data);
+export const updateTimezonePrefs = (patch: { mode?: 'FOLLOW_DEVICE' | 'FIXED_TIMEZONE'; timezone?: string | null; detectedTimezone?: string }) =>
+  api.put<{ preferences: ReminderPreferences & { travelDetected?: boolean } }>('/reminders/preferences/timezone', patch).then(r => r.data.preferences);
+export const reconcileReminders = () =>
+  api.post<{ rescheduled: number; expired: number; planned: number; effectiveTimezone: string | null }>('/reminders/reconcile').then(r => r.data);
 
 export const getReminderCategories = () => api.get<{ categories: ReminderCategorySetting[] }>('/reminders/categories').then(r => r.data.categories);
 export const updateReminderCategory = (category: string, patch: Partial<ReminderCategorySetting>) => api.put<{ setting: ReminderCategorySetting }>(`/reminders/categories/${encodeURIComponent(category)}`, patch).then(r => r.data.setting);

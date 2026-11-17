@@ -61,7 +61,8 @@ export type FeatureKey =
   | 'trainerFormFeedbackEnabled'
   | 'trainerPartnershipEnabled'
   | 'weeklyHealthReviewEnabled'
-  | 'leoProgressEnabled';
+  | 'leoProgressEnabled'
+  | 'dailyProgressEnabled';
 
 export type FeatureMap = Partial<Record<FeatureKey, boolean>>;
 
@@ -123,6 +124,7 @@ export const DEFAULT_FLAGS: Record<FeatureKey, boolean> = {
   trainerPartnershipEnabled: false,
   weeklyHealthReviewEnabled: false,
   leoProgressEnabled: false,
+  dailyProgressEnabled: false,
 };
 
 // Build-time gate applied ON TOP of the remote flag. A TestFlight/store build
