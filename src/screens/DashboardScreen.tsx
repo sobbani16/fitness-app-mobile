@@ -107,7 +107,7 @@ export default function DashboardScreen() {
     void loadGoals();
     const hr = ++healthRequest.current;
     getHealthScore().then(s => { if (hr === healthRequest.current) { setHealth(s); setHealthError(false); } }).catch(() => { if (hr === healthRequest.current) { setHealth(null); setHealthError(true); } });
-    if (isEnabled('dailyProgressEnabled')) {
+    if (isEnabled('leoProgressEnabled')) {
       getTodayProgress().then(p => { if (hr === healthRequest.current) setProgress(p); }).catch(() => { if (hr === healthRequest.current) setProgress(null); });
     } else setProgress(null);
     void loadProgressPrefs().then(p => { setWorkoutDays(p.workoutDays); setRestDays(p.restDays); }).catch(() => { setWorkoutDays([]); setRestDays([]); });
@@ -274,7 +274,7 @@ export default function DashboardScreen() {
       </Card></View>}
         {cards.steps && <View style={styles.column}><StepsCard key={day} /></View>}
         <View style={styles.column}><Card>
-          {isEnabled('dailyProgressEnabled') ? (
+          {isEnabled('leoProgressEnabled') ? (
             <Pressable accessibilityRole="button" onPress={() => navigation.navigate('DailyProgressDetail')}
               accessibilityLabel={progress == null ? 'Daily progress: not loaded yet. View details.' : `Daily progress ${Math.round(progress.earned)} of 100. ${progress.nextAction ? `Next: ${progress.nextAction.note || progress.nextAction.component}` : ''} View details.`}
               style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, opacity: pressed ? 0.7 : 1 })}>
