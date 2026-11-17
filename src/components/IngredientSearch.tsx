@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Keyboard, Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { IngredientResult, searchIngredients, verificationLabel, loadIngredientSelections, selectIngredient, estimateFood, FoodEstimate } from '../api/ingredients';
+import { IngredientResult, searchIngredients, verificationLabel, loadIngredientSelections, selectIngredient, estimateFood, FoodEstimate, logFoodEstimate } from '../api/ingredients';
 import { useFeatureFlags } from '../context/FeatureFlagsContext';
 import { Action, Copy, Field, IconAction, ListRow, Notice, Sheet, Skeleton } from '../design/components';
 import { useTheme } from '../design/theme';
@@ -29,6 +29,10 @@ export default function IngredientSearch({ onSelect }: { onSelect: (ingredient: 
   const [estimate, setEstimate] = useState<FoodEstimate | null>(null);
   const [estimating, setEstimating] = useState(false);
   const [estimateError, setEstimateError] = useState('');
+  const [estMeal, setEstMeal] = useState('lunch');
+  const [estFields, setEstFields] = useState({ portionG: '100', calories: '', proteinG: '', carbsG: '', fatG: '' });
+  const [logDone, setLogDone] = useState(false);
+  const [estEdited, setEstEdited] = useState(false);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState(false);
   const [preparation, setPreparation] = useState('');
@@ -134,6 +138,25 @@ export default function IngredientSearch({ onSelect }: { onSelect: (ingredient: 
           <Copy size="caption" tone="muted">P {estimate.proteinG}g · C {estimate.carbsG}g · F {estimate.fatG}g · Leo estimate ({estimate.confidence} confidence — not measured)</Copy>
           {estimate.assumptions.slice(0, 3).map((a, i) => <Copy key={i} size="caption" tone="muted">• {a}</Copy>)}
           {estimate.needsClarification.length > 0 && <Copy size="caption" tone="muted">For a better estimate: {estimate.needsClarification.join('; ')}</Copy>}
+          {isEnabled('aiFoodEstimation') && <>
+            <Copy size="caption" tone="muted">Review before logging — edit any value:</Copy>
+            {(['portionG','calories','proteinG','carbsG','fatG'] as const).map(k => (
+              <Field key={k} label={k === 'portionG' ? 'Portion (g)' : k} value={estFields[k] || String(estimate[k as 'calories'] ?? '')}
+                onChangeText={v => { setEstFields(f => ({ ...f, [k]: v })); setEstEdited(true); }} />
+            ))}
+            <View style={{ flexDirection: 'row', gap: 6 }}>
+              {['breakfast','lunch','dinner','snack'].map(m => <View key={m} style={{ flex: 1 }}><Action secondary label={m} selected={estMeal === m} onPress={() => setEstMeal(m)} /></View>)}
+            </View>
+            {logDone ? <Copy size="caption">Logged — see today's meals to edit or delete.</Copy> :
+              <Action label="Review and log food" onPress={async () => {
+                try { await logFoodEstimate({ name: estimate.name, mealType: estMeal,
+                  portionG: Number(estFields.portionG) || 100, calories: Number(estFields.calories) || estimate.calories,
+                  proteinG: Number(estFields.proteinG) || estimate.proteinG, carbsG: Number(estFields.carbsG) || estimate.carbsG,
+                  fatG: Number(estFields.fatG) || estimate.fatG, userCorrections: estEdited, estimate });
+                  setLogDone(true);
+                } catch (e: any) { setEstimateError(e?.response?.data?.error || 'Could not save. Manual entry still works.'); }
+              }} />}
+          </>}
         </View>}
       </>}
       {results.slice(0, 12).map(row)}

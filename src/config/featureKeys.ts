@@ -167,6 +167,7 @@ const BETA_FEATURE_TOKENS: Partial<Record<FeatureKey, string>> = {
   nutritionLabelScanning: 'scan', menuScanning: 'scan',
   foodPhotoScanning: 'photo',
   voiceFoodLogging: 'voice', voiceExerciseLogging: 'voice',
+  aiFoodEstimation: 'estimate',
   aiCoach: 'ai', aiFoodRecommendations: 'ai', aiWorkoutRecommendations: 'ai',
   weeklyMealPlans: 'ai', weeklyPlanAiGeneration: 'ai',
 };

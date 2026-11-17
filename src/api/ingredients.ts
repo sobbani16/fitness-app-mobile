@@ -45,3 +45,5 @@ export async function selectIngredient(id: string, favorite?: boolean): Promise<
 export interface FoodEstimate { name: string; serving: string; calories: number; proteinG: number; carbsG: number; fatG: number; confidence: 'low'|'medium'|'high'; assumptions: string[]; needsClarification: string[]; provenance: { source: 'ai_estimate'; version: number; reviewed: false } }
 export const estimateFood = (query: string, opts: { portion?: string; preparation?: string } = {}) =>
   api.post<{ estimate: FoodEstimate }>('/ingredients/estimate', { query, ...opts }).then(r => r.data.estimate);
+export const logFoodEstimate = (body: { id?: string; name: string; mealType: string; portionG: number; calories: number; proteinG: number; carbsG: number; fatG: number; fiberG?: number; userCorrections?: boolean; estimate: Partial<FoodEstimate> }) =>
+  api.post<{ foodLog: unknown }>('/ingredients/estimate/log', body).then(r => r.data.foodLog);

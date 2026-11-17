@@ -49,7 +49,7 @@
         "EXPO_PUBLIC_BETA_SAFE_MODE": "true",
         "EXPO_PUBLIC_SUPPORT_EMAIL": "sobbani.prashanth@gmail.com",
         "EXPO_PUBLIC_PRIVACY_POLICY_URL": "https://sobbani16.github.io/humai-privacy/",
-        "EXPO_PUBLIC_BETA_FEATURES": "scan,voice,photo,ai"
+        "EXPO_PUBLIC_BETA_FEATURES": "scan,voice,photo,estimate"
       },
       "distribution": "store",
       "environment": "production",
