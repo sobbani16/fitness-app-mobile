@@ -34,6 +34,20 @@ export const getProgressHistory = (days = 14) =>
 export const updateProgressPreferences = (restDays: number[]) =>
   api.put('/daily-progress/preferences', { restDays }).then(r => r.data.preferences);
 
+export interface CalendarDay {
+  dayKey: string; weekday: number; isToday: boolean; future: boolean; restDay: boolean;
+  earned: number | null; target: number | null; version: number | null; color: 'GREEN' | 'YELLOW' | 'RED' | 'GRAY' | 'TODAY';
+}
+export interface ProgressCalendar {
+  month: string; timezone: string; colorPolicy: number;
+  days: CalendarDay[];
+  summary: { daysInMonth: number; recorded: number; earned: number; targetToDate: number; monthlyTarget: number; average: number | null; daysMetTarget: number; gray: number };
+}
+export const getProgressCalendar = (month?: string) =>
+  api.get<{ calendar: ProgressCalendar }>('/daily-progress/calendar', { params: month ? { month } : undefined }).then(r => r.data.calendar);
+export const getDayProgress = (dayKey: string) =>
+  api.get<{ progress: DailyProgress }>('/daily-progress/today', { params: { day: dayKey } }).then(r => r.data.progress);
+
 
 export interface ProgressOpportunity {
   id: string; component: string; actionType: string; title: string; explanation: string;

@@ -1,6 +1,6 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { ScrollView, View } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Action, Card, Copy, Notice, Progress, Skeleton } from '../design/components';
 import { useTheme } from '../design/theme';
 import { getTodayProgress, getProgressHistory, DailyProgress } from '../api/dailyProgress';
@@ -22,6 +22,7 @@ const COMPONENT_LABEL: Record<string, string> = {
 // A2/A10/A11: V2 "Daily Goal Progress" — what of my planned day is done.
 // Explicitly NOT a health measurement; the legacy Health Score stays separate.
 export default function DailyProgressScreen() {
+  const navigation = useNavigation<any>();
   const { colors } = useTheme();
   const [progress, setProgress] = useState<DailyProgress | null>(null);
   const [history, setHistory] = useState<{ dayKey: string; earned: number }[]>([]);
@@ -68,6 +69,8 @@ export default function DailyProgressScreen() {
       {c.status !== 'NOT_APPLICABLE' && <Progress label={`${Math.round(c.earned)} of ${Math.round(c.applicable)} points`} value={c.earned} target={c.applicable} />}
       {!!c.note && <Copy size="caption" tone="muted">{c.note}</Copy>}
     </Card>)}
+
+    <Action secondary label="Open progress calendar" onPress={() => navigation.navigate('LeoCalendar')} />
 
     {!!history.length && <Card>
       <Copy size="heading">Last {history.length} days</Copy>

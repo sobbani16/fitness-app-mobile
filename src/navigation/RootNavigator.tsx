@@ -13,6 +13,7 @@ import OnboardingScreen from '../screens/OnboardingScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import HealthScoreDetailScreen from '../screens/HealthScoreDetailScreen';
 import DailyProgressScreen from '../screens/DailyProgressScreen';
+import LeoCalendarScreen from '../screens/LeoCalendarScreen';
 import WeeklyPlanScreen from '../screens/WeeklyPlanScreen';
 import TrainerListScreen from '../screens/TrainerListScreen';
 import TrainerDetailScreen from '../screens/TrainerDetailScreen';
@@ -84,6 +85,7 @@ export type RootStackParamList = {
   EditProfile: undefined;
   HealthScoreDetail: undefined;
   DailyProgressDetail: undefined;
+  LeoCalendar: undefined;
   WeeklyPlan: undefined;
   TrainerList: undefined;
   TrainerDetail: { trainerId: string };
@@ -257,6 +259,11 @@ export default function RootNavigator() {
             name="DailyProgressDetail"
             component={DailyProgressScreen}
             options={{ headerShown: true, title: "Today's progress" }}
+          />
+          <Stack.Screen
+            name="LeoCalendar"
+            component={LeoCalendarScreen}
+            options={{ headerShown: true, title: 'Progress calendar' }}
           />
           <Stack.Screen
             name="WeeklyPlan"
