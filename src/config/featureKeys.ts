@@ -70,7 +70,8 @@ export type FeatureKey =
   | 'leoProgressCalendarEnabled'
   | 'weeklyProgressDashboardEnabled'
   | 'adaptiveProgressTargetsEnabled'
-  | 'aiFoodEstimation';
+  | 'aiFoodEstimation'
+  | 'recipeCustomizationAi';
 
 export type FeatureMap = Partial<Record<FeatureKey, boolean>>;
 
@@ -141,6 +142,7 @@ export const DEFAULT_FLAGS: Record<FeatureKey, boolean> = {
   weeklyProgressDashboardEnabled: false,
   adaptiveProgressTargetsEnabled: false,
   aiFoodEstimation: false,
+  recipeCustomizationAi: false,
 };
 
 // Build-time gate applied ON TOP of the remote flag. A TestFlight/store build
@@ -170,6 +172,10 @@ const BETA_FEATURE_TOKENS: Partial<Record<FeatureKey, string>> = {
   aiFoodEstimation: 'estimate',
   aiCoach: 'ai', aiFoodRecommendations: 'ai', aiWorkoutRecommendations: 'ai',
   weeklyMealPlans: 'ai', weeklyPlanAiGeneration: 'ai',
+  recipeCustomizationAi: 'ai',
+  // Internal builds can re-enable just supplements via
+  // EXPO_PUBLIC_BETA_FEATURES="supplements" without lifting beta-safe mode.
+  supplements: 'supplements',
 };
 const betaFeatureAllowlist = new Set(
   (process.env.EXPO_PUBLIC_BETA_FEATURES || '').split(',').map((t: string) => t.trim()).filter(Boolean));

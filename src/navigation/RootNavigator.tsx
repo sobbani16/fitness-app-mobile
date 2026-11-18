@@ -54,6 +54,10 @@ import MuscleExplorerScreen from '../screens/MuscleExplorerScreen';
 import PortionAdjustScreen from '../screens/PortionAdjustScreen';
 import FoodEntryScreen from '../screens/FoodEntryScreen';
 import SmartRemindersScreen from '../screens/SmartRemindersScreen';
+import MySupplementsScreen from '../screens/MySupplementsScreen';
+import SupplementDetailScreen from '../screens/SupplementDetailScreen';
+import AddSupplementScreen from '../screens/AddSupplementScreen';
+import SupplementScheduleScreen from '../screens/SupplementScheduleScreen';
 import ReminderInboxScreen from '../screens/ReminderInboxScreen';
 import VideoSearchScreen from '../screens/VideoSearchScreen';
 import VideoCompareScreen from '../screens/VideoCompareScreen';
@@ -72,6 +76,7 @@ import FormChecksScreen from '../screens/FormChecksScreen';
 import CoachingPreferenceScreen from '../screens/CoachingPreferenceScreen';
 import { LoggedMeal } from '../storage/meals';
 import ChatScreen from '../screens/ChatScreen';
+import CookingModeScreen from '../screens/CookingModeScreen';
 import FeedbackScreen from '../screens/FeedbackScreen';
 import FeedbackButton from '../components/FeedbackButton';
 import MainTabs from './MainTabs';
@@ -83,6 +88,7 @@ export type RootStackParamList = {
   Onboarding: undefined;
   Main: NavigatorScreenParams<MainTabsParamList> | undefined;
   FoodEntry: { mode: 'search' | 'manual' | 'photo' | 'recipes' | 'repeat'; meal?: LoggedMeal };
+  CookingMode: { recipeId: string; missing?: string[]; quantityAssumed?: boolean };
   EditProfile: undefined;
   HealthScoreDetail: undefined;
   DailyProgressDetail: undefined;
@@ -125,6 +131,10 @@ export type RootStackParamList = {
   PortionAdjust: { extracted: any; photoUri: string | null; ocrRawText: string; mealType: string };
   SmartReminders: undefined;
   ReminderInbox: undefined;
+  MySupplements: undefined;
+  SupplementDetail: { supplementId: string; userSupplementId?: string };
+  AddSupplement: undefined;
+  SupplementSchedule: { userSupplementId: string; scheduleId?: string; supplementName?: string };
   VideoSearch: { query?: string; context?: 'exercise' | 'recipe' | 'nutrition' | 'education' | 'general'; exerciseKey?: string };
   ConnectedHealth: undefined;
   WeeklyReview: undefined;
@@ -158,6 +168,10 @@ const GatedLeo = gateScreen('aiCoach', ChatScreen, 'Leo coach');
 const GatedLabelScanner = gateScreen('nutritionLabelScanning', LabelScannerScreen, 'Label scanning');
 const GatedMenuScan = gateScreen('menuScanning', MenuScanScreen, 'Menu scanning');
 const GatedConnectedHealth = gateScreen(['appleHealthSync', 'androidHealthSync'], ConnectedHealthScreen, 'Connected health');
+const GatedMySupplements = gateScreen('supplements', MySupplementsScreen, 'Supplements');
+const GatedSupplementDetail = gateScreen('supplements', SupplementDetailScreen, 'Supplements');
+const GatedAddSupplement = gateScreen('supplements', AddSupplementScreen, 'Supplements');
+const GatedSupplementSchedule = gateScreen('supplements', SupplementScheduleScreen, 'Supplements');
 const GatedVideoSearch = gateScreen('videoSearch', VideoSearchScreen, 'Video search');
 const GatedVideoCompare = gateScreen('videoSearch', VideoCompareScreen, 'Video compare');
 const GatedTrainerList = gateScreen('trainerDiscovery', TrainerListScreen, 'Trainers');
@@ -249,6 +263,7 @@ export default function RootNavigator() {
           <Stack.Screen name="Main" component={MainTabs} />
           <Stack.Screen name="LeoHelp" component={GatedLeo} options={{ headerShown: true, title: 'Leo guide' }} />
           <Stack.Screen name="FoodEntry" component={FoodEntryScreen} options={{ headerShown: true, title: 'Log food' }} />
+          <Stack.Screen name="CookingMode" component={CookingModeScreen} options={{ headerShown: true, title: 'Cook' }} />
           <Stack.Screen name="WorkoutPlan" component={WorkoutPlanScreen} options={{ headerShown: true, title: 'Workout plan' }} />
           <Stack.Screen name="MuscleExplorer" component={MuscleExplorerScreen} options={{ headerShown: true, title: 'Muscles' }} />
           <Stack.Screen
@@ -358,6 +373,10 @@ export default function RootNavigator() {
             component={GatedMenuScan}
             options={{ headerShown: true, title: 'Scan Menu' }}
           />
+          <Stack.Screen name="MySupplements" component={GatedMySupplements} options={{ headerShown: true, title: 'My supplements' }} />
+          <Stack.Screen name="SupplementDetail" component={GatedSupplementDetail} options={{ headerShown: true, title: 'Supplement' }} />
+          <Stack.Screen name="AddSupplement" component={GatedAddSupplement} options={{ headerShown: true, title: 'Add supplement' }} />
+          <Stack.Screen name="SupplementSchedule" component={GatedSupplementSchedule} options={{ headerShown: true, title: 'Schedule' }} />
           <Stack.Screen
             name="SmartReminders"
             component={SmartRemindersScreen}
