@@ -421,7 +421,7 @@ export default function FoodEntryScreen() {
         </>}
         {mode === 'search' && <>
         <Text style={styles.label}>Search an ingredient</Text>
-        <IngredientSearch onSelect={onIngredientSelected} />
+        <IngredientSearch onSelect={onIngredientSelected} onRecipeSelect={onRecipeSelected} />
         <Text style={styles.muted}>Humai catalog first, USDA fallback. Check preparation, source and estimated values.</Text>
 
         </>}

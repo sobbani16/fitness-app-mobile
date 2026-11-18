@@ -10,10 +10,9 @@ import {
 } from 'react-native';
 import {
   RecipeNutrition,
-  RecipeSuggestion,
   getRecipeNutrition,
-  searchRecipes,
 } from '../api/recipes';
+import { RecipeMatchResult, matchRecipesByIngredients } from '../api/foods';
 
 interface Props {
   onSelect: (nutrition: RecipeNutrition) => void;
@@ -27,7 +26,7 @@ interface Props {
 export default function RecipeByIngredients({ onSelect }: Props) {
   const [input, setInput] = useState('');
   const [chips, setChips] = useState<string[]>([]);
-  const [results, setResults] = useState<RecipeSuggestion[]>([]);
+  const [results, setResults] = useState<RecipeMatchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [fetchingId, setFetchingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -56,10 +55,10 @@ export default function RecipeByIngredients({ onSelect }: Props) {
     setSearching(true);
     setError(null);
     try {
-      // Search using all ingredients joined as query
-      const query = ingredients.join(' ');
-      const r = await searchRecipes(query);
-      setResults(r);
+      // Relational matching: each name resolves to a canonical ingredient and
+      // recipe lines match by ingredientId — not a joined text query.
+      const r = await matchRecipesByIngredients(ingredients);
+      setResults(r.results);
     } catch (e: any) {
       setError(e?.message ?? 'Search failed');
       setResults([]);
@@ -68,11 +67,11 @@ export default function RecipeByIngredients({ onSelect }: Props) {
     }
   };
 
-  const pick = async (item: RecipeSuggestion) => {
-    setFetchingId(item.id);
+  const pick = async (item: RecipeMatchResult) => {
+    setFetchingId(item.recipe.id);
     setError(null);
     try {
-      const nutrition = await getRecipeNutrition(item.id);
+      const nutrition = await getRecipeNutrition(item.recipe.id);
       onSelect(nutrition);
       setChips([]);
       setResults([]);
@@ -134,15 +133,23 @@ export default function RecipeByIngredients({ onSelect }: Props) {
         <View style={styles.dropdown}>
           {results.map((item) => (
             <Pressable
-              key={item.id}
+              key={item.recipe.id}
               style={styles.resultRow}
               onPress={() => pick(item)}
               disabled={fetchingId !== null}
+              accessibilityLabel={`${item.recipe.name}, ${Math.round(item.coverage * 100)} percent ingredients matched${item.missing.length ? `, missing ${item.missing.join(', ')}` : ''}`}
             >
-              <Text style={styles.resultText} numberOfLines={1}>
-                {item.title}
-              </Text>
-              {fetchingId === item.id && <ActivityIndicator size="small" />}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.resultText} numberOfLines={1}>
+                  {item.recipe.name}
+                </Text>
+                <Text style={styles.resultSub} numberOfLines={1}>
+                  {item.missing.length === 0
+                    ? 'You have everything'
+                    : `Missing: ${item.missing.slice(0, 3).join(', ')}${item.missing.length > 3 ? '…' : ''}`}
+                </Text>
+              </View>
+              {fetchingId === item.recipe.id && <ActivityIndicator size="small" />}
             </Pressable>
           ))}
         </View>
@@ -211,4 +218,5 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   resultText: { flex: 1, fontSize: 15, color: '#222' },
+  resultSub: { fontSize: 12, color: '#888', marginTop: 2 },
 });

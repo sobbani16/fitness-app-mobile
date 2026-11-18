@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Keyboard, Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { IngredientResult, searchIngredients, verificationLabel, loadIngredientSelections, selectIngredient, estimateFood, FoodEstimate, logFoodEstimate } from '../api/ingredients';
+import { searchFoods, FoodRecipeResult } from '../api/foods';
+import { RecipeNutrition, getRecipeNutrition } from '../api/recipes';
 import { useFeatureFlags } from '../context/FeatureFlagsContext';
 import { Action, Copy, Field, IconAction, ListRow, Notice, Sheet, Skeleton } from '../design/components';
 import { useTheme } from '../design/theme';
@@ -21,10 +23,11 @@ const SAVED_TABS = [
   { value: 'favorites', label: 'Favorites' },
 ] as const;
 
-export default function IngredientSearch({ onSelect }: { onSelect: (ingredient: IngredientResult) => void }) {
+export default function IngredientSearch({ onSelect, onRecipeSelect }: { onSelect: (ingredient: IngredientResult) => void; onRecipeSelect?: (nutrition: RecipeNutrition) => void }) {
   const { colors } = useTheme();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<IngredientResult[]>([]);
+  const [recipeResults, setRecipeResults] = useState<FoodRecipeResult[]>([]);
   const { isEnabled } = useFeatureFlags();
   const [estimate, setEstimate] = useState<FoodEstimate | null>(null);
   const [estimating, setEstimating] = useState(false);
@@ -46,12 +49,17 @@ export default function IngredientSearch({ onSelect }: { onSelect: (ingredient: 
 
   useEffect(() => {
     let live = true;
-    setResults([]); setError(false);
+    setResults([]); setRecipeResults([]); setError(false);
     if (query.trim().length < 2) { setSearching(false); return; }
     setSearching(true);
     const timer = setTimeout(() => {
       searchIngredients(query.trim(), { preparation: preparation || undefined, productType: productType || undefined }).then(rows => { if (live) setResults(rows); })
         .catch(() => { if (live) setError(true); }).finally(() => { if (live) setSearching(false); });
+      if (onRecipeSelect) {
+        searchFoods(query.trim(), { type: 'recipe', limit: 6 })
+          .then(r => { if (live) setRecipeResults(r.results.filter((x): x is FoodRecipeResult => x.type === 'recipe')); })
+          .catch(() => { if (live) setRecipeResults([]); });
+      }
     }, 350);
     return () => { live = false; clearTimeout(timer); };
   }, [query, retry, preparation, productType]);
@@ -160,6 +168,16 @@ export default function IngredientSearch({ onSelect }: { onSelect: (ingredient: 
         </View>}
       </>}
       {results.slice(0, 12).map(row)}
+      {recipeResults.length > 0 && <>
+        <Copy tone="muted" size="caption" style={{ marginTop: 4 }}>Recipes</Copy>
+        {recipeResults.map(r => (
+          <ListRow key={r.id}
+            title={r.name}
+            subtitle={`${[r.cuisine, r.region].filter(Boolean).join(' · ')}${r.perServing.calories != null ? ` · ≈${Math.round(r.perServing.calories)} kcal/serving` : ''} · ${r.reviewStatus === 'VERIFIED' ? 'verified' : 'estimated'}`}
+            onPress={async () => { try { Keyboard.dismiss(); onRecipeSelect?.(await getRecipeNutrition(r.id)); } catch {} }}>
+          </ListRow>
+        ))}
+      </>}
     </>}
 
     {selected && !isSearching && <ListRow
