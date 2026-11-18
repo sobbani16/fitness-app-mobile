@@ -48,14 +48,14 @@ const nextKey = () => `rl-${++lineSeq}`;
 
 function linesForComponent(food: DetectedFood, recipeId: string | null): ReviewLine[] {
   const match = food.recipeMatches?.find((m) => m.recipeId === recipeId);
-  const visuallyConfirmed = new Set((match?.visuallyConfirmedIngredients ?? []).map((s) => s.toLowerCase()));
+  const visuallySuggested = new Set((match?.visuallySuggestedIngredients ?? []).map((s) => s.toLowerCase()));
   const lines: ReviewLine[] = [];
   if (match) {
     for (const ing of match.ingredients) {
       lines.push({
         key: nextKey(), ingredientId: ing.ingredientId ?? undefined, name: ing.name,
         amountG: String(Math.round(ing.amountG)), optional: ing.optional,
-        source: visuallyConfirmed.has(ing.name.toLowerCase()) ? 'VISUALLY_SUGGESTED' : 'RECIPE_INFERRED',
+        source: visuallySuggested.has(ing.name.toLowerCase()) ? 'VISUALLY_SUGGESTED' : 'RECIPE_INFERRED',
       });
     }
   }

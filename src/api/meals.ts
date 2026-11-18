@@ -50,7 +50,7 @@ export interface RecipeMatch {
   ingredients: RecipeMatchIngredient[];
   matchScore: number;
   reasons: string[];
-  visuallyConfirmedIngredients: string[];
+  visuallySuggestedIngredients: string[];
 }
 
 export interface DetectedFood {
