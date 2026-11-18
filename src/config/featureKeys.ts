@@ -165,14 +165,17 @@ const BUILD_GATES: Partial<Record<FeatureKey, keyof typeof betaFeatures>> = {
 // Internal-testing escape hatch: EXPO_PUBLIC_BETA_FEATURES="scan,voice,photo,ai"
 // re-enables individual build-gated features WITHOUT removing BETA_SAFE_MODE's
 // protection for everything else. Public builds never set this.
-const BETA_FEATURE_TOKENS: Partial<Record<FeatureKey, string>> = {
+// A feature may accept several tokens — e.g. recipeCustomizationAi lights up
+// with the narrow 'recipe' token (internal builds that want Smart Kitchen but
+// not AI Coach) or the broad 'ai' token (full internal-testing builds).
+const BETA_FEATURE_TOKENS: Partial<Record<FeatureKey, string | string[]>> = {
   nutritionLabelScanning: 'scan', menuScanning: 'scan',
   foodPhotoScanning: 'photo',
   voiceFoodLogging: 'voice', voiceExerciseLogging: 'voice',
   aiFoodEstimation: 'estimate',
   aiCoach: 'ai', aiFoodRecommendations: 'ai', aiWorkoutRecommendations: 'ai',
   weeklyMealPlans: 'ai', weeklyPlanAiGeneration: 'ai',
-  recipeCustomizationAi: 'ai',
+  recipeCustomizationAi: ['recipe', 'ai'],
   // Internal builds can re-enable just supplements via
   // EXPO_PUBLIC_BETA_FEATURES="supplements" without lifting beta-safe mode.
   supplements: 'supplements',
@@ -181,8 +184,8 @@ const betaFeatureAllowlist = new Set(
   (process.env.EXPO_PUBLIC_BETA_FEATURES || '').split(',').map((t: string) => t.trim()).filter(Boolean));
 
 export function buildGateAllows(key: FeatureKey): boolean {
-  const token = BETA_FEATURE_TOKENS[key];
-  if (token && betaFeatureAllowlist.has(token)) return true; // internal build opt-in
+  const tokens = BETA_FEATURE_TOKENS[key];
+  if (tokens && [tokens].flat().some((t) => betaFeatureAllowlist.has(t))) return true; // internal build opt-in
   const gate = BUILD_GATES[key];
   return gate ? betaFeatures[gate] : true;
 }
