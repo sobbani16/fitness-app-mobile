@@ -9,6 +9,19 @@ export interface PlannedNotification {
   deepLink: string;
   optional?: boolean; // counts against the daily nonessential budget
   merged?: string[];
+  soundEnabled?: boolean; // undefined = audible; false = silent delivery
+  data?: Record<string, string>; // extra payload for notification actions (e.g. occurrenceId)
+}
+
+// A server-computed dose occurrence the device should remind about. `fireAt`
+// is the resolved instant (backend already applied anchors/timezone policy).
+export interface SupplementDose {
+  occurrenceId: string;
+  name: string;
+  doseLabel?: string | null;
+  fireAt: Date;
+  soundEnabled: boolean;
+  notifyEnabled: boolean;
 }
 
 const TITLES: Record<string, string> = {
@@ -25,7 +38,7 @@ const TITLES: Record<string, string> = {
 // Tab names inside the Main navigator.
 const DEEP_LINKS: Record<string, string> = {
   'meal:breakfast': 'LogMeal', 'meal:lunch': 'LogMeal', 'meal:dinner': 'LogMeal', 'meal:snack': 'LogMeal',
-  water: 'Dashboard', supplement: 'Dashboard', workout: 'LogExercise', movement: 'Dashboard',
+  water: 'Dashboard', supplement: 'MySupplements', workout: 'LogExercise', movement: 'Dashboard',
 };
 
 const HHMM = /^([01]?\d|2[0-3]):([0-5]\d)$/;
@@ -34,6 +47,9 @@ const MAX_PER_CATEGORY = 20;
 const CONFLICT_WINDOW_MS = 10 * 60000;
 const OPTIONAL_DEFER_MS = 15 * 60000;
 const MERGEABLE = /^(meal:|supplement)/;
+// Dose notifications carry per-occurrence data (mark-taken/snooze/skip target
+// a specific occurrenceId); merging them into a bundle would destroy it.
+const isDose = (p: PlannedNotification) => p.identifier.startsWith('supplement-dose|');
 
 // Quiet check: explicit waking bounds mean "only allowed inside" — implemented
 // by treating the complement as the quiet range.
@@ -73,11 +89,34 @@ function nextOccurrences(from: Date, minutes: number, daysOfWeek: number[] | nul
 export function planNotifications(
   prefs: ReminderPreferences,
   settings: ReminderCategorySetting[],
-  ctx: { now: Date; lastWaterAt: Date | null; mealsLoggedToday: Set<string>; supplementsEnabled: boolean; workoutDoneToday?: boolean; workoutPlanDays?: number[] },
+  ctx: { now: Date; lastWaterAt: Date | null; mealsLoggedToday: Set<string>; supplementsEnabled: boolean; workoutDoneToday?: boolean; workoutPlanDays?: number[]; supplementDoses?: SupplementDose[] },
 ): PlannedNotification[] {
   const out: PlannedNotification[] = [];
   if (!prefs.masterEnabled) return out;
   if (prefs.pausedUntil && new Date(prefs.pausedUntil) > ctx.now) return out;
+
+  // Supplement dose occurrences: server-resolved anchors come in as concrete
+  // instants. Each is unique per dose — never merged or budget-capped, since
+  // the user configured it explicitly. Requires the supplement reminder
+  // category to be enabled AND per-schedule notifyEnabled.
+  const supplementCategoryEnabled = settings.some(s => s.category === 'supplement' && s.enabled);
+  if (supplementCategoryEnabled) {
+    for (const d of ctx.supplementDoses ?? []) {
+      if (!d.notifyEnabled) continue;
+      if (d.fireAt <= ctx.now) continue;
+      out.push({
+        identifier: `supplement-dose|${d.occurrenceId}`,
+        category: 'supplement',
+        title: `Time for your ${d.name}`,
+        body: d.doseLabel ? `${d.name} — ${d.doseLabel}` : '',
+        fireAt: d.fireAt,
+        deepLink: DEEP_LINKS.supplement,
+        optional: false,
+        soundEnabled: d.soundEnabled,
+        data: { occurrenceId: d.occurrenceId },
+      });
+    }
+  }
 
   for (const s of settings) {
     if (!s.enabled) continue;
@@ -140,7 +179,7 @@ export function resolveConflicts(plan: PlannedNotification[], now: Date): Planne
   for (const p of sorted) {
     const clash = kept.find(k => Math.abs(k.fireAt.getTime() - p.fireAt.getTime()) <= CONFLICT_WINDOW_MS);
     if (!clash) { kept.push(p); continue; }
-    if (MERGEABLE.test(clash.category) && MERGEABLE.test(p.category) && Boolean(clash.optional) === Boolean(p.optional)) {
+    if (!isDose(clash) && !isDose(p) && MERGEABLE.test(clash.category) && MERGEABLE.test(p.category) && Boolean(clash.optional) === Boolean(p.optional)) {
       const cats = [...new Set([...(clash.merged || [clash.category]), p.category])].sort();
       clash.category = `bundle:${cats.join('+')}`;
       clash.identifier = `bundle|${cats.join('+')}|${clash.fireAt.toISOString()}`;

@@ -47,9 +47,10 @@ jest.mock('../../api/reminders', () => ({
   reconcileReminders: jest.fn(),
 }));
 jest.mock('../../api/dailyStats', () => ({ getLastWaterAt: jest.fn() }));
+jest.mock('../../api/supplements', () => ({ getUpcomingDoses: jest.fn().mockResolvedValue([]) }));
 jest.mock('../../storage/meals', () => ({ loadMealsFor: jest.fn() }));
 jest.mock('../../storage/progressPrefs', () => ({ loadProgressPrefs: jest.fn() }));
-jest.mock('../notifications', () => ({ applyPlan: jest.fn(), setupNotifications: jest.fn() }));
+jest.mock('../notifications', () => ({ applyPlan: jest.fn(), setupNotifications: jest.fn(), setReminderSoundPrefs: jest.fn().mockResolvedValue(undefined) }));
 
 const api = require('../../api/reminders');
 const { syncReminderSchedules, _resetReminderSyncForTests } = require('../reminderSync');

@@ -301,6 +301,7 @@ export default function DashboardScreen() {
       {(isEnabled('progressOpportunitiesEnabled') || isEnabled('consistencyStreakEnabled')) && <ProgressCoachCard />}
       {isEnabled('healthPriorities') && <TodayActionsCard />}
       {isEnabled('supplements') && <SupplementsDetail daily={daily} />}
+      {isEnabled('supplements') && <Action secondary label="My supplements" onPress={() => navigation.navigate('MySupplements')} />}
       {cards.meals && <Card>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Ionicons name="restaurant-outline" size={18} color={colors.primary} />

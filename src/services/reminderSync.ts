@@ -1,9 +1,10 @@
 import { getReminderPreferences, getReminderCategories, updateTimezonePrefs, reconcileReminders } from '../api/reminders';
 import { getLastWaterAt } from '../api/dailyStats';
+import { getUpcomingDoses } from '../api/supplements';
 import { loadMealsFor } from '../storage/meals';
-import { planNotifications } from './reminderPlan';
+import { planNotifications, SupplementDose } from './reminderPlan';
 import { loadProgressPrefs } from '../storage/progressPrefs';
-import { applyPlan, setupNotifications } from './notifications';
+import { applyPlan, setupNotifications, setReminderSoundPrefs } from './notifications';
 import { accountStorage as AsyncStorage } from '../storage/accountStorage';
 import { deviceTimezone } from './deviceTime';
 
@@ -39,19 +40,34 @@ export async function syncReminderSchedules(force = false): Promise<{ planned: n
   inFlight = (async () => {
     try {
       await syncTimezone().catch(() => {}); // never block scheduling on tz sync
-      const [prefs, categories, lastWaterIso, meals] = await Promise.all([
+      const [prefs, categories, lastWaterIso, meals, upcoming] = await Promise.all([
         getReminderPreferences(),
         getReminderCategories(),
         getLastWaterAt().catch(() => null),
         loadMealsFor(new Date()).catch(() => [] as { mealType?: string }[]),
+        getUpcomingDoses(14).catch(() => []), // feature-flagged or offline: no dose reminders
       ]);
       await setupNotifications();
+      // Dose occurrences that already fired/acted don't need a device copy.
+      const supplementDoses: SupplementDose[] = (upcoming || [])
+        .filter(o => o.status === 'PENDING' || o.status === 'SNOOZED')
+        .map(o => ({
+          occurrenceId: o.id,
+          name: o.userSupplement?.supplement?.name || 'supplement',
+          doseLabel: o.doseAmount != null && o.doseUnit ? `${o.doseAmount} ${o.doseUnit}` : o.schedule?.dose || null,
+          fireAt: new Date(o.scheduledFor || o.localDate),
+          soundEnabled: o.schedule?.soundEnabled !== false,
+          notifyEnabled: o.schedule?.notifyEnabled !== false,
+        }))
+        .filter(d => d.fireAt instanceof Date && !Number.isNaN(d.fireAt.getTime()));
+      await setReminderSoundPrefs({ '*': true, supplement: supplementDoses.some(d => d.soundEnabled) });
       const plan = planNotifications(prefs, categories, {
         now: new Date(),
         lastWaterAt: lastWaterIso ? new Date(lastWaterIso) : null,
         mealsLoggedToday: new Set(meals.map(m => m.mealType).filter(Boolean) as string[]),
         supplementsEnabled: categories.some(c => c.category === 'supplement' && c.enabled),
         workoutPlanDays: (await loadProgressPrefs()).workoutDays,
+        supplementDoses,
       });
       await applyPlan(plan);
       lastSyncAt = Date.now();

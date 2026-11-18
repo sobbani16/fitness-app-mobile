@@ -8,6 +8,8 @@ jest.mock('expo-notifications', () => ({
 }));
 jest.mock('../../navigation/navigationRef', () => ({ navigateToTab: jest.fn() }));
 jest.mock('../../api/dailyStats', () => ({ addWater: jest.fn().mockResolvedValue(undefined) }));
+jest.mock('../../api/supplements', () => ({ doseAction: jest.fn().mockResolvedValue({}) }));
+jest.mock('../../storage/accountStorage', () => ({ accountStorage: { getItem: jest.fn().mockResolvedValue(null), setItem: jest.fn().mockResolvedValue(undefined) } }));
 const response = (action = 'default') => ({
   actionIdentifier: action,
   notification: { date: 123, request: { identifier: 'workout-1', content: { data: { deepLink: 'LogExercise' } } } },

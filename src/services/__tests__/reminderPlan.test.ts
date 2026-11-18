@@ -164,3 +164,46 @@ test('workout plan days intersect reminder days; no plan keeps schedule', () => 
   expect(withPlan.length).toBeGreaterThan(0);
   expect(withPlan.every(p => [1, 3, 5].includes(p.fireAt.getDay()))).toBe(true);
 });
+
+describe('supplement dose occurrences', () => {
+  const supplementCat = (): ReminderCategorySetting => ({
+    category: 'supplement', enabled: true, times: [], daysOfWeek: null,
+    intervalMinutes: null, leadMinutes: null, wakingStart: null, wakingEnd: null,
+    triggerEvent: null, triggerDelay: null, source: 'manual',
+  });
+  const dose = (over: Partial<import('../reminderPlan').SupplementDose> = {}) => ({
+    occurrenceId: 'occ-1', name: 'Creatine', doseLabel: '5 g',
+    fireAt: new Date(NOW.getTime() + 3600_000), soundEnabled: true, notifyEnabled: true, ...over,
+  });
+
+  it('plans a notification per pending dose with its occurrence id', () => {
+    const plan = planNotifications(prefs, [supplementCat()], ctx({ supplementDoses: [dose()] }));
+    expect(plan).toHaveLength(1);
+    expect(plan[0].identifier).toBe('supplement-dose|occ-1');
+    expect(plan[0].data?.occurrenceId).toBe('occ-1');
+    expect(plan[0].deepLink).toBe('MySupplements');
+    expect(plan[0].title).toContain('Creatine');
+    expect(plan[0].body).toContain('5 g');
+  });
+
+  it('respects the supplement category toggle and per-schedule notifyEnabled', () => {
+    const off = supplementCat(); off.enabled = false;
+    expect(planNotifications(prefs, [off], ctx({ supplementDoses: [dose()] }))).toEqual([]);
+    expect(planNotifications(prefs, [supplementCat()], ctx({ supplementDoses: [dose({ notifyEnabled: false })] }))).toEqual([]);
+  });
+
+  it('never schedules doses in the past and carries sound preference', () => {
+    const past = dose({ occurrenceId: 'past', fireAt: new Date(NOW.getTime() - 1000) });
+    const quiet = dose({ occurrenceId: 'quiet', soundEnabled: false });
+    const plan = planNotifications(prefs, [supplementCat()], ctx({ supplementDoses: [past, quiet] }));
+    expect(plan).toHaveLength(1);
+    expect(plan[0].soundEnabled).toBe(false);
+    expect(plan[0].identifier).toBe('supplement-dose|quiet');
+  });
+
+  it('dose reminders survive budget and merge as separate notifications', () => {
+    const doses = [dose(), dose({ occurrenceId: 'occ-2', name: 'Magnesium', fireAt: new Date(NOW.getTime() + 3600_000) })];
+    const plan = planNotifications({ ...prefs, dailyCap: 0 }, [supplementCat()], ctx({ supplementDoses: doses }));
+    expect(plan.length).toBe(2);
+  });
+});

@@ -238,6 +238,7 @@ export default function SmartRemindersScreen() {
             ))}
             {!!c.triggerEvent && <Action secondary label="Off" onPress={() => void saveCategory(c.category, { triggerEvent: null })} />}
           </View>
+          <Action secondary label="Manage supplement schedules" onPress={() => navigation.navigate('MySupplements')} />
         </>}
         {(c.category === 'water' || c.category === 'meal:snack') && <>
           <Copy size="caption" tone="muted">Habit stack — after a finished workout</Copy>
