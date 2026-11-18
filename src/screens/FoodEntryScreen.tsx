@@ -468,6 +468,11 @@ export default function FoodEntryScreen() {
           onPress={onDetect}
           disabled={detecting}
         />}
+        {isEnabled('foodPhotoScanning') && mode === 'photo' && (
+          <Pressable onPress={() => navigation.navigate('PhotoMeal')} style={{ marginTop: 6 }} accessibilityRole="button" accessibilityLabel="Scan meal with ingredient breakdown">
+            <Text style={styles.link}>Scan meal with ingredient breakdown →</Text>
+          </Pressable>
+        )}
 
         {!preview && <Button title="Enter nutrition manually" onPress={() => {
           invalidate(); setError(null);
@@ -645,6 +650,7 @@ const makeStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet
   container: { padding: 20, gap: 16, width: '100%', maxWidth: 760, alignSelf: 'center' },
   title: { color: colors.text, fontSize: 24, fontWeight: '700' },
   muted: { color: colors.muted },
+  link: { color: colors.primary, fontWeight: '600' },
   err: { color: colors.danger, marginTop: 8 },
   label: { fontSize: 13, color: colors.text, fontWeight: '600', marginTop: 8 },
   input: {

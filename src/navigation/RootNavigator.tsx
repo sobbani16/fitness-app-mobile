@@ -77,6 +77,7 @@ import CoachingPreferenceScreen from '../screens/CoachingPreferenceScreen';
 import { LoggedMeal } from '../storage/meals';
 import ChatScreen from '../screens/ChatScreen';
 import CookingModeScreen from '../screens/CookingModeScreen';
+import PhotoMealScreen from '../screens/PhotoMealScreen';
 import FeedbackScreen from '../screens/FeedbackScreen';
 import FeedbackButton from '../components/FeedbackButton';
 import MainTabs from './MainTabs';
@@ -89,6 +90,7 @@ export type RootStackParamList = {
   Main: NavigatorScreenParams<MainTabsParamList> | undefined;
   FoodEntry: { mode: 'search' | 'manual' | 'photo' | 'recipes' | 'repeat'; meal?: LoggedMeal };
   CookingMode: { recipeId: string; missing?: string[]; quantityAssumed?: boolean };
+  PhotoMeal: undefined;
   EditProfile: undefined;
   HealthScoreDetail: undefined;
   DailyProgressDetail: undefined;
@@ -264,6 +266,7 @@ export default function RootNavigator() {
           <Stack.Screen name="LeoHelp" component={GatedLeo} options={{ headerShown: true, title: 'Leo guide' }} />
           <Stack.Screen name="FoodEntry" component={FoodEntryScreen} options={{ headerShown: true, title: 'Log food' }} />
           <Stack.Screen name="CookingMode" component={CookingModeScreen} options={{ headerShown: true, title: 'Cook' }} />
+          <Stack.Screen name="PhotoMeal" component={PhotoMealScreen} options={{ headerShown: true, title: 'Scan meal' }} />
           <Stack.Screen name="WorkoutPlan" component={WorkoutPlanScreen} options={{ headerShown: true, title: 'Workout plan' }} />
           <Stack.Screen name="MuscleExplorer" component={MuscleExplorerScreen} options={{ headerShown: true, title: 'Muscles' }} />
           <Stack.Screen
