@@ -15,8 +15,16 @@ jest.mock('../../api/macroScore', () => ({ getMacroGoals: jest.fn() }));
 jest.mock('../../api/healthScore', () => ({ getHealthScore: jest.fn(async () => ({ score: 62, status: 'provisional', coverage: { available: 2, total: 5 }, components: {}, topContributors: [], allContributors: [], insights: [] })) }));
 jest.mock('../../api/dailyStats', () => ({ syncSteps: jest.fn() }));
 jest.mock('../../hooks/useStepCounter', () => ({ useStepCounter: jest.fn(() => ({ steps: 20, available: true })) }));
-jest.mock('../../components/today/OptionalDetails', () => ({ WeatherDetail: () => null, SupplementsDetail: () => null }));
+jest.mock('../../components/today/OptionalDetails', () => {
+  const { Text } = require('react-native');
+  return { WeatherDetail: () => null, SupplementsDetail: () => <Text>SUPPLEMENTS_CARD</Text> };
+});
 jest.mock('../../config/betaFeatures', () => ({ betaFeatures: { ai: false, weeklyPlans: false, supplements: false } }));
+const mockFlags = {};
+jest.mock('../../context/FeatureFlagsContext', () => ({
+  useFeatureFlags: () => ({ isEnabled: (key) => mockFlags[key] === true, flags: mockFlags }),
+  FeatureFlagsProvider: ({ children }) => children,
+}));
 const React = require('react');
 const { create, act } = require('react-test-renderer');
 const { Text } = require('react-native');
@@ -94,6 +102,23 @@ it('keeps energy behind details and explains estimates without claiming a defici
   expect(output()).not.toContain('est. balance');
   await act(async () => press('How calculated?'));
   expect(output()).toContain('Mifflin');
+});
+
+it('shows the Supplements card and My Supplements action when enabled', async () => {
+  mockFlags.supplements = true;
+  try {
+    await act(async () => { tree = create(<Screen />); });
+    expect(output()).toContain('SUPPLEMENTS_CARD');
+    expect(output()).toContain('My supplements');
+    await act(async () => press('My supplements'));
+    expect(mockNavigate).toHaveBeenCalledWith('MySupplements');
+  } finally { delete mockFlags.supplements; }
+});
+
+it('hides the Supplements card and action when disabled', async () => {
+  await act(async () => { tree = create(<Screen />); });
+  expect(output()).not.toContain('SUPPLEMENTS_CARD');
+  expect(output()).not.toContain('My supplements');
 });
 
 it('hides optional cards while retaining essential logging', async () => {
