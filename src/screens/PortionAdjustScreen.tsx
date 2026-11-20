@@ -27,12 +27,16 @@ export default function PortionAdjustScreen() {
   const [ingredients, setIngredients] = useState(extracted?.ingredients || '');
   const [basis, setBasis] = useState(extracted?.servingSizeG == null ? '' : String(extracted.servingSizeG));
   const [mass, setMass] = useState('');
-  const [amount, setAmount] = useState('');
-  const [unit, setUnit] = useState<'g' | 'ml' | 'servings' | 'package'>('g');
+  // Default to one labeled serving when extraction found a serving size —
+  // the screen must show a real preview, not "Unknown" for every nutrient.
+  const [amount, setAmount] = useState(extracted?.servingSizeG != null ? '1' : '');
+  const [unit, setUnit] = useState<'g' | 'ml' | 'servings' | 'package'>(extracted?.servingSizeG != null ? 'servings' : 'g');
   const [packageServings, setPackageServings] = useState(extracted?.servingsPerContainer == null ? '' : String(extracted.servingsPerContainer));
   const [values, setValues] = useState([extracted?.calories, extracted?.proteinG, extracted?.carbsG, extracted?.fatG, extracted?.fiberG, extracted?.sugarG].map(value => value == null ? '' : String(value)));
   const [allergens, setAllergens] = useState(params.allergenText || extracted?.allergens || '');
   const [claims, setClaims] = useState(params.claimText || merged?.merged?.claims || '');
+  const [ingredientCompleteness, setIngredientCompleteness] = useState<NonNullable<LabelFacts['ingredientCompleteness']>>(
+    extracted?.ingredients ? 'OCR_UNCERTAIN' : 'NOT_FOUND');
   const [addedSugar, setAddedSugar] = useState(extracted?.addedSugarG == null ? '' : String(extracted.addedSugarG));
   const [sodium, setSodium] = useState(extracted?.sodiumMg == null ? '' : String(extracted.sodiumMg));
   const [saturatedFat,setSaturatedFat]=useState(extracted?.saturatedFatG==null?'':String(extracted.saturatedFatG));
@@ -41,6 +45,7 @@ export default function PortionAdjustScreen() {
   const [column, setColumn] = useState<LabelFacts['column']>(merged?.merged?.column === '100' || merged?.merged?.column === 'serving' ? merged.merged.column : 'unknown');
   const [showOriginal, setShowOriginal] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [form, setForm] = useState<LabelFacts['form']>('unknown');
   const [comparison, setComparison] = useState<LabelAnalysis | null>(null);
   const [personalize, setPersonalize] = useState(false);
@@ -68,7 +73,7 @@ export default function PortionAdjustScreen() {
   const adjusted = values.map((value, index) => scaleLabel(value, ratio, index === 0));
   const servingMass = numeric(unit === 'ml' ? mass : basis);
   function edit(action: () => void) { analysisRequest.current++; action(); setReviewed(false); setAnalysis(null); setComparison(null); setAnalyzing(false); setError(''); }
-  const labelFacts: LabelFacts = { calories: numeric(values[0]), proteinG: numeric(values[1]), form, ingredients: ingredients.trim(), allergens, claims, addedSugarG: numeric(addedSugar), sodiumMg: numeric(sodium), sugarG: numeric(values[5]), carbsG: numeric(values[2]), fiberG: numeric(values[4]), basisAmount: numeric(basis), basisUnit: unit === 'ml' ? 'ml' : 'g', column, portionRatio: ratio, jurisdiction, reviewed, personalize };
+  const labelFacts: LabelFacts = { calories: numeric(values[0]), proteinG: numeric(values[1]), form, ingredients: ingredients.trim(), allergens, claims, addedSugarG: numeric(addedSugar), sodiumMg: numeric(sodium), sugarG: numeric(values[5]), carbsG: numeric(values[2]), fiberG: numeric(values[4]), basisAmount: numeric(basis), basisUnit: unit === 'ml' ? 'ml' : 'g', column, portionRatio: ratio, jurisdiction, reviewed, personalize, ingredientCompleteness };
   async function inspect() {
     labelFacts.fatG=numeric(values[3]);labelFacts.saturatedFatG=numeric(saturatedFat);labelFacts.transFatG=numeric(transFat);labelFacts.basisMassG=servingMass;labelFacts.servingsPerContainer=numeric(packageServings);
     if ([addedSugar, sodium, saturatedFat, transFat].some(value => value.trim() !== '' && numeric(value) === null)) { setError('Correct optional nutrients, or leave unreadable values blank.'); return; }
@@ -153,7 +158,17 @@ export default function PortionAdjustScreen() {
         {merged.conflicts.map((c: any) => <Copy key={c.field} size="caption" tone="muted">{c.field}: {String(c.kept.value)} ({c.kept.source} panel) vs {String(c.rejected.value)} ({c.rejected.source} panel) — kept the higher-confidence value, edit below if the package says otherwise.</Copy>)}
       </Card>}
       <Card><Field label="Food name" maxLength={300} value={name} onChangeText={value => edit(() => setName(value))} />
-        <Field label="Ingredients (optional, editable)" maxLength={20000} multiline value={ingredients} onChangeText={value => edit(() => setIngredients(value))} />
+        <Field label="Ingredients (editable — shown exactly as read)" maxLength={20000} multiline value={ingredients} onChangeText={value => edit(() => { setIngredients(value); setIngredientCompleteness('OCR_UNCERTAIN'); })} />
+        <Copy size="caption" tone="muted">How complete is the ingredient list?</Copy>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          {([['COMPLETE_USER_CONFIRMED', 'Complete — I checked'], ['PARTIAL_OR_TRUNCATED', 'Partly visible / truncated'], ['OCR_UNCERTAIN', 'OCR uncertain'], ['NOT_FOUND', 'Not found on package']] as const).map(([value, label]) => (
+            <Action secondary key={value} label={label} selected={ingredientCompleteness === value}
+              onPress={() => edit(() => setIngredientCompleteness(value))} />
+          ))}
+        </View>
+        {ingredientCompleteness !== 'COMPLETE_USER_CONFIRMED' && ingredientCompleteness !== 'NOT_FOUND' && (
+          <Copy size="caption" tone="muted">Incomplete lists cannot be treated as allergy-safe — check the package if you have allergies.</Copy>
+        )}
         <Field label="Allergen statement — exact label text" multiline maxLength={20000} value={allergens} onChangeText={value => edit(() => setAllergens(value))} />
         <Field label="Front-of-pack claims — exact label text" multiline maxLength={20000} value={claims} onChangeText={value => edit(() => setClaims(value))} />
         <Action secondary label={showDetails ? 'Hide product details & sources' : 'Product details & sources'} onPress={() => setShowDetails(v => !v)} />
@@ -166,19 +181,33 @@ export default function PortionAdjustScreen() {
         {!!params.ocrRawText && <Action secondary label={showOriginal ? 'Hide original text' : 'View original text'} onPress={() => setShowOriginal(v => !v)} />}
         {showOriginal && params.ocrRawText ? <Copy size="caption" tone="muted">{params.ocrRawText}</Copy> : null}
       </Card>
-      <Card><Copy size="title">Nutrition column & quantity</Copy>
-        <Copy tone="muted">For per-100-g nutrition, enter 100 as the label basis. For per-serving nutrition, enter the serving’s labeled weight.</Copy>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{(['g', 'ml', 'servings', 'package'] as const).map(value => <Action secondary key={value} label={value} selected={unit === value} onPress={() => edit(() => { setUnit(value); setAmount(''); })} />)}</View>
-        <Field label={unit === 'ml' ? 'Label basis (ml)' : 'Label basis / serving weight (g)'} value={basis} keyboardType="decimal-pad" onChangeText={value => edit(() => setBasis(value))} />
-        {unit === 'ml' && <><Copy tone="muted">Volume is not weight. Enter the measured or labeled mass for the label basis above. We never assume 1 ml = 1 g.</Copy>
-          <Field label="Mass of label basis (g)" value={mass} keyboardType="decimal-pad" onChangeText={value => edit(() => setMass(value))} /></>}
-        {unit === 'package' && <Copy tone="muted">Use the per-serving nutrition column and serving weight for package portions.</Copy>}
-        {unit === 'package' && <Field label="Servings per package" value={packageServings} keyboardType="decimal-pad" onChangeText={value => edit(() => setPackageServings(value))} />}
-        <Field label={`Your portion (${unit})`} value={amount} keyboardType="decimal-pad" onChangeText={value => edit(() => setAmount(value))} />
-        {fields.map((field, index) => <Field key={field} label={`${field} (${index === 0 ? 'kcal' : 'g'}) per label basis${index >= 4 ? ' — optional' : ''}`} value={values[index]}
-          keyboardType="decimal-pad" onChangeText={value => edit(() => setValues(previous => previous.map((item, i) => i === index ? value : item)))} />)}
+      <Card><Copy size="title">How much did you eat?</Copy>
+        {servingMass != null && <Copy tone="muted">One serving = {servingMass} g as labeled.</Copy>}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          {[['0.5', '½ serving'], ['1', '1 serving'], ['2', '2 servings']].map(([qty, label]) => (
+            <Action secondary key={qty} label={label} selected={unit === 'servings' && amount === qty}
+              onPress={() => edit(() => { setUnit('servings'); setAmount(qty); })} />
+          ))}
+          {numeric(packageServings) != null && numeric(packageServings)! > 0 && (
+            <Action secondary label="Entire package" selected={unit === 'package' && amount === '1'}
+              onPress={() => edit(() => { setUnit('package'); setAmount('1'); })} />
+          )}
+        </View>
+        <Field label={`Custom amount (${unit})`} value={amount} keyboardType="decimal-pad" onChangeText={value => edit(() => setAmount(value))} />
+        <Action secondary label={showAdvanced ? 'Hide label basis, units & nutrient corrections' : 'Advanced: label basis, units & nutrient corrections'} onPress={() => setShowAdvanced(v => !v)} />
+        {showAdvanced && <>
+          <Copy tone="muted">For per-100-g nutrition, enter 100 as the label basis. For per-serving nutrition, enter the serving’s labeled weight.</Copy>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{(['g', 'ml', 'servings', 'package'] as const).map(value => <Action secondary key={value} label={value} selected={unit === value} onPress={() => edit(() => { setUnit(value); setAmount(''); })} />)}</View>
+          <Field label={unit === 'ml' ? 'Label basis (ml)' : 'Label basis / serving weight (g)'} value={basis} keyboardType="decimal-pad" onChangeText={value => edit(() => setBasis(value))} />
+          {unit === 'ml' && <><Copy tone="muted">Volume is not weight. Enter the measured or labeled mass for the label basis above. We never assume 1 ml = 1 g.</Copy>
+            <Field label="Mass of label basis (g)" value={mass} keyboardType="decimal-pad" onChangeText={value => edit(() => setMass(value))} /></>}
+          {unit === 'package' && <Copy tone="muted">Use the per-serving nutrition column and serving weight for package portions.</Copy>}
+          {unit === 'package' && <Field label="Servings per package" value={packageServings} keyboardType="decimal-pad" onChangeText={value => edit(() => setPackageServings(value))} />}
+          {fields.map((field, index) => <Field key={field} label={`${field} (${index === 0 ? 'kcal' : 'g'}) per label basis${index >= 4 ? ' — optional' : ''}`} value={values[index]}
+            keyboardType="decimal-pad" onChangeText={value => edit(() => setValues(previous => previous.map((item, i) => i === index ? value : item)))} />)}
+        </>}
       </Card>
-      <Card><Copy size="title">Optional label checks</Copy>
+      {showAdvanced && <Card><Copy size="title">Optional label checks</Copy>
         <Field label="Saturated fat (g) per label basis — optional" value={saturatedFat} keyboardType="decimal-pad" onChangeText={value=>edit(()=>setSaturatedFat(value))} />
         <Field label="Trans fat (g) per label basis — optional" value={transFat} keyboardType="decimal-pad" onChangeText={value=>edit(()=>setTransFat(value))} />
         <Field label="Added sugars (g) per label basis — optional" value={addedSugar} keyboardType="decimal-pad" onChangeText={value => edit(() => setAddedSugar(value))} />
@@ -191,7 +220,7 @@ export default function PortionAdjustScreen() {
         {(['unknown', 'serving', '100'] as const).map(value => <Action secondary key={value} label={value === '100' ? 'Per 100 g/ml' : value === 'serving' ? 'Per labeled serving' : 'Column unknown'} selected={column === value} onPress={() => edit(() => setColumn(value))} />)}
         <Action secondary label="Use my saved goal, conditions and allergies" selected={personalize} onPress={() => edit(() => setPersonalize(v => !v))} />
         <Copy tone="muted">Optional. These checks use deterministic rules on the server, not AI. No medical restrictions are inferred.</Copy>
-      </Card>
+      </Card>}
       <Card><Copy size="title">What you’ll log</Copy><Copy tone="muted">{ratio ? `${Number(ratio.toFixed(3))} × the label basis` : 'Enter a valid label basis and portion'}</Copy>
         {fields.map((field, index) => <Copy key={field}>{field}: {adjusted[index] == null ? 'Unknown' : `${adjusted[index]} ${index === 0 ? 'kcal' : 'g'}`}</Copy>)}
         <Copy size="caption" tone="muted">Calories rounded to whole kcal; nutrients to 0.1 g. Values remain label estimates.</Copy>

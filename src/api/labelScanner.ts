@@ -150,6 +150,7 @@ export interface LabelFacts {
   sugarG: number | null; addedSugarG: number | null; carbsG: number | null; fiberG: number | null; sodiumMg: number | null;
   basisAmount: number | null; basisUnit: 'g' | 'ml' | 'unknown'; column: 'serving' | '100' | 'unknown';
   portionRatio: number | null; jurisdiction: 'US' | 'IN' | 'unknown'; reviewed: boolean; personalize: boolean;
+  ingredientCompleteness?: 'COMPLETE_USER_CONFIRMED' | 'PARTIAL_OR_TRUNCATED' | 'OCR_UNCERTAIN' | 'NOT_FOUND' | 'NOT_REVIEWED';
 }
 export interface LabelInsight {
   ruleId: string; ruleVersion: string; category: string; finding: string;

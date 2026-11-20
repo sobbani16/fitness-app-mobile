@@ -18,9 +18,24 @@ beforeEach(() => { jest.clearAllMocks(); mockAdd.mockResolvedValue(); saveLabelA
 afterEach(async () => { if (tree) await act(async () => tree.unmount()); });
 async function ready() {
   await act(async () => { tree = create(<Screen />); });
-  await act(async () => field('Your portion (g)').props.onChangeText('150'));
+  await act(async () => press('Advanced: label basis, units & nutrient corrections'));
+  await act(async () => press('g'));
+  await act(async () => field('Custom amount (g)').props.onChangeText('150'));
   await act(async () => press('I checked the label, units and portion'));
 }
+it('defaults to one labeled serving so a valid label is loggable without entering a portion', async () => {
+  await act(async () => { tree = create(<Screen />); });
+  await act(async () => press('I checked the label, units and portion'));
+  await act(async () => press('Save reviewed meal'));
+  expect(saveLabelAndLog).toHaveBeenCalledWith(expect.objectContaining({ servingSizeG: 100, actualPortionG: 100 }));
+});
+it('serving presets scale the portion without a manual amount', async () => {
+  await act(async () => { tree = create(<Screen />); });
+  await act(async () => press('2 servings'));
+  await act(async () => press('I checked the label, units and portion'));
+  await act(async () => press('Save reviewed meal'));
+  expect(saveLabelAndLog).toHaveBeenCalledWith(expect.objectContaining({ actualPortionG: 200 }));
+});
 it('saves reviewed mass and missing fiber without inventing zero', async () => {
   await ready(); await act(async () => press('Save reviewed meal'));
   expect(saveLabelAndLog).toHaveBeenCalledWith(expect.objectContaining({ servingSizeG: 100, actualPortionG: 150, labelFiberG: null, labelSugarG: 0, id: expect.any(String) }));
@@ -49,7 +64,7 @@ it('requires another review after editing and rejects missing mass for volume', 
   await ready();
   await act(async () => press('ml'));
   expect(field('Save reviewed meal').props.disabled).toBe(true);
-  await act(async () => field('Your portion (ml)').props.onChangeText('150'));
+  await act(async () => field('Custom amount (ml)').props.onChangeText('150'));
   await act(async () => press('I checked the label, units and portion'));
   await act(async () => press('Save reviewed meal'));
   expect(saveLabelAndLog).not.toHaveBeenCalled();
@@ -67,7 +82,7 @@ it('discards an insight response after the reviewed facts change', async () => {
   analyzeLabel.mockImplementationOnce(() => new Promise(done => { resolve = done; }));
   await ready();
   await act(async () => press('Explain this reviewed label'));
-  await act(async () => field('Ingredients (optional, editable)').props.onChangeText('Whole wheat'));
+  await act(async () => field('Ingredients (editable — shown exactly as read)').props.onChangeText('Whole wheat'));
   await act(async () => resolve({ insights: [], facts: {}, version: 'old' }));
   expect(tree.root.findAllByProps({ accessibilityLabel: 'View these findings with Leo' })).toHaveLength(0);
   expect(field('Explain this reviewed label').props.disabled).toBe(true);
