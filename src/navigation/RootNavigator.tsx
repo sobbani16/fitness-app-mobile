@@ -55,6 +55,7 @@ import PortionAdjustScreen from '../screens/PortionAdjustScreen';
 import FoodEntryScreen from '../screens/FoodEntryScreen';
 import SmartRemindersScreen from '../screens/SmartRemindersScreen';
 import MySupplementsScreen from '../screens/MySupplementsScreen';
+import WhatShouldIEatScreen from '../screens/WhatShouldIEatScreen';
 import SupplementDetailScreen from '../screens/SupplementDetailScreen';
 import AddSupplementScreen from '../screens/AddSupplementScreen';
 import SupplementScheduleScreen from '../screens/SupplementScheduleScreen';
@@ -134,6 +135,7 @@ export type RootStackParamList = {
   SmartReminders: undefined;
   ReminderInbox: undefined;
   MySupplements: undefined;
+  WhatShouldIEat: undefined;
   SupplementDetail: { supplementId: string; userSupplementId?: string };
   AddSupplement: undefined;
   SupplementSchedule: { userSupplementId: string; scheduleId?: string; supplementName?: string };
@@ -171,6 +173,7 @@ const GatedLabelScanner = gateScreen('nutritionLabelScanning', LabelScannerScree
 const GatedMenuScan = gateScreen('menuScanning', MenuScanScreen, 'Menu scanning');
 const GatedConnectedHealth = gateScreen(['appleHealthSync', 'androidHealthSync'], ConnectedHealthScreen, 'Connected health');
 const GatedMySupplements = gateScreen('supplements', MySupplementsScreen, 'Supplements');
+const GatedWhatShouldIEat = gateScreen('manualFoodLogging', WhatShouldIEatScreen, 'Meal ideas');
 const GatedSupplementDetail = gateScreen('supplements', SupplementDetailScreen, 'Supplements');
 const GatedAddSupplement = gateScreen('supplements', AddSupplementScreen, 'Supplements');
 const GatedSupplementSchedule = gateScreen('supplements', SupplementScheduleScreen, 'Supplements');
@@ -377,6 +380,7 @@ export default function RootNavigator() {
             options={{ headerShown: true, title: 'Scan Menu' }}
           />
           <Stack.Screen name="MySupplements" component={GatedMySupplements} options={{ headerShown: true, title: 'My supplements' }} />
+          <Stack.Screen name="WhatShouldIEat" component={GatedWhatShouldIEat} options={{ headerShown: true, title: 'What should I eat?' }} />
           <Stack.Screen name="SupplementDetail" component={GatedSupplementDetail} options={{ headerShown: true, title: 'Supplement' }} />
           <Stack.Screen name="AddSupplement" component={GatedAddSupplement} options={{ headerShown: true, title: 'Add supplement' }} />
           <Stack.Screen name="SupplementSchedule" component={GatedSupplementSchedule} options={{ headerShown: true, title: 'Schedule' }} />
